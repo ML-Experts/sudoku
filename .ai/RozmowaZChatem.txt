@@ -1,0 +1,563 @@
+co to są sieci kowulencyjne i jak mozna ich używać do rozpoznawania obrazu? Mam zrobić projekt, który będzie potrafił rozpoznawać cyfry z sudoko opisując ich położenie. 
+
+Czy potrafisz pomóc mi zrealizacją tego tematu?
+Thought for 11s
+
+„Sieci konwolucyjne” (często mówione: „kowulencyjne” 😉) to po prostu CNN – Convolutional Neural Networks. To rodzaj sieci neuronowych, które są świetne do obrazu, bo zamiast patrzeć na piksele „na płasko”, uczą się lokalnych wzorców: krawędzi, łuków, kresek, a potem coraz bardziej złożonych kształtów (np. całej cyfry).
+
+Co to jest konwolucja i czemu działa na obrazy
+
+Konwolucja to operacja typu „przesuwam małe okienko (filtr) po obrazie i liczę wynik”.
+Filtry uczą się same podczas treningu: jeden może reagować na pionowe kreski, inny na łuki itp.
+
+CNN ma zwykle klocki:
+
+Conv2D: wykrywa wzorce lokalne
+
+ReLU: nieliniowość
+
+Pooling (np. max-pool): zmniejsza rozmiar, zostawia „najmocniejsze” cechy
+
+Fully-connected / head: finalna klasyfikacja (np. cyfra 0–9)
+
+Dlatego CNN są naturalne do rozpoznawania cyfr.
+
+Projekt: rozpoznawanie cyfr w Sudoku + ich położenie
+
+Najprościej myśleć o tym jako o pipelinie 2-etapowej:
+
+Detekcja planszy Sudoku + wyprostowanie perspektywy (OpenCV)
+
+Podział na 81 pól + klasyfikacja cyfry w każdym polu (CNN)
+
+Efekt końcowy: lista typu:
+
+[
+  {"row": 0, "col": 3, "digit": 7},
+  {"row": 4, "col": 8, "digit": 2}
+]
+
+(„row/col” 0–8 albo 1–9 – jak wolisz)
+
+Krok po kroku (praktycznie)
+1) Wczytaj obraz i znajdź zewnętrzny kontur planszy
+
+Typowe kroki w OpenCV:
+
+grayscale
+
+blur (redukcja szumu)
+
+adaptive threshold / Canny
+
+znajdź kontury
+
+wybierz największy „prawie-kwadratowy” kontur
+
+znajdź 4 narożniki
+
+perspective transform → dostajesz idealnie prostokątną planszę (np. 450×450)
+
+To drastycznie ułatwia resztę.
+
+2) Podziel planszę na 9×9
+
+Jeśli masz obraz 450×450, to każde pole ma 50×50.
+Wycinaj ROI: (r*cell):(r+1)*cell, (c*cell):(c+1)*cell.
+
+3) Usuń linie siatki i wykryj, czy pole jest puste
+
+Tu jest największa „pułapka”.
+
+Po threshold dostaniesz cyfry + siatkę.
+
+Siatkę można usuwać morfologią (operacje otwarcia z kernelami poziomymi/pionowymi) albo po prostu:
+
+weź środek pola (np. margines 8–10 px od krawędzi) i ignoruj ramkę.
+
+Jeśli po wyczyszczeniu liczba „białych” pikseli jest bardzo mała → pole puste.
+
+4) Normalizacja cyfry do wejścia CNN
+
+Standard:
+
+wytnij bounding box cyfry
+
+przeskaluj do 28×28
+
+dopasuj do formatu jak MNIST (biała cyfra na czarnym tle lub odwrotnie – ważne, by konsekwentnie)
+
+znormalizuj wartości pikseli do [0,1]
+
+5) Klasyfikator cyfr (CNN)
+
+Masz 2 drogi:
+
+A. Najszybciej (na start): użyj modelu wytrenowanego na MNIST
+
+działa zaskakująco często dla drukowanych cyfr,
+
+dla ręcznych bywa różnie.
+
+B. Docelowo lepiej: dotrenuj na danych „sudoku-like”
+
+zrób augmentacje: obrót ±10°, grubość kreski, kontrast, szum, lekkie przesunięcia,
+
+ewentualnie użyj EMNIST albo własnych zdjęć z Sudoku.
+
+Model może być mały, np.:
+
+Conv(32) → Conv(64) → FC → 10 klas
+albo 9 klas (1–9) + „empty”.
+
+6) Zwróć wynik z pozycją
+
+Dla każdego pola:
+
+jeśli puste → pomiń lub zwróć digit=null
+
+jeśli niepuste → digit = argmax(probabilities)
+
+dodaj {row, col, digit} do listy
+
+Minimalna architektura projektu (co oddać jako „projekt”)
+
+Proponuję strukturę:
+
+extract_board(image) -> warped_board
+
+split_cells(board) -> list[(row,col,cell_img)]
+
+preprocess_cell(cell_img) -> (is_empty, digit_img_28x28)
+
+predict_digit(digit_img_28x28) -> digit
+
+recognize_sudoku(image) -> list[{row,col,digit}]
+
+Plus:
+
+skrypt treningowy CNN (PyTorch/TensorFlow)
+
+skrypt inferencji na zdjęciu (OpenCV + wczytany model)
+
+kilka przykładów wejście/wyjście
+
+Najczęstsze problemy i jak je obejść
+
+Cienie / nierówne światło → adaptive threshold + wyrównanie kontrastu
+
+Krzywa perspektywa → dobre rogi + perspective transform
+
+Grube linie siatki wchodzą w cyfrę → ignoruj marginesy pola + morfologia do usuwania linii
+
+„1” mylona z linią → lepsze usuwanie siatki i sensowny próg „czy pole puste”
+
+Ręczne pismo → MNIST może nie wystarczyć; dotrenowanie + augmentacje
+
+Jak mogę Ci konkretnie pomóc
+
+Mogę Ci przygotować kompletny, gotowy szkielet:
+
+kod OpenCV do wykrycia planszy i cięcia na pola,
+
+preprocessing pól i wykrywanie pustych,
+
+mały CNN w PyTorch (trening + zapis),
+
+inferencja i eksport wyniku do JSON.
+
+Jeśli dasz mi 1–3 przykładowe zdjęcia Sudoku (mogą być screeny/zdjęcia z telefonu), to dopasuję pipeline pod Twój typ danych (drukowane vs ręczne, jakość, grubość linii). Bez tego też mogę dać „wersję ogólną”, ale obrazy mocno wpływają na progi i preprocessing.
+
+zakres projektów mamy taki:
+
+3. Sudoku Vision – system rozpoznawania i rozwiązywania sudoku
+Cel
+Program, który potrafi:
+Rozpoznać planszę Sudoku ze zdjęcia.
+Wykryć i zidentyfikować cyfry w poszczególnych polach przy użyciu sieci neuronowych.
+Rozwiązać łamigłówkę za pomocą algorytmu backtrackingu.
+Wygenerować obraz wynikowy z naniesionymi cyframi na oryginalną planszę.
+
+Flow programu
+Przygotowanie obrazu (OpenCV):
+Konwersja na skalę szarości i rozmycie Gaussa (usuwanie szumów).
+Binaryzacja adaptacyjna i znalezienie największego konturu (plansza).
+Korekcja perspektywy (warpPerspective) – widok „z góry”.
+Podział na 81 komórek (siatka 9x9).
+Rozpoznawanie cyfr (AI/ML):
+Wysłanie każdej komórki do modelu CNN.
+Klasyfikacja: cyfra (1–9) lub pole puste.
+Budowa macierzy liczbowej 9x9 reprezentującej stan planszy.
+Rozwiązanie i wynik:
+Algorytm rozwiązujący wypełnia brakujące pola.
+Nałożenie wyników na przetworzony obraz i wyświetlenie finalnego zdjęcia użytkownikowi.
+
+Technicznie
+1. Architektura Modelu (CNN):
+Warstwy: Conv2D → ReLU → MaxPooling → Dropout → Flatten → Dense → Softmax.
+Możliwość wykorzystania Transfer Learningu z modelu ResNet150 lub bazy MNIST.
+2. Przetwarzanie danych:
+Standaryzacja obrazów cyfr do formatu 28x28 px.
+Skalowanie wartości pikseli do zakresu 0–1.
+Wykorzystanie zbioru danych Sudoku Image Dataset z Kaggle do treningu.
+3. Narzędzia i standardy:
+Zależności: OpenCV, NumPy, TensorFlow/PyTorch, Scikit-learn
+Jakość kodu: pre-commit (hooki: black, isort, pyupgrade, pylint).
+4. Ewaluacja:
+Porównanie skuteczności: Model własny vs ResNet.
+Analiza metryk: Macierz pomyłek, Accuracy, Precision, Recall, F1-score.
+
+
+opisz mi to zrozumiałym tekstem. Powiem w szczegolnosci tez czego nei rozumiem:
+Terminy:
+-  Recall, F1-score.
+- Jakość kodu: pre-commit (hooki: black, isort, pyupgrade, pylint). nie wiem co ma wspolnego jakosc kkodu z pre-commit, co ma namysli piszac hooki, isort itp
+- nie wiem co tzn warpPerspective
+- nie wiem co to oznacza rowniez: Warstwy: Conv2D → ReLU → MaxPooling → Dropout → Flatten → Dense → Softmax.
+- nie wiem co to znaczy Transfer Learning
+
+Podejście:
+W naszym rozumieniu tematu z tym co mielismy wczesniej mozemy podejsc do tematu w ten sposob, ze mozemy zaznaczac kontury? Tutaj jest napisane: "Korekcja perspektywy (warpPerspective) – widok „z góry”.", "Standaryzacja obrazów cyfr do formatu 28x28 px.", "Skalowanie wartości pikseli do zakresu 0–1", oraz "Nałożenie wyników na przetworzony obraz i wyświetlenie finalnego zdjęcia użytkownikowi." Jakie wnioski z tego wyciagam:
+a) nie wiem co tu znaczy standaryzacja. czy ja mam każdą cyfre lub komorke pomniejszyć do takiej rozdzielczości?
+b) czy ja mam przeskalowac wartosc pikseli 1:2?
+c) wyglada to tak, jakbym mial za pomoca OpenCV znalezc kontury planszy i podzielic je na 81 komórek.
+d. a nastepnie urchomic rozpoznawanie cyfr dla kazdej komorki
+e) w przypadku ML do OCR, a w inferencji do przypisywania wartosci numerycznej kolumnie i potem gry
+f) do samej gry czyli znajdowania najlepszego rozwiazania mozliwe ze wybrac inny model? 
+
+Pewnie — poniżej masz to opisane „po ludzku”, a potem rozbijam dokładnie terminy i Twoje wnioski (a–f).
+
+O co chodzi w projekcie „Sudoku Vision” – prostym językiem
+
+Masz zrobić program, który bierze zdjęcie sudoku i robi 4 rzeczy:
+
+Znajduje planszę sudoku na zdjęciu
+Czyli wykrywa, gdzie na fotografii jest kwadrat z siatką 9×9 (nawet jeśli zdjęcie jest krzywo, pod kątem, w cieniu).
+
+Wyciąga z niej stan gry: cyfry w komórkach
+Program dzieli planszę na 81 pól, a każde pole traktuje jak mały obrazek.
+Następnie dla każdego pola model (CNN) mówi:
+
+„tu jest 5” albo
+
+„to pole jest puste”.
+
+Rozwiązuje sudoku
+Gdy już masz macierz 9×9 z liczbami i pustymi miejscami, uruchamiasz klasyczny algorytm backtracking (próbuje wstawiać liczby, cofa się przy konflikcie).
+
+Rysuje wynik na obrazku
+Na koniec program generuje obraz: oryginalna plansza + dopisane brakujące cyfry (najczęściej innym kolorem), i pokazuje użytkownikowi.
+
+Wyjaśnienie terminów
+1) Recall i F1-score
+
+To metryki jakości klasyfikacji (np. rozpoznawania cyfr).
+
+Recall (czułość)
+
+Pytanie: z tego, co naprawdę było danym przypadkiem, ile udało mi się wykryć?
+Przykład dla klasy „7”:
+
+Na obrazkach było 100 siódemek.
+
+Model wykrył poprawnie 80 siódemek.
+
+Recall dla „7” = 80/100 = 0.8
+
+Czyli recall karze model, jeśli pomija prawdziwe przypadki (false negatives).
+
+Precision (precyzja) – dla kontekstu
+
+Pytanie: z tego, co model nazwał „7”, ile faktycznie było 7?
+Gdy model często myli i daje fałszywe trafienia (false positives), precision spada.
+
+F1-score
+
+To jedna liczba, która łączy precision i recall (harmoniczna średnia).
+
+Jak masz super precision, ale słaby recall — F1 spada.
+
+Jak masz super recall, ale precision słabe — F1 też spada.
+
+W skrócie: F1 mówi, czy model jest równocześnie „celny” i „nie pomija”.
+
+2) „Jakość kodu: pre-commit (hooki: black, isort, pyupgrade, pylint)”
+
+To jest o tym, żeby projekt był „czysty” i spójny, a błędy stylu łapać automatycznie.
+
+pre-commit: narzędzie, które uruchamia automatyczne sprawdzacze przy każdym commicie do gita (zanim commit się zapisze).
+
+hook: „hak”/skrypt, który git odpala automatycznie w danym momencie (tu: przed commitem).
+
+A te nazwy:
+
+black – automatycznie formatuje kod Pythona (styl, wcięcia, łamanie linii).
+
+isort – sortuje importy (import ...) w spójnej kolejności.
+
+pyupgrade – podpowiada/automatyzuje nowszą, lepszą składnię Pythona.
+
+pylint – linter: szuka potencjalnych błędów i problemów jakościowych (np. nieużyte zmienne, podejrzane konstrukcje).
+
+Czyli „jakość kodu” = mniej bałaganu, łatwiej ocenić projekt, mniej głupich bugów.
+
+3) warpPerspective
+
+To operacja z OpenCV, która robi korekcję perspektywy.
+
+Co to znaczy praktycznie?
+
+Robisz zdjęcie sudoku pod kątem — plansza wygląda jak trapez.
+
+warpPerspective „rozciąga”/„prostuje” ten trapez do idealnego kwadratu, tak jakbyś patrzył z góry.
+
+Efekt: masz obraz planszy np. 450×450, prosty, równy — idealny do podziału na 81 komórek.
+
+4) Warstwy: Conv2D → ReLU → MaxPooling → Dropout → Flatten → Dense → Softmax
+
+To opis typowej sieci CNN do rozpoznawania cyfr. Co robi każda warstwa:
+
+Conv2D: uczy się filtrów (krawędzie, łuki, kreski) przesuwanych po obrazie.
+
+ReLU: wprowadza nieliniowość (umożliwia uczenie bardziej złożonych zależności).
+
+MaxPooling: zmniejsza rozmiar map cech (np. z 28×28 → 14×14), zostawia „najsilniejsze” cechy.
+
+Dropout: podczas treningu losowo wyłącza część neuronów, żeby model się nie „przyzwyczaił” (redukcja overfittingu).
+
+Flatten: spłaszcza dane z 2D do 1D (żeby wejść w warstwy gęste).
+
+Dense: klasyczna „pełna” warstwa, miesza cechy i przygotowuje decyzję.
+
+Softmax: daje wynik jako prawdopodobieństwa klas (np. [P(1), P(2), …, P(9), P(empty)]).
+
+5) Transfer Learning
+
+To użycie modelu, który już się nauczył „widzieć” obrazy na dużym zbiorze danych, i dopasowanie go do Twojego problemu.
+
+W praktyce:
+
+bierzesz np. ResNet (wytrenowany na ImageNet),
+
+zamrażasz większość warstw (nie uczysz od zera),
+
+wymieniasz „głowę” (ostatnie warstwy) na klasy: 1–9 + empty,
+
+dotrenowujesz na sudoku.
+
+Plus: działa dobrze, gdy masz mało danych.
+Minus: do cyfr często wystarcza mały CNN, a ResNet bywa „armata na muchę” (i trudniejszy w utrzymaniu).
+
+Twoje wnioski (a–f) — odpowiadam konkretnie
+a) „Standaryzacja” – co to znaczy?
+
+Tak: każdą wyciętą cyfrę (albo obrazek z komórki) przygotowujesz do stałego formatu wejściowego modelu.
+
+Najczęściej:
+
+wycinasz komórkę,
+
+wycinasz samą cyfrę z tej komórki (bounding box),
+
+zmieniasz rozmiar do 28×28 (bo tak jest w MNIST i wygodnie),
+
+tło/kontrast robisz spójne.
+
+Czyli: nie zmniejszasz całej planszy do 28×28, tylko pojedyncze obrazki cyfr.
+
+b) „Skalowanie wartości pikseli 0–1” – czy to 1:2?
+
+Nie. Chodzi o normalizację:
+
+obraz w OpenCV często ma piksele 0–255 (uint8),
+
+modelowi wygodniej dać float 0.0–1.0,
+
+więc robisz: pixel = pixel / 255.0.
+
+To nie jest skalowanie rozdzielczości, tylko wartości jasności.
+
+c) „OpenCV: znaleźć kontury planszy i podzielić na 81 komórek”
+
+Tak. To jest dokładnie intencja flow.
+
+kontur największego kwadratu → plansza
+
+warpPerspective → prosty kwadrat
+
+dzielisz na 9×9
+
+d) „Rozpoznawanie cyfr dla każdej komórki”
+
+Tak.
+I zazwyczaj najpierw sprawdzasz „czy pole puste”, żeby nie mylić szumów z cyfrą.
+
+e) „ML do OCR, inferencja przypisuje wartość do macierzy”
+
+Tak.
+Wynik modelu wypełnia grid[9][9], np. 0 oznacza puste.
+Potem solver działa już na liczbach.
+
+f) „Do rozwiązywania sudoku inny model?”
+
+Nie musisz. Wręcz typowo:
+
+ML/CNN jest tylko do rozpoznania cyfr (percepcja),
+
+backtracking jest do rozwiązywania (logika/algorytmika).
+
+Można użyć innego „modelu” (np. solver CSP / DLX / dancing links), ale to nadal algorytmy, nie sieć neuronowa. Backtracking jest w 100% OK do projektu.
+
+Najważniejsza intuicja: co robisz gdzie?
+
+OpenCV: „geometria i obraz” → znaleźć planszę, wyprostować, pociąć, wyczyścić.
+
+CNN: „rozpoznawanie cyfry” w małym obrazku.
+
+Backtracking: „rozwiązanie logiczne”.
+
+OpenCV: „narysowanie wyniku” na obraz.
+
+Jeśli chcesz, w następnym kroku mogę Ci dać:
+
+konkretne funkcje (nazwy + pseudokod) dla całego flow,
+
+minimalny model CNN (TensorFlow albo PyTorch),
+
+oraz plan ewaluacji (confusion matrix, metryki, jak porównywać CNN vs transfer learning).
+
+Napisz tylko: wolisz TensorFlow/Keras czy PyTorch? (nie musisz podawać nic więcej).
+
+co to backtraiking, i co to MNIST
+Backtracking — co to jest (i czemu pasuje do sudoku)
+
+Backtracking to sposób rozwiązywania problemów „próbuj–sprawdź–cofnij”.
+
+Działa tak:
+
+Znajdź pierwsze puste pole w sudoku.
+
+Spróbuj wstawić tam liczbę 1..9.
+
+Po każdej próbie sprawdź, czy plansza nadal jest poprawna:
+
+w wierszu nie ma powtórzeń,
+
+w kolumnie nie ma powtórzeń,
+
+w kwadracie 3×3 nie ma powtórzeń.
+
+Jeśli liczba pasuje → idź do kolejnego pustego pola i powtórz.
+
+Jeśli w pewnym momencie żadna liczba nie pasuje, to znaczy, że wcześniej wstawiłeś coś źle → cofasz się (to jest właśnie „backtrack”), zmieniasz poprzedni wybór i próbujesz dalej.
+
+W skrócie: to rekurencyjne przeszukiwanie z cofaniem, aż znajdziesz pełne poprawne rozwiązanie.
+
+Dlaczego to działa w sudoku?
+Bo sudoku ma silne ograniczenia, więc większość błędnych prób odpada szybko, a algorytm skutecznie „przeszukuje” przestrzeń możliwości.
+
+MNIST — co to jest
+
+MNIST to bardzo znany zbiór danych do uczenia rozpoznawania cyfr.
+
+Zawiera:
+
+70 000 obrazków (klasycznie: 60k trening + 10k test),
+
+każda próbka to mały obrazek 28×28 px,
+
+przedstawia ręcznie pisane cyfry 0–9,
+
+do każdego obrazka jest etykieta, np. „to jest 7”.
+
+Dlaczego MNIST pojawia się w Twoim projekcie?
+
+Bo Twój model CNN ma rozpoznawać cyfry.
+
+MNIST daje szybki start: możesz wytrenować model na MNIST, a potem użyć go do rozpoznawania cyfr w komórkach sudoku (czasem od razu działa, czasem wymaga dotrenowania pod „styl sudoku”: linie, kontrast, druk vs pismo).
+
+Jak to się łączy w Sudoku Vision
+
+MNIST / dane z Kaggle → uczysz model, żeby z obrazka 28×28 powiedział „to jest 5”.
+
+Backtracking → mając już tablicę 9×9 z rozpoznanymi cyframi, uzupełniasz brakujące pola.
+
+Jeśli chcesz, mogę od razu dać Ci prosty, czytelny pseudokod backtrackingu do sudoku (taki, który możesz wkleić do projektu i tylko przepisać na Python).
+
+Jest napisane "Nałożenie wyników na przetworzony obraz i wyświetlenie finalnego zdjęcia użytkownikowi."
+
+czy to znaczy, ze model ma generowac obrazy? czy wysatrczy jesli zrobimy to programowo zamiast genrycznie?
+
+Nie — to nie znaczy, że model ma „generować obrazy” (jak Stable Diffusion itp.).
+
+To zdanie oznacza po prostu programowe dorysowanie (overlay) rozwiązania na obraz planszy, który już masz po przetwarzaniu w OpenCV.
+
+Co dokładnie masz zrobić
+
+Masz „wyprostowaną” planszę (po warpPerspective) i rozwiązaną macierz 9×9.
+
+Dla pól, które były puste na wejściu, wpisujesz znalezione cyfry na obraz:
+
+funkcjami OpenCV typu cv2.putText(...) (najczęściej),
+
+ewentualnie rysując wektorowo/czcionką.
+
+Wyświetlasz albo zapisujesz finalny obraz (np. imshow / zapis do pliku).
+
+To jest w 100% „programowo”, nie „generatywnie”.
+
+Dwa popularne warianty (oba są OK)
+
+Overlay na obrazie po korekcji perspektywy (najprościej): pokazujesz wynik na prostym kwadracie „z góry”.
+
+Overlay na oryginalnym zdjęciu (bardziej efektownie):
+rysujesz cyfry na wyprostowanej planszy, a potem robisz odwrotną transformację perspektywy (inverse homography), żeby nałożyć je z powrotem na zdjęcie użytkownika.
+
+Wymaganie z opisu zwykle jest spełnione już przez pierwszy wariant, a drugi to „upgrade”.
+
+Czy model ma coś z tym wspólnego?
+
+Model (CNN) tylko mówi: jaka cyfra jest w komórce / czy puste.
+Rysowanie wyniku to robota OpenCV.
+
+Jeśli chcesz, mogę Ci napisać mini-schemat jak policzyć współrzędne tekstu w komórce (żeby cyfry były wycentrowane) i jak odróżnić cyfry wejściowe od tych dopisanych (np. dopisane na zielono / cieńsza czcionka).
+
+czym jest Scikit-learn ?
+
+scikit-learn (często pisane jako sklearn) to popularna biblioteka Pythona do uczenia maszynowego, głównie klasycznych metod (nie deep learningu). Daje gotowe narzędzia do:
+
+klasyfikacji i regresji (np. SVM, Logistic Regression, Random Forest),
+
+klasteryzacji (np. K-Means),
+
+redukcji wymiaru (np. PCA),
+
+przetwarzania danych (skalowanie, standaryzacja, kodowanie kategorii),
+
+ewaluacji modeli (metryki, walidacja krzyżowa),
+
+pipeline’ów (łączenie kroków: preprocessing → model).
+
+Jak to się przydaje w Twoim projekcie Sudoku
+
+Nawet jeśli CNN robisz w TensorFlow albo PyTorch, to scikit-learn jest super do „okołomodelowych” rzeczy:
+
+policzenie metryk: accuracy, precision, recall, f1_score,
+
+wygenerowanie macierzy pomyłek (confusion_matrix) i raportu (classification_report),
+
+czasem podział danych train/test (train_test_split) (choć w DL często robi się to inaczej),
+
+baseline: szybki klasyfikator (np. SVM) do porównania z CNN.
+
+Najczęściej używane elementy
+
+sklearn.metrics: metryki (precision, recall, f1, confusion matrix)
+
+sklearn.model_selection: podział danych, walidacja krzyżowa
+
+sklearn.preprocessing: skalowanie/standaryzacja (StandardScaler, MinMaxScaler)
+
+sklearn.pipeline: łączenie kroków w jeden pipeline
+
+Jeśli chcesz, mogę Ci podać minimalny przykład, jak z predykcji modelu (np. listy prawdziwych cyfr i przewidzianych) policzyć w scikit-learn: accuracy + recall + f1 + confusion matrix.

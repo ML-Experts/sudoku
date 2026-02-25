@@ -1,0 +1,18 @@
+---
+description: Backend architecture — Clean Architecture (folder split)
+globs: **/*.cs
+alwaysApply: false
+---
+
+# Architektura backendu — Clean Architecture
+
+## Warstwy / foldery (minimalny podział)
+- `Models/` — modele domenowe / encje / DTO podstawowe (bez zależności na inne warstwy)
+- `Application/` — logika użycia (use-cases), interfejsy portów, walidacje, orchestration
+- `Infrastructure/` — implementacje portów (np. dostęp do plików, ML service client, persistence)
+- `Api/` **lub** `Interface/` — warstwa wejścia (HTTP), kontrolery, kontrakty request/response
+
+## Zasady zależności (skrót)
+- Zależności idą **do środka** (Api/Interface → Application → Models).
+- `Infrastructure` implementuje interfejsy z `Application`, ale nie odwrotnie.
+

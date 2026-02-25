@@ -1,0 +1,37 @@
+---
+description: Tech stack dla wariantu ambitnego (web + C# backend + Python ML w WSL/Unix)
+globs: **/PRD_Wariant_Ambitny_Web_CSharp_Python.md
+alwaysApply: false
+---
+
+# Tech stack — wariant ambitny (web + C# backend + Python ML)
+
+## Środowisko (wymagane)
+- Python uruchamiamy na **Unix/Linux** (rekomendowane: **WSL2 Ubuntu**).
+- Python **3.14+**, `venv` + `pip` (MVP).
+- **Uwaga (Python 3.14+)**: część bibliotek ML/CV może nie mieć gotowych wheel. Jeśli instalacja się wywala, najprostsza ścieżka to zejść do Python **3.13/3.12** i/lub wybrać **PyTorch** zamiast TensorFlow.
+
+## Python (CV/ML + ewaluacja)
+- CV: `opencv-python` (lub `opencv-python-headless` na serwerze), `numpy`
+- DL (wybierz 1): **preferuj `torch` + `torchvision`** (PyTorch) albo `tensorflow` + `keras` (jeśli kompatybilne z Python 3.14)
+- Metryki/raport: `scikit-learn` (+ opcjonalnie `matplotlib`/`seaborn`)
+- Augmentacje (propozycja): `albumentations`
+
+## Serwis inferencji (Python)
+- API: `fastapi`, `uvicorn`
+- Transfer plików: `python-multipart` (jeśli użyjecie `multipart/form-data`)
+
+## Backend (C#)
+- **.NET 8 (LTS)**, **ASP.NET Core Web API**
+- OpenAPI/Swagger: `Swashbuckle.AspNetCore`
+- Integracja z Pythonem: `HttpClient` / `IHttpClientFactory` (REST)
+
+## Frontend (web)
+- React + TypeScript: **Next.js** (propozycja) albo **Vite**
+- UI (propozycja): Tailwind CSS (+ komponenty typu shadcn/ui) lub Material UI
+
+## Integracja (kontrakt)
+- C# endpoint: `POST /api/solve-from-image`
+- Python endpoint: `POST /ml/solve-from-image`
+- Obraz przesyłamy jako `multipart/form-data` (propozycja), wynik: grid + overlay (base64/URL).
+

@@ -1,0 +1,45 @@
+Opis zasad projektu
+
+
+Wspomaganie pracy zespołów
+Janek będzie:
+regularnie monitorować postęp prac (calle online + krótkie raporty tygodniowe),
+analizować historię commitów w repozytorium,
+umożliwić zgłaszanie problemów organizacyjnych lub braku zaangażowania wybranych członków zespołu.
+
+Zasady oddawania projektu grupowego
+Forma projektu
+Projekt należy oddać w formie repozytorium Git udostępnionego Jankowi i mi.
+Struktura repozytorium powinna być następująca:
+project-name/
+├── src/
+├── data/
+├── README.md
+├── requirements.txt
+└── examples/ (opcjonalnie)
+
+Wymagania dotyczące dokumentacji
+Plik README.md powinien zawierać:
+nazwę projektu oraz skład zespołu,
+przypisane role,
+opis funkcjonalny programu,
+instrukcję uruchomienia,
+opis głównych funkcji,
+podział pracy,
+ewentualne ograniczenia rozwiązania.
+
+Zasady pracy w repozytorium
+Każdy członek zespołu powinien:
+wykonać minimum 3 commitów,
+stosować czytelne komunikaty commitów o charakterze opisowym.
+Przykład poprawnych wiadomości commitów:
+Add price parsing logic
+Fix comparison calculations
+Implement quiz generation module
+
+Prezentacja projektu
+Każda grupa powinna przygotować krótką prezentację projektu trwającą około 5–7 minut. Prezentacja powinna obejmować:
+demonstrację działania aplikacji,
+omówienie struktury rozwiązania,
+opis najważniejszych funkcji,
+wskazanie napotkanych problemów.

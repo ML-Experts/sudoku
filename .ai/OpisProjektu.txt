@@ -1,0 +1,36 @@
+3. Sudoku Vision – system rozpoznawania i rozwiązywania sudoku
+Cel
+Program, który potrafi:
+Rozpoznać planszę Sudoku ze zdjęcia.
+Wykryć i zidentyfikować cyfry w poszczególnych polach przy użyciu sieci neuronowych.
+Rozwiązać łamigłówkę za pomocą algorytmu backtrackingu.
+Wygenerować obraz wynikowy z naniesionymi cyframi na oryginalną planszę.
+
+Flow programu
+Przygotowanie obrazu (OpenCV):
+Konwersja na skalę szarości i rozmycie Gaussa (usuwanie szumów).
+Binaryzacja adaptacyjna i znalezienie największego konturu (plansza).
+Korekcja perspektywy (warpPerspective) – widok „z góry”.
+Podział na 81 komórek (siatka 9x9).
+Rozpoznawanie cyfr (AI/ML):
+Wysłanie każdej komórki do modelu CNN.
+Klasyfikacja: cyfra (1–9) lub pole puste.
+Budowa macierzy liczbowej 9x9 reprezentującej stan planszy.
+Rozwiązanie i wynik:
+Algorytm rozwiązujący wypełnia brakujące pola.
+Nałożenie wyników na przetworzony obraz i wyświetlenie finalnego zdjęcia użytkownikowi.
+
+Technicznie
+1. Architektura Modelu (CNN):
+Warstwy: Conv2D → ReLU → MaxPooling → Dropout → Flatten → Dense → Softmax.
+Możliwość wykorzystania Transfer Learningu z modelu ResNet150 lub bazy MNIST.
+2. Przetwarzanie danych:
+Standaryzacja obrazów cyfr do formatu 28x28 px.
+Skalowanie wartości pikseli do zakresu 0–1.
+Wykorzystanie zbioru danych Sudoku Image Dataset z Kaggle do treningu.
+3. Narzędzia i standardy:
+Zależności: OpenCV, NumPy, TensorFlow/PyTorch, Scikit-learn
+Jakość kodu: pre-commit (hooki: black, isort, pyupgrade, pylint).
+4. Ewaluacja:
+Porównanie skuteczności: Model własny vs ResNet.
+Analiza metryk: Macierz pomyłek, Accuracy, Precision, Recall, F1-score.

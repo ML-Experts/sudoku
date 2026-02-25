@@ -1,0 +1,14 @@
+---
+description: Frontend architecture — placeholder (do ustalenia)
+globs: **/*.{ts,tsx,js,jsx}
+alwaysApply: false
+---
+
+# Architektura frontendu (TBD)
+
+Aktualnie architektura FE **nie jest ustalona**.
+
+## Propozycje (bardzo skrótowo)
+- Podejście „feature-based”: `src/features/*`, `src/shared/*`, `src/app/*`
+- Trzymać logikę domenową blisko feature’ów, a elementy współdzielone w `shared/`
+
