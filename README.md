@@ -9,33 +9,40 @@
 - **ML / trening modelu**: <kto>
 - **Computer Vision (OpenCV)**: <kto>
 - **Solver (backtracking)**: <kto>
-- **Integracja / API / UI**: <kto 1>, <kto 2> (może być kilka osób; interfejs użytkownika + spięcie end-to-end; ambitny: web+C#↔Python REST; lekki: CLI/Streamlit)
+- **Integracja / API / UI**: <kto 1>, <kto 2> (może być kilka osób; interfejs użytkownika + spięcie end-to-end: web + C# ↔ Python (REST))
 - **Ewaluacja / raport / prezentacja**: <kto 1>, <kto 2> (może być kilka osób; metryki jakości ML + wnioski; przygotowanie demo i slajdów)
 
 ---
 
 ### Historyjki (backlog) i przypisania (kto co bierze)
-Poniższe ID odpowiadają historyjkom z PRD. Uzupełnijcie osoby w kolumnach **FE/BE/ML/CV** (jeśli historyjka dotyczy wielu obszarów — wpiszcie osoby w kilku kolumnach; jeśli nie dotyczy — zostawcie `—`). **Uwaga**: wiele historyjek jest przekrojowych (end-to-end), więc jeśli w trakcie prac wyjdzie, że potrzebny jest też FE/BE/ML/CV — po prostu dopiszcie osoby w dodatkowych kolumnach.
+Poniższe ID odpowiadają backlogowi z PRD (sekcja 8). Uzupełnijcie osoby w kolumnach **INFRA/FE/BE/ML** (jeśli pozycja dotyczy kilku obszarów — wpiszcie osoby w kilku kolumnach; jeśli nie dotyczy — zostawcie `—`). **Uwaga**: przypadki użycia (UC) są przekrojowe, więc zwykle będą miały równolegle FE/BE/ML.
 
 Skrótowo:
-- **FE**: interfejs (web / Streamlit)
-- **BE**: API / „glue” (C# backend lub Python FastAPI/CLI, zależnie od wariantu)
+- **FE**: interfejs web
+- **BE**: C# backend (ASP.NET Core Web API) + integracja z serwisem Python (REST)
 - **ML**: model (trening + inferencja)
-- **CV**: pipeline obrazu (OpenCV)
+- **INFRA**: serwer/hosting, domena, SSL, reverse proxy, zabezpieczenia, uruchamianie usług, jakość, dokumentacja (CI/CD opcjonalnie)
 
-| ID | Zakres | FE | BE | ML | CV |
+| ID | Zakres | INFRA | FE | BE | ML |
 |---|---|---|---|---|---|
-| US-01 | Wykrycie planszy + korekcja perspektywy (warp) | <kto> | <kto> | — | <kto> |
-| US-02 | Cięcie na 81 komórek + wykrycie pustych pól | <kto> | <kto> | — | <kto> |
-| US-03 | Dane + preprocessing + augmentacje + skrypt treningu | — | — | <kto> | <kto> |
-| US-04 | Inferencja CNN: predykcja cyfr + budowa gridu 9×9 | — | <kto> | <kto> | <kto> |
-| US-05 | Porównanie: własny CNN vs transfer learning + raport metryk | — | — | <kto> | — |
-| US-06 | Solver sudoku (backtracking) + walidacja wejścia | — | <kto> | — | — |
-| US-07 | Render overlay wyniku (opcjonalnie inverse warp na oryginał) | <kto> | <kto> | — | <kto> |
-| US-08 | Interfejs użytkownika (CLI/mini-UI lub web) + prezentacja wyniku | <kto> | <kto> | — | — |
-| US-09 | Integracja warstw + kontrakt wej./wyj. (API/CLI) | <kto> | <kto> | <kto> | — |
-| US-10 | README + instrukcje uruchomienia + powtarzalność | — | <kto> | — | — |
-| US-11 | Jakość kodu: pre-commit (black/isort/pyupgrade/pylint) + standardy commitów | — | <kto> | <kto> | <kto> |
+| INF-01 | Szkielet repo + README + przykłady do demo | <kto> | — | — | — |
+| INF-02 | Uruchomienie lokalne całego systemu (np. compose/skrypty) | <kto> | — | — | — |
+| INF-03 | Serwer + domena + SSL + reverse proxy + zabezpieczenia | <kto> | — | — | — |
+| INF-04 | Standardy jakości (pre-commit, zasady pracy) | <kto> | — | — | <kto> |
+| INF-05 (opc.) | Serwer Jupyter (JupyterLab) | <kto> | — | — | <kto> |
+| INF-06 (opc.) | CI na PR (lint/test/build) | <kto> | <kto> | <kto> | <kto> |
+| INF-07 (opc.) | CD: deploy na serwer po merge/akceptacji PR | <kto> | <kto> | <kto> | <kto> |
+| UC-01 | Upload pliku sudoku do biblioteki przykładów (examples) | — | <kto> | <kto> | — |
+| UC-02 | Lista dostępnych przykładów sudoku | — | <kto> | <kto> | — |
+| UC-03 | Pobierz wybrany plik przykładowy | — | <kto> | <kto> | — |
+| UC-04 | Wybierz przykład do przetworzenia + wstępna obróbka | — | <kto> | <kto> | <kto> |
+| UC-05 | Rozwiąż wybrany plik przez system | — | <kto> | <kto> | <kto> |
+| UC-06 | Uruchom trening na dataset z data/raw | — | <kto> | <kto> | <kto> |
+| UC-07 | Postęp treningu + informacja o zakończeniu | — | <kto> | <kto> | <kto> |
+| UC-08 | Lista treningów i modeli | — | <kto> | <kto> | <kto> |
+| UC-09 | Szczegóły treningu + metryki | — | <kto> | <kto> | <kto> |
+| UC-10 | Wybór aktywnego modelu do inferencji | — | <kto> | <kto> | <kto> |
+| UC-11 | Dodaj własny dataset do uczenia | — | <kto> | <kto> | <kto> |
 
 ---
 
@@ -62,6 +69,11 @@ Wymagana struktura:
 sudoku/
 ├── src/
 ├── data/
+│   ├── raw/
+│   ├── processed/
+│   ├── splits/
+│   ├── models/
+│   └── reports/
 ├── README.md
 ├── requirements.txt
 └── examples/  (opcjonalnie)
@@ -69,8 +81,13 @@ sudoku/
 
 Główne katalogi (do uzupełnienia pod Waszą implementację):
 - `src/` — kod aplikacji (vision / ml / solver / render / interface)
-- `data/` — dane treningowe/testowe oraz artefakty przetwarzania
-- `examples/` — przykładowe wejścia/wyjścia do demo
+- `data/` — robocze dane i artefakty ML (często większe; nie zawsze trzymane w repo)
+  - `data/raw/` — pobrany dataset (albo instrukcja jak pobrać)
+  - `data/processed/` — przetworzone wycinki/tenzory po pipeline (gotowe do treningu/ewaluacji)
+  - `data/splits/` — podziały train/val/test (np. listy plików, CSV)
+  - `data/models/` — zapisane modele/checkpointy
+  - `data/reports/` — metryki, confusion matrix, wykresy/raporty
+- `examples/` — przykładowe pliki do demo/szybkich testów end-to-end (wejścia i ewentualnie wyniki)
 
 ---
 
@@ -90,16 +107,7 @@ pip install -r requirements.txt
 ### Uruchomienie (inferencja end-to-end)
 (Uzupełnijcie docelową komendę/entrypoint po implementacji.)
 
-Przykład:
-
-```bash
-python -m src.cli --image "examples/input_01.jpg" --out-dir "examples/out_01"
-```
-
-Oczekiwane artefakty wyjściowe (przykład):
-- `recognized_grid.json` — grid 9×9 (0 = puste)
-- `solved_grid.json` — rozwiązany grid 9×9
-- `overlay.png` — plansza z dopisanym rozwiązaniem
+Docelowo: frontend web wysyła obraz do C# endpointu, a C# wywołuje serwis ML w Pythonie. Uzupełnijcie tutaj komendy uruchomienia frontendu, backendu i serwisu ML oraz przykładowe requesty (np. przez Swagger).
 
 ---
 
@@ -132,7 +140,7 @@ W raporcie pokazujemy co najmniej:
 - **ML (CNN, Python)**: klasyfikacja cyfry 1–9 (i/lub „empty”), przygotowanie wejścia 28×28, normalizacja 0–1.
 - **Solver**: backtracking + walidacja reguł sudoku.
 - **Render**: overlay rozwiązania na obraz i eksport wyników.
-- **Interface**: CLI / (opcjonalnie) UI / (opcjonalnie) API.
+- **Interface**: web UI + API.
 
 ---
 
