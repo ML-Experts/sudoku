@@ -64,6 +64,8 @@ Na zajęciach wymagany jest projekt z elementem Machine Learning w Pythonie. Tem
 - **FR-08**: System udostępnia wynik w UI oraz jako dane (np. JSON grid).
 - **FR-09**: System generuje raport ewaluacyjny modelu (metryki + macierz pomyłek).
 - **FR-10**: System umożliwia porównanie co najmniej dwóch podejść do klasyfikacji (np. mały CNN vs transfer learning).
+- **FR-11**: System umożliwia uruchamianie eksperymentów treningowych z wyborem architektury modelu, zbioru/zbiorów danych, trybu treningu oraz profilu preprocessingu i augmentacji.
+- **FR-12**: System zapisuje konfigurację treningu, politykę splitu i wyniki ewaluacji tak, aby możliwe było porównanie modeli na wspólnym benchmarku.
 
 ### 8) Historyjki (User Stories) + kryteria akceptacji
 Backlog jest podzielony na 4 obszary (strumienie prac):
@@ -75,6 +77,8 @@ Backlog jest podzielony na 4 obszary (strumienie prac):
 Uwaga organizacyjna:
 - Żeby „zrealizować całość”, tworzymy historyjki również dla **Infrastruktury**.
 - Poza Infrastrukturą historyjki grupujemy jako **UC-xx (Use Case)**. Jeśli FE nie ma sensu bez BE (lub bez ML) — to jest **jeden UC** z podziałem na: **FE / BE / ML**. Nie tworzymy osobnych „historyjek integracyjnych” — integracja jest wypadkową realizacji danego UC.
+- W obszarze **ML** część prac może mieć charakter techniczny lub eksperymentalny (np. warianty treningu, augmentacje, transfer learning) i być realizowana jako subtaski / eksperymenty w ramach `UC-06`, `UC-09` i `UC-10`, a nie jako osobne user stories użytkownika końcowego.
+- Wyjątkiem organizacyjnym jest prosty bootstrapowy `UC-00`, którego celem jest szybkie sprawdzenie połączenia `FE -> BE -> ML` przed rozwijaniem pełnych funkcji produktu.
 
 #### Infrastruktura
 - **INF-01**: Jako zespół chcemy mieć powtarzalne uruchomienie projektu i spójną strukturę repo, aby szybko rozwijać wszystkie warstwy.
@@ -108,10 +112,28 @@ Uwaga organizacyjna:
     - Po otwarciu/aktualizacji PR uruchamia się pipeline: lint/test (Python), build (C#) oraz podstawowa walidacja frontendu.
     - Merge jest blokowany, jeśli checki nie przechodzą (polityka gałęzi / wymagane status checks).
 
-- **INF-07 (opcjonalnie)**: Jako zespół chcemy mieć CD (deploy) po akceptacji PR/merge, aby paczka trafiała na serwer bez ręcznych kroków.
+- **INF-07**: Jako zespół chcemy mieć CD (deploy) po akceptacji PR/merge, aby zmiany trafiały na serwer bez ręcznych kroków.
   - **AC**:
-    - Po merge do ustalonej gałęzi powstaje paczka (artefakt) i jest wdrażana na serwer (np. restart usług/containers).
+    - Po merge zaakceptowanego PR z gałęzi `dev` do `main` uruchamia się workflow CD wdrażający aplikację na serwer.
+    - Workflow potrafi reagować na zmiany w odpowiednich katalogach usług (np. Frontend / Backend / ML) i wykonać właściwy deploy całości lub wybranej warstwy.
+    - Deploy wykorzystuje repozytorium Git na serwerze (np. `git pull` / checkout właściwej gałęzi lub rewizji) oraz restart odpowiednich usług / kontenerów.
+    - Workflow korzysta z wcześniej przygotowanego środowiska serwerowego opisanego w `INF-03` oraz z ustalonej konfiguracji wdrożeniowej po stronie serwera.
     - Sekrety/klucze są trzymane bezpiecznie (np. secrets w systemie CI), a proces jest odtwarzalny i opisany.
+
+#### UC-00 — „Sprawdź połączenie FE → BE → ML (ping-pong / smoke test)”
+- **FE**:
+  - Prosty widok lub przycisk „Test połączenia”, który wywołuje żądanie do backendu i prezentuje wynik.
+  - Czytelna informacja o sukcesie albo błędzie z wskazaniem, na której warstwie wystąpił problem.
+- **BE**:
+  - Endpoint testowy (np. `GET /api/ping` albo `POST /api/ping`) przyjmujący żądanie z FE i przekazujący je do serwisu ML.
+  - Zwrot ustrukturyzowanej odpowiedzi zawierającej status backendu, status serwisu ML i ewentualnie podstawowe metadane (np. wersję / timestamp).
+- **ML**:
+  - Prosty endpoint testowy (np. `GET /ml/ping`) zwracający odpowiedź techniczną bez uruchamiania pełnego pipeline’u rozpoznawania Sudoku.
+  - Odpowiedź umożliwia potwierdzenie, że serwis ML jest osiągalny i poprawnie odpowiada na wywołanie z backendu.
+  - **AC**:
+    - Użytkownik z poziomu FE może uruchomić test i otrzymać potwierdzenie działania pełnej ścieżki `FE -> BE -> ML`.
+    - W przypadku błędu system zwraca czytelną informację diagnostyczną, czy problem dotyczy FE, BE czy ML.
+    - Historyjka może służyć jako smoke test po wdrożeniu na serwer lub po zmianach integracyjnych.
 
 #### UC-01 — „Dodaj plik sudoku do przykładów (examples)”
 - **FE**:
@@ -153,6 +175,7 @@ Uwaga organizacyjna:
   - Obsługa błędów (np. „nie wykryto planszy”).
 - **ML**:
   - Pipeline CV „preprocess”: wykrycie planszy + korekcja perspektywy + (opcjonalnie) detekcja siatki/komórek.
+  - Ten UC dotyczy preprocessingu planszy w ścieżce inferencji użytkownika (runtime `end-to-end`), a nie augmentacji danych treningowych.
   - **AC**:
     - System zwraca artefakt wstępnej obróbki (np. obraz po warp) albo czytelny błąd.
 
@@ -168,17 +191,20 @@ Uwaga organizacyjna:
   - **AC**:
     - Dla przykładowych obrazów system znajduje rozwiązanie lub zwraca czytelny błąd.
 
-#### UC-06 — „Uruchom trening na dataset z data/raw”
+#### UC-06 — „Uruchom trening / eksperyment na datasetach z data/raw”
 - **FE**:
-  - Widok uruchomienia treningu (wybór datasetu/konfiguracji, przycisk Start).
+  - Widok uruchomienia treningu / eksperymentu (wybór datasetu lub kombinacji datasetów, architektury modelu, trybu treningu, konfiguracji preprocessingu/augmentacji, przycisk Start).
 - **BE**:
   - Endpoint startujący trening (np. `POST /api/trainings`) i zwracający `training_id`.
-  - Zapamiętanie konfiguracji treningu (parametry, dataset, commit/wersja).
+  - Zapamiętanie pełnej konfiguracji treningu / eksperymentu (parametry, dataset(y), polityka splitu, model, tryb treningu, preprocessing/augmentacje, seed, commit/wersja).
 - **ML**:
-  - Job treningowy bazujący na `data/raw` → preprocessing → split train/val/test → trening.
+  - Job treningowy bazujący na `data/raw` → walidacja danych → split train/val/test → preprocessing komórek → opcjonalna augmentacja → trening.
+  - Split wykonywany jest na poziomie całych plansz przed ekstrakcją komórek; jeśli dataset dostarcza własny podział `train/test`, respektujemy go, a `val` wydzielamy z `train`.
+  - Finalna ewaluacja porównawcza modeli odbywa się na wspólnym, stałym benchmarku / secie testowym Sudoku.
   - Zapis artefaktów: model/checkpoint + metryki.
   - **AC**:
     - Trening tworzy wpis treningu widoczny w liście (UC-08).
+    - Dla zakończonego treningu dostępna jest pełna konfiguracja eksperymentu potrzebna do późniejszego porównania wyników.
 
 #### UC-07 — „Pokazuj postęp treningu i informuj o zakończeniu”
 - **FE**:
@@ -192,27 +218,27 @@ Uwaga organizacyjna:
 
 #### UC-08 — „Lista treningów i wytrenowanych modeli”
 - **FE**:
-  - Widok listy treningów (status, data, krótki opis) oraz powiązanych modeli.
+  - Widok listy treningów (status, data, krótki opis: model / dataset / tryb treningu) oraz powiązanych modeli.
 - **BE**:
   - Endpoint listujący treningi i modele (np. `GET /api/trainings`, `GET /api/models`).
 - **ML**:
-  - Dostarczenie metadanych treningów/modeli (ścieżki, wersje, metryki skrótowe).
+  - Dostarczenie metadanych treningów/modeli (ścieżki, wersje, datasety, architektury, tryb treningu, metryki skrótowe).
   - **AC**:
     - Lista pokazuje zarówno zakończone, jak i trwające treningi.
 
 #### UC-09 — „Szczegóły treningu i metryki”
 - **FE**:
-  - Widok szczegółów treningu (parametry, wykresy/metryki, confusion matrix).
+  - Widok szczegółów treningu (parametry, datasety źródłowe, profil preprocessingu/augmentacji, wykresy/metryki, confusion matrix).
 - **BE**:
-  - Endpoint szczegółów (np. `GET /api/trainings/{id}`) zwracający metryki i artefakty raportu.
+  - Endpoint szczegółów (np. `GET /api/trainings/{id}`) zwracający konfigurację treningu, metryki i artefakty raportu.
 - **ML**:
-  - Generowanie i zapis metryk/raportu ewaluacyjnego (artefakty do pobrania).
+  - Generowanie i zapis metryk/raportu ewaluacyjnego (artefakty do pobrania) oraz danych potrzebnych do porównania treningów na wspólnym benchmarku.
   - **AC**:
-    - Użytkownik widzi metryki wystarczające do porównania modeli (accuracy, precision/recall/F1, confusion matrix).
+    - Użytkownik widzi metryki i konfigurację wystarczające do porównania modeli (accuracy, precision/recall/F1, confusion matrix, użyty benchmark).
 
-#### UC-10 — „Wybierz model na podstawie metryk i użyj go w inferencji”
+#### UC-10 — „Wybierz aktywny model na podstawie metryk i użyj go w inferencji”
 - **FE**:
-  - UI wyboru aktywnego modelu (np. dropdown: model + metryki skrótowe).
+  - UI wyboru aktywnego modelu do inferencji (np. dropdown: model + metryki skrótowe).
 - **BE**:
   - Endpoint ustawienia aktywnego modelu (np. `PUT /api/models/active`) oraz użycie go przy UC-05.
 - **ML**:
@@ -227,6 +253,7 @@ Uwaga organizacyjna:
   - Endpoint uploadu datasetu (np. `POST /api/datasets`) + zapis do magazynu + rejestracja.
 - **ML**:
   - Walidacja formatu datasetu + przygotowanie do użycia w treningu (wpięcie do `data/raw` lub równoważnego magazynu).
+  - Rejestracja metadanych datasetu (źródło, licencja, format etykiet, sugerowany podział `train/test` jeśli istnieje).
   - **AC**:
     - Dataset po dodaniu jest wybieralny przy uruchomieniu treningu (UC-06).
 
@@ -235,11 +262,12 @@ Uwaga organizacyjna:
 - **NFR-02 (czas odpowiedzi)**: inferencja „solve-from-image” powinna zakończyć się w rozsądnym czasie na CPU (np. < 5 s dla typowego obrazu) — cel orientacyjny.
 - **NFR-03 (czytelność)**: kod podzielony na moduły (vision / ml / solver / render) oraz warstwę interfejsu (API + web UI).
 - **NFR-04 (odporność)**: system radzi sobie z typowymi zakłóceniami (cień, lekka perspektywa), a w razie porażki zwraca czytelny błąd.
+- **NFR-05 (porównywalność eksperymentów)**: dla porównań modeli utrzymujemy wspólny, niezmienny benchmark testowy Sudoku oraz zapisujemy pełną konfigurację treningu.
 
 ### 10) Założenia i ograniczenia
 - ML (trening + inferencja) jest w Pythonie.
 - Solver to klasyczny backtracking (wystarczające dla sudoku).
-- Dane treningowe: preferowane publiczne (np. Kaggle) + opcjonalnie MNIST/EMNIST jako baseline.
+- Dane treningowe: preferowane publiczne (np. Kaggle) + opcjonalnie MNIST/EMNIST jako baseline / pretraining; finalne porównania jakości odnosimy do benchmarku Sudoku.
 - W UI dopuszczamy możliwość ręcznej korekty rozpoznanego gridu (zmniejsza ryzyko błędów CV/ML na demo).
 
 ### 11) Architektura (wariant ambitny)
@@ -276,18 +304,33 @@ Uwaga: nie ma wymogu trwałego zapisywania `recognized_grid`/`solved_grid` do pl
 - `warnings/errors: string[]` (jeśli pipeline niepewny lub przerwał)
 
 ### 12) Dane, trening i ewaluacja
-- **Źródła danych**: publiczny dataset sudoku (np. z Kaggle) + ewentualnie MNIST/EMNIST.
-- **Źródła obrazów wejściowych (demo/testy)**: dowolne zdjęcia użytkownika + zestaw przykładowy w `examples/` (np. własne zdjęcia/screeny) oraz/lub obrazy z datasetu (zgodnie z licencją).
-- **Walidacja i dopasowanie datasetu**: dataset z Kaggle może być już „wyprostowany”/wycięty (albo mieć inne warunki niż zdjęcia z telefonu), więc przed treningiem sprawdzamy format, czyścimy błędne próbki i dopasowujemy preprocessing/augmentacje do danych z inferencji.
-- **Preprocessing**:
+- **Źródła danych**: publiczny dataset sudoku (np. z Kaggle) + ewentualnie MNIST/EMNIST jako baseline / pretraining. Jeśli dataset sudoku zawiera etykiety planszy (np. grid 9×9), wykorzystujemy je do budowy zbioru komórek/cyfr do treningu klasyfikatora.
+- **Źródła obrazów wejściowych (demo / benchmark end-to-end)**: dowolne zdjęcia użytkownika + zestaw przykładowy w `examples/` (np. własne zdjęcia/screeny) oraz/lub obrazy z datasetu (zgodnie z licencją).
+- **Walidacja i dopasowanie datasetu**: dataset z Kaggle może być już „wyprostowany”/wycięty (albo mieć inne warunki niż zdjęcia z telefonu), więc przed treningiem sprawdzamy format, etykiety i jakość próbek, czyścimy błędne przypadki oraz dopasowujemy sposób generowania danych treningowych do tego, co model zobaczy później w inferencji.
+- **Preprocessing w ścieżce inferencji (`end-to-end`, runtime)**:
+  - wykrycie planszy,
+  - korekcja perspektywy,
+  - detekcja siatki / podział na 81 pól.
+- **Preprocessing wejścia klasyfikatora (trening + inferencja komórek)**:
+  - wycięcie / wyśrodkowanie cyfry w komórce, opcjonalne ignorowanie marginesów i czyszczenie pozostałości siatki,
   - standaryzacja obrazu cyfry do 28×28,
-  - normalizacja pikseli do [0, 1],
-  - augmentacje (rotacja ±10°, przesunięcie, kontrast, szum).
+  - binaryzacja / normalizacja pikseli do [0, 1].
+- **Augmentacje treningowe (opcjonalne / konfigurowalne)**:
+  - rotacja ±10°,
+  - przesunięcie,
+  - zmiana kontrastu,
+  - szum / lekkie rozmycie.
+- **Podział danych i benchmarki**:
+  - split wykonujemy na poziomie całych plansz przed ekstrakcją komórek, aby uniknąć przecieku danych między `train`, `val` i `test`,
+  - jeśli dataset dostarcza własny podział `train/test`, respektujemy go; `val` wydzielamy z `train`,
+  - porównania modeli wykonujemy na wspólnym, niezmiennym benchmarku / secie testowym Sudoku,
+  - `examples/` służy głównie do demo i testów `end-to-end`; nie jest jedynym ani głównym benchmarkiem klasyfikatora cyfr.
 - **Metryki**:
   - accuracy (global),
   - precision/recall/F1 (per klasa i średnie),
-  - confusion matrix.
-- **Porównanie**: model własny vs transfer learning (jakość, czas treningu, czas inferencji, złożoność wdrożenia).
+  - confusion matrix,
+  - czas treningu i czas inferencji (dla porównań wdrożeniowych).
+- **Porównanie**: baseline CNN vs transfer learning / fine-tuning (jakość, czas treningu, czas inferencji, złożoność wdrożenia) na wspólnym benchmarku Sudoku.
 
 ### 13) Ryzyka i sposoby ograniczenia
 - **R1: siatka „wchodzi” w cyfrę** → ignorowanie marginesów komórki + morfologia do usuwania linii.
@@ -296,7 +339,7 @@ Uwaga: nie ma wymogu trwałego zapisywania `recognized_grid`/`solved_grid` do pl
 - **R4: błędne rozpoznanie powoduje brak rozwiązania** → (opcjonalnie) korekta gridu w UI + logika walidacji wejścia przed solverem.
 - **R5: integracja C# ↔ Python (kontrakt/timeouty/błędy sieci)** → wersjonowanie endpointów, walidacja schematu wej./wyj., sensowne timeouty i logowanie.
 - **R6: brak / niska jakość obrazów do demo (lub rozjazd domeny danych)** → przygotować i wersjonować `examples/` (różne warunki), jasno opisać zakres (drukowane vs ręczne), umożliwić korektę rozpoznanego gridu.
-- **R7: rozjazd między danymi treningowymi (np. „czyste”/wyprostowane z Kaggle) a danymi z pipeline’u (siatka, perspektywa, blur)** → budować/uzupełniać trening o wycinki generowane własnym pipeline’em + augmentacje perspektywy/kontrastu/rozmycia i testować na `examples/`.
+- **R7: rozjazd między danymi treningowymi (np. „czyste”/wyprostowane z Kaggle) a danymi z pipeline’u (siatka, perspektywa, blur)** → budować/uzupełniać trening o wycinki generowane własnym pipeline’em + augmentacje perspektywy/kontrastu/rozmycia i testować zarówno na wspólnym benchmarku Sudoku, jak i `examples/` w scenariuszu end-to-end.
 
 ### 14) Kamienie milowe (propozycja)
 - **M1**: pipeline OpenCV (wykrycie + warp + cięcie) + solver backtracking.
