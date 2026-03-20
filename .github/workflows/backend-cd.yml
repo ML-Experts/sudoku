@@ -92,13 +92,13 @@ jobs:
 
           publish_dir = Path(os.environ["PUBLISH_DIR"])
           required_env_vars = [
-              "BE_ALLOWED_HOSTS",
               "BE_KESTREL_URL",
               "BE_ML_BASE_URL",
               "BE_ML_PING_PATH",
               "BE_ML_TIMEOUT_SECONDS",
           ]
           missing_env_vars = [name for name in required_env_vars if not os.environ.get(name)]
+          allowed_hosts = os.environ.get("BE_ALLOWED_HOSTS") or "*"
 
           if missing_env_vars:
               raise SystemExit(
@@ -121,7 +121,7 @@ jobs:
                       "Microsoft.AspNetCore": "Warning",
                   }
               },
-              "AllowedHosts": os.environ["BE_ALLOWED_HOSTS"],
+              "AllowedHosts": allowed_hosts,
               "Kestrel": {
                   "Endpoints": {
                       "Http": {

@@ -4,7 +4,7 @@ using Sudoku.Contracts;
 using Sudoku.Infrastructure.Ml;
 
 var builder = WebApplication.CreateBuilder(args);
-int i = 0;
+
 builder.Services
     .AddOptions<MlServiceOptions>()
     .BindConfiguration(MlServiceOptions.SectionName)
@@ -12,7 +12,7 @@ builder.Services
     .Validate(
         options => Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out _),
         $"{MlServiceOptions.SectionName}:BaseUrl must be an absolute URL.")
-    .ValidateOnStart();
+    .ValidateOnStart(); 
 
 builder.Services.AddHttpClient<IMlPingClient, MlPingClient>((serviceProvider, client) =>
 {
