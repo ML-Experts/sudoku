@@ -1,0 +1,152 @@
+name: backend-cd
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - closed
+    paths:
+      - 'src/Backend/**'
+      - '.github/workflows/backend-cd.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-production
+  cancel-in-progress: false
+
+env:
+  BACKEND_PROJECT_PATH: src/Backend/Sudoku/Sudoku/Sudoku.csproj
+  PUBLISH_DIR: artifacts/backend/publish
+
+jobs:
+  deploy-backend:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event.pull_request.merged == true &&
+        github.event.pull_request.base.ref == 'main' &&
+        github.event.pull_request.head.ref == 'dev'
+      )
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Prepare release metadata
+        shell: bash
+        run: echo "ARCHIVE_NAME=backend-${GITHUB_RUN_ID}-${GITHUB_SHA}.tar.gz" >> "$GITHUB_ENV"
+
+      - name: Restore backend
+        run: dotnet restore "$BACKEND_PROJECT_PATH"
+
+      - name: Build backend
+        run: dotnet build "$BACKEND_PROJECT_PATH" --configuration Release --no-restore
+
+      - name: Run backend tests if present
+        shell: bash
+        run: |
+          shopt -s globstar nullglob
+          test_projects=(src/Backend/**/*Tests.csproj)
+
+          if [ ${#test_projects[@]} -eq 0 ]; then
+            echo "No backend test projects found."
+            exit 0
+          fi
+
+          for project in "${test_projects[@]}"; do
+            dotnet test "$project" --configuration Release
+          done
+
+      - name: Publish backend
+        run: dotnet publish "$BACKEND_PROJECT_PATH" --configuration Release --no-build --output "$PUBLISH_DIR"
+
+      - name: Generate production appsettings.json
+        shell: bash
+        env:
+          BE_ALLOWED_HOSTS: ${{ secrets.BE_ALLOWED_HOSTS }}
+          BE_KESTREL_URL: ${{ secrets.BE_KESTREL_URL }}
+          BE_ML_BASE_URL: ${{ secrets.BE_ML_BASE_URL }}
+          BE_ML_PING_PATH: ${{ secrets.BE_ML_PING_PATH }}
+          BE_ML_TIMEOUT_SECONDS: ${{ secrets.BE_ML_TIMEOUT_SECONDS }}
+        run: |
+          rm -f "$PUBLISH_DIR"/appsettings*.json
+
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          publish_dir = Path(os.environ["PUBLISH_DIR"])
+          config = {
+              "Logging": {
+                  "LogLevel": {
+                      "Default": "Information",
+                      "Microsoft.AspNetCore": "Warning",
+                  }
+              },
+              "AllowedHosts": os.environ["BE_ALLOWED_HOSTS"],
+              "Kestrel": {
+                  "Endpoints": {
+                      "Http": {
+                          "Url": os.environ["BE_KESTREL_URL"],
+                      }
+                  }
+              },
+              "MlService": {
+                  "BaseUrl": os.environ["BE_ML_BASE_URL"],
+                  "PingPath": os.environ["BE_ML_PING_PATH"],
+                  "TimeoutSeconds": int(os.environ["BE_ML_TIMEOUT_SECONDS"]),
+              },
+          }
+
+          with (publish_dir / "appsettings.json").open("w", encoding="utf-8") as handle:
+              json.dump(config, handle, indent=2)
+          PY
+
+      - name: Package backend release
+        shell: bash
+        run: tar -czf "$ARCHIVE_NAME" -C "$PUBLISH_DIR" .
+
+      - name: Configure SSH access
+        shell: bash
+        env:
+          CD_SSH_PRIVATE_KEY: ${{ secrets.CD_SSH_PRIVATE_KEY }}
+          CD_SSH_KNOWN_HOSTS: ${{ secrets.CD_SSH_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s' "$CD_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$CD_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Upload backend release archive
+        shell: bash
+        env:
+          CD_SSH_HOST: ${{ secrets.CD_SSH_HOST }}
+          CD_SSH_PORT: ${{ secrets.CD_SSH_PORT }}
+          CD_SSH_USER: ${{ secrets.CD_SSH_USER }}
+          BE_RELEASES_DIR: ${{ secrets.BE_RELEASES_DIR }}
+        run: |
+          scp -P "$CD_SSH_PORT" "$ARCHIVE_NAME" \
+            "$CD_SSH_USER@$CD_SSH_HOST:$BE_RELEASES_DIR/$ARCHIVE_NAME"
+
+      - name: Promote backend release on server
+        shell: bash
+        env:
+          CD_SSH_HOST: ${{ secrets.CD_SSH_HOST }}
+          CD_SSH_PORT: ${{ secrets.CD_SSH_PORT }}
+          CD_SSH_USER: ${{ secrets.CD_SSH_USER }}
+          BE_DEPLOY_COMMAND: ${{ secrets.BE_DEPLOY_COMMAND }}
+        run: ssh -p "$CD_SSH_PORT" "$CD_SSH_USER@$CD_SSH_HOST" "$BE_DEPLOY_COMMAND"
