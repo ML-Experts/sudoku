@@ -25,14 +25,17 @@ env:
 jobs:
   deploy-backend:
     if: >
-      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event_name == 'workflow_dispatch' &&
+        github.ref_name == 'main'
+      ) ||
       (
         github.event.pull_request.merged == true &&
         github.event.pull_request.base.ref == 'main' &&
         github.event.pull_request.head.ref == 'dev'
       )
     runs-on: ubuntu-latest
-    environment: production
+    environment: main
 
     steps:
       - name: Checkout
@@ -88,6 +91,29 @@ jobs:
           from pathlib import Path
 
           publish_dir = Path(os.environ["PUBLISH_DIR"])
+          required_env_vars = [
+              "BE_ALLOWED_HOSTS",
+              "BE_KESTREL_URL",
+              "BE_ML_BASE_URL",
+              "BE_ML_PING_PATH",
+              "BE_ML_TIMEOUT_SECONDS",
+          ]
+          missing_env_vars = [name for name in required_env_vars if not os.environ.get(name)]
+
+          if missing_env_vars:
+              raise SystemExit(
+                  "Missing required backend deploy secrets: "
+                  + ", ".join(missing_env_vars)
+                  + ". Check the secrets configured for the selected GitHub environment."
+              )
+
+          try:
+              ml_timeout_seconds = int(os.environ["BE_ML_TIMEOUT_SECONDS"])
+          except ValueError as exc:
+              raise SystemExit(
+                  "BE_ML_TIMEOUT_SECONDS must be a non-empty integer."
+              ) from exc
+
           config = {
               "Logging": {
                   "LogLevel": {
@@ -106,7 +132,7 @@ jobs:
               "MlService": {
                   "BaseUrl": os.environ["BE_ML_BASE_URL"],
                   "PingPath": os.environ["BE_ML_PING_PATH"],
-                  "TimeoutSeconds": int(os.environ["BE_ML_TIMEOUT_SECONDS"]),
+                  "TimeoutSeconds": ml_timeout_seconds,
               },
           }
 
