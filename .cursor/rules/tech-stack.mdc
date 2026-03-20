@@ -22,7 +22,7 @@ alwaysApply: false
 - Transfer plików: `python-multipart` (jeśli użyjecie `multipart/form-data`)
 
 ## Backend (C#)
-- **.NET 8 (LTS)**, **ASP.NET Core Web API**
+- **.NET 10**, **ASP.NET Core Web API**
 - OpenAPI/Swagger: `Swashbuckle.AspNetCore`
 - Integracja z Pythonem: `HttpClient` / `IHttpClientFactory` (REST)
 

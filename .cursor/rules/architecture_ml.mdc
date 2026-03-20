@@ -1,3 +1,19 @@
 ---
-alwaysApply: true
+description: ML architecture — internal service, stateless-ish, externalized config
+globs: **/*.py
+alwaysApply: false
 ---
+
+# Architektura serwisu ML
+
+- Serwis ML jest wewnętrzną usługą używaną przez Backend; FE nie komunikuje się z nim bezpośrednio.
+- ML odpowiada za preprocess, inferencję, trening, ewaluację i artefakty techniczne procesu, ale nie jest systemowym `source of truth`.
+
+## Zasady
+- Handlery API mają być cienkie; logika CV/ML trafia do osobnych modułów / serwisów.
+- ML powinien być możliwie stateless z perspektywy stanu systemowego: wykonuje operacje i zwraca wynik, status, metryki oraz referencje do artefaktów.
+- ML nie utrzymuje niezależnego rejestru biznesowego datasetów, treningów ani aktywnego modelu; te decyzje należą do Backendu.
+- Jeśli ML zapisuje pliki, zapisuje tylko techniczne artefakty procesu (np. processed data, checkpointy, raporty, debug artifacts) w katalogach wskazanych przez konfigurację.
+- Nie hardcodujemy ścieżek typu `/opt/sudoku/...`, `data/raw`, `examples/`, `models/registry` ani adresów usług.
+- Konfiguracja serwisu ML pochodzi z jednego modułu ustawień opartego o `.env` / zmienne środowiskowe.
+- Katalogi systemowe (`data`, `examples`, `models`, `benchmark`, `trainings`, `tmp`) traktujemy jako zewnętrzną konfigurację, nie część kodu aplikacji.
