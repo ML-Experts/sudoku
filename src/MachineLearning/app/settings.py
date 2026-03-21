@@ -3,10 +3,13 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+RELEASE_DIR = Path(__file__).resolve().parents[1]
+ENV_FILE_PATH = RELEASE_DIR / ".env"
+
 
 class MlSettings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=str(ENV_FILE_PATH),
         env_file_encoding="utf-8",
         env_prefix="ML_",
         case_sensitive=False,
