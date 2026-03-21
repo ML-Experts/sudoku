@@ -152,9 +152,39 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          printf '%s' "$CD_SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          key = os.environ.get("CD_SSH_PRIVATE_KEY", "")
+
+          if not key.strip():
+              raise SystemExit("Missing CD_SSH_PRIVATE_KEY secret.")
+
+          key = key.strip()
+
+          if (key.startswith('"') and key.endswith('"')) or (key.startswith("'") and key.endswith("'")):
+              key = key[1:-1]
+
+          if "\\n" in key and "\n" not in key:
+              key = key.replace("\\n", "\n")
+
+          key = key.replace("\r", "")
+
+          key_path = Path.home() / ".ssh" / "id_ed25519"
+          key_path.write_text(key + "\n", encoding="utf-8")
+          PY
+
           chmod 600 ~/.ssh/id_ed25519
-          printf '%s\n' "$CD_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+          if ! ssh-keygen -y -f ~/.ssh/id_ed25519 > /dev/null 2>&1; then
+            echo "CD_SSH_PRIVATE_KEY is not a valid unencrypted SSH private key."
+            echo "Use the full private key contents in OpenSSH format, not the public key, not a PuTTY .ppk file, and not a passphrase-protected key."
+            exit 1
+          fi
+
+          printf '%s\n' "$CD_SSH_KNOWN_HOSTS" | tr -d '\r' > ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
       - name: Upload backend release archive
@@ -165,7 +195,7 @@ jobs:
           CD_SSH_USER: ${{ secrets.CD_SSH_USER }}
           BE_RELEASES_DIR: ${{ secrets.BE_RELEASES_DIR }}
         run: |
-          scp -P "$CD_SSH_PORT" "$ARCHIVE_NAME" \
+          scp -o BatchMode=yes -o IdentitiesOnly=yes -P "$CD_SSH_PORT" "$ARCHIVE_NAME" \
             "$CD_SSH_USER@$CD_SSH_HOST:$BE_RELEASES_DIR/$ARCHIVE_NAME"
 
       - name: Promote backend release on server
@@ -175,4 +205,4 @@ jobs:
           CD_SSH_PORT: ${{ secrets.CD_SSH_PORT }}
           CD_SSH_USER: ${{ secrets.CD_SSH_USER }}
           BE_DEPLOY_COMMAND: ${{ secrets.BE_DEPLOY_COMMAND }}
-        run: ssh -p "$CD_SSH_PORT" "$CD_SSH_USER@$CD_SSH_HOST" "$BE_DEPLOY_COMMAND"
+        run: ssh -o BatchMode=yes -o IdentitiesOnly=yes -p "$CD_SSH_PORT" "$CD_SSH_USER@$CD_SSH_HOST" "$BE_DEPLOY_COMMAND"
