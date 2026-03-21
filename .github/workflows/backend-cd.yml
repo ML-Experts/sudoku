@@ -78,10 +78,10 @@ jobs:
         shell: bash
         env:
           BE_ALLOWED_HOSTS: ${{ secrets.BE_ALLOWED_HOSTS }}
-          BE_KESTREL_URL: ${{ secrets.BE_KESTREL_URL }}
-          BE_ML_BASE_URL: ${{ secrets.BE_ML_BASE_URL }}
-          BE_ML_PING_PATH: ${{ secrets.BE_ML_PING_PATH }}
-          BE_ML_TIMEOUT_SECONDS: ${{ secrets.BE_ML_TIMEOUT_SECONDS }}
+          BE_KESTREL_URL: ${{ vars.BE_KESTREL_URL }}
+          BE_ML_BASE_URL: ${{ vars.BE_ML_BASE_URL }}
+          BE_ML_PING_PATH: ${{ vars.BE_ML_PING_PATH }}
+          BE_ML_TIMEOUT_SECONDS: ${{ vars.BE_ML_TIMEOUT_SECONDS }}
         run: |
           rm -f "$PUBLISH_DIR"/appsettings*.json
 
@@ -102,9 +102,9 @@ jobs:
 
           if missing_env_vars:
               raise SystemExit(
-                  "Missing required backend deploy secrets: "
+                  "Missing required backend deploy variables: "
                   + ", ".join(missing_env_vars)
-                  + ". Check the secrets configured for the selected GitHub environment."
+                  + ". Check the variables configured for the selected GitHub environment."
               )
 
           try:
@@ -193,7 +193,7 @@ jobs:
           CD_SSH_HOST: ${{ secrets.CD_SSH_HOST }}
           CD_SSH_PORT: ${{ secrets.CD_SSH_PORT }}
           CD_SSH_USER: ${{ secrets.CD_SSH_USER }}
-          BE_RELEASES_DIR: ${{ secrets.BE_RELEASES_DIR }}
+          BE_RELEASES_DIR: ${{ vars.BE_RELEASES_DIR }}
         run: |
           scp -o BatchMode=yes -o IdentitiesOnly=yes -P "$CD_SSH_PORT" "$ARCHIVE_NAME" \
             "$CD_SSH_USER@$CD_SSH_HOST:$BE_RELEASES_DIR/$ARCHIVE_NAME"
@@ -204,5 +204,5 @@ jobs:
           CD_SSH_HOST: ${{ secrets.CD_SSH_HOST }}
           CD_SSH_PORT: ${{ secrets.CD_SSH_PORT }}
           CD_SSH_USER: ${{ secrets.CD_SSH_USER }}
-          BE_DEPLOY_COMMAND: ${{ secrets.BE_DEPLOY_COMMAND }}
+          BE_DEPLOY_COMMAND: ${{ vars.BE_DEPLOY_COMMAND }}
         run: ssh -o BatchMode=yes -o IdentitiesOnly=yes -p "$CD_SSH_PORT" "$CD_SSH_USER@$CD_SSH_HOST" "$BE_DEPLOY_COMMAND"
