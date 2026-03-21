@@ -8,7 +8,6 @@ on:
       - closed
     paths:
       - 'src/Backend/**'
-      - '.github/workflows/backend-cd.yml'
   workflow_dispatch:
 
 permissions:
