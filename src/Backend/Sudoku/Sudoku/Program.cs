@@ -4,7 +4,7 @@ using Sudoku.Contracts;
 using Sudoku.Infrastructure.Ml;
 
 var builder = WebApplication.CreateBuilder(args);
-int i = 0;
+
 builder.Services
     .AddOptions<MlServiceOptions>()
     .BindConfiguration(MlServiceOptions.SectionName)
@@ -27,12 +27,13 @@ var app = builder.Build();
 app.MapGet("/api/ping", async (IMlPingClient mlPingClient, CancellationToken cancellationToken) =>
 {
     var mlPingResult = await mlPingClient.PingAsync(cancellationToken);
+    var message = $"Backend responded successfully. {mlPingResult.Message}";
 
     var response = new PingResponse(
         BackendStatus: "ok",
         MlStatus: mlPingResult.IsAvailable ? "ok" : "unavailable",
         TimestampUtc: DateTimeOffset.UtcNow,
-        Message: mlPingResult.IsAvailable ? "pong" : mlPingResult.Message);
+        Message: message);
 
     return mlPingResult.IsAvailable
         ? Results.Ok(response)

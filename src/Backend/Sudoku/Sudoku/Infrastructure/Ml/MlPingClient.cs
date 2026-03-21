@@ -30,7 +30,7 @@ public sealed class MlPingClient : IMlPingClient
                 return new MlPingResult(
                     IsAvailable: true,
                     StatusCode: response.StatusCode,
-                    Message: "ML service responded successfully.");
+                    Message: "Received pong from ML.");
             }
 
             _logger.LogWarning("ML ping returned status code {StatusCode}.", (int)response.StatusCode);
@@ -38,7 +38,7 @@ public sealed class MlPingClient : IMlPingClient
             return new MlPingResult(
                 IsAvailable: false,
                 StatusCode: response.StatusCode,
-                Message: $"ML service returned status code {(int)response.StatusCode}.");
+                Message: $"No pong from ML. ML service returned status code {(int)response.StatusCode}.");
         }
         catch (OperationCanceledException exception) when (!cancellationToken.IsCancellationRequested)
         {
@@ -47,7 +47,7 @@ public sealed class MlPingClient : IMlPingClient
             return new MlPingResult(
                 IsAvailable: false,
                 StatusCode: null,
-                Message: "ML service request timed out.");
+                Message: "No pong from ML. ML service request timed out.");
         }
         catch (HttpRequestException exception)
         {
@@ -56,7 +56,7 @@ public sealed class MlPingClient : IMlPingClient
             return new MlPingResult(
                 IsAvailable: false,
                 StatusCode: null,
-                Message: "ML service is unreachable.");
+                Message: "No pong from ML. ML service is unreachable.");
         }
     }
 }
