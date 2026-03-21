@@ -1,0 +1,201 @@
+name: ml-cd
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - closed
+    paths:
+      - 'src/MachineLearning/**'
+      - 'requirements.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ml-production
+  cancel-in-progress: false
+
+env:
+  ML_APP_SOURCE_DIR: src/MachineLearning/app
+  ML_REQUIREMENTS_PATH: requirements.txt
+  ML_RELEASE_DIR: artifacts/ml/release
+
+jobs:
+  deploy-ml:
+    if: >
+      (
+        github.event_name == 'workflow_dispatch' &&
+        github.ref_name == 'main'
+      ) ||
+      (
+        github.event.pull_request.merged == true &&
+        github.event.pull_request.base.ref == 'main' &&
+        github.event.pull_request.head.ref == 'dev'
+      )
+    runs-on: ubuntu-latest
+    environment: main
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Prepare release metadata
+        shell: bash
+        run: echo "ARCHIVE_NAME=ml-${GITHUB_RUN_ID}-${GITHUB_SHA}.tar.gz" >> "$GITHUB_ENV"
+
+      - name: Validate ML source syntax
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          source_dir = Path("src/MachineLearning/app")
+          python_files = sorted(source_dir.rglob("*.py"))
+
+          if not python_files:
+              raise SystemExit(f"No Python files found in {source_dir}.")
+
+          for path in python_files:
+              compile(path.read_text(encoding="utf-8"), str(path), "exec")
+
+          print(f"Validated syntax for {len(python_files)} Python files.")
+          PY
+
+      - name: Stage ML release files
+        shell: bash
+        run: |
+          rm -rf "$ML_RELEASE_DIR"
+          mkdir -p "$ML_RELEASE_DIR/app"
+          cp -R "$ML_APP_SOURCE_DIR"/. "$ML_RELEASE_DIR/app"
+          cp "$ML_REQUIREMENTS_PATH" "$ML_RELEASE_DIR/requirements.txt"
+
+      - name: Generate production .env
+        shell: bash
+        env:
+          ML_SERVICE_NAME: ${{ vars.ML_SERVICE_NAME }}
+          ML_SERVICE_VERSION: ${{ vars.ML_SERVICE_VERSION }}
+          ML_ENVIRONMENT: ${{ vars.ML_ENVIRONMENT }}
+          ML_PING_RESPONSE_MESSAGE: ${{ vars.ML_PING_RESPONSE_MESSAGE }}
+          ML_DATA_RAW_DIR: ${{ vars.ML_DATA_RAW_DIR }}
+          ML_DATA_PROCESSED_DIR: ${{ vars.ML_DATA_PROCESSED_DIR }}
+          ML_DATA_BENCHMARK_DIR: ${{ vars.ML_DATA_BENCHMARK_DIR }}
+          ML_MODELS_ACTIVE_DIR: ${{ vars.ML_MODELS_ACTIVE_DIR }}
+          ML_MODELS_REGISTRY_DIR: ${{ vars.ML_MODELS_REGISTRY_DIR }}
+          ML_TRAININGS_RUNS_DIR: ${{ vars.ML_TRAININGS_RUNS_DIR }}
+          ML_TRAININGS_REPORTS_DIR: ${{ vars.ML_TRAININGS_REPORTS_DIR }}
+          ML_TRAININGS_METADATA_DIR: ${{ vars.ML_TRAININGS_METADATA_DIR }}
+          ML_EXAMPLES_UPLOADS_DIR: ${{ vars.ML_EXAMPLES_UPLOADS_DIR }}
+          ML_EXAMPLES_GENERATED_DIR: ${{ vars.ML_EXAMPLES_GENERATED_DIR }}
+          ML_TMP_DIR: ${{ vars.ML_TMP_DIR }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          release_dir = Path(os.environ["ML_RELEASE_DIR"])
+          env_path = release_dir / ".env"
+
+          core_values = {
+              "ML_SERVICE_NAME": os.environ.get("ML_SERVICE_NAME") or "sudoku-ml",
+              "ML_SERVICE_VERSION": os.environ.get("ML_SERVICE_VERSION") or "0.1.0",
+              "ML_ENVIRONMENT": os.environ.get("ML_ENVIRONMENT") or "production",
+              "ML_PING_RESPONSE_MESSAGE": os.environ.get("ML_PING_RESPONSE_MESSAGE") or "pong",
+          }
+          optional_keys = [
+              "ML_DATA_RAW_DIR",
+              "ML_DATA_PROCESSED_DIR",
+              "ML_DATA_BENCHMARK_DIR",
+              "ML_MODELS_ACTIVE_DIR",
+              "ML_MODELS_REGISTRY_DIR",
+              "ML_TRAININGS_RUNS_DIR",
+              "ML_TRAININGS_REPORTS_DIR",
+              "ML_TRAININGS_METADATA_DIR",
+              "ML_EXAMPLES_UPLOADS_DIR",
+              "ML_EXAMPLES_GENERATED_DIR",
+              "ML_TMP_DIR",
+          ]
+
+          lines = [f"{key}={value}" for key, value in core_values.items()]
+
+          for key in optional_keys:
+              value = os.environ.get(key)
+              if value:
+                  lines.append(f"{key}={value}")
+
+          env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          PY
+
+      - name: Package ML release
+        shell: bash
+        run: tar -czf "$ARCHIVE_NAME" -C "$ML_RELEASE_DIR" .
+
+      - name: Configure SSH access
+        shell: bash
+        env:
+          CD_SSH_PRIVATE_KEY: ${{ secrets.CD_SSH_PRIVATE_KEY }}
+          CD_SSH_KNOWN_HOSTS: ${{ secrets.CD_SSH_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          key = os.environ.get("CD_SSH_PRIVATE_KEY", "")
+
+          if not key.strip():
+              raise SystemExit("Missing CD_SSH_PRIVATE_KEY secret.")
+
+          key = key.strip()
+
+          if (key.startswith('"') and key.endswith('"')) or (key.startswith("'") and key.endswith("'")):
+              key = key[1:-1]
+
+          if "\\n" in key and "\n" not in key:
+              key = key.replace("\\n", "\n")
+
+          key = key.replace("\r", "")
+
+          key_path = Path.home() / ".ssh" / "id_ed25519"
+          key_path.write_text(key + "\n", encoding="utf-8")
+          PY
+
+          chmod 600 ~/.ssh/id_ed25519
+
+          if ! ssh-keygen -y -f ~/.ssh/id_ed25519 > /dev/null 2>&1; then
+            echo "CD_SSH_PRIVATE_KEY is not a valid unencrypted SSH private key."
+            echo "Use the full private key contents in OpenSSH format, not the public key, not a PuTTY .ppk file, and not a passphrase-protected key."
+            exit 1
+          fi
+
+          printf '%s\n' "$CD_SSH_KNOWN_HOSTS" | tr -d '\r' > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Upload ML release archive
+        shell: bash
+        env:
+          CD_SSH_HOST: ${{ secrets.CD_SSH_HOST }}
+          CD_SSH_PORT: ${{ secrets.CD_SSH_PORT }}
+          CD_SSH_USER: ${{ secrets.CD_SSH_USER }}
+          ML_RELEASES_DIR: ${{ vars.ML_RELEASES_DIR }}
+        run: |
+          scp -o BatchMode=yes -o IdentitiesOnly=yes -P "$CD_SSH_PORT" "$ARCHIVE_NAME" \
+            "$CD_SSH_USER@$CD_SSH_HOST:$ML_RELEASES_DIR/$ARCHIVE_NAME"
+
+      - name: Promote ML release on server
+        shell: bash
+        env:
+          CD_SSH_HOST: ${{ secrets.CD_SSH_HOST }}
+          CD_SSH_PORT: ${{ secrets.CD_SSH_PORT }}
+          CD_SSH_USER: ${{ secrets.CD_SSH_USER }}
+          ML_DEPLOY_COMMAND: ${{ vars.ML_DEPLOY_COMMAND }}
+        run: ssh -o BatchMode=yes -o IdentitiesOnly=yes -p "$CD_SSH_PORT" "$CD_SSH_USER@$CD_SSH_HOST" "$ML_DEPLOY_COMMAND"
