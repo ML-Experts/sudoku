@@ -1,6 +1,6 @@
 ---
-description: ML architecture — internal service, stateless-ish, externalized config
-globs: **/*.py
+description: ML architecture — internal service, env flow, externalized runtime config
+globs: {src/MachineLearning/**/*,.github/workflows/ml-cd.yml}
 alwaysApply: false
 ---
 
@@ -10,10 +10,34 @@ alwaysApply: false
 - ML odpowiada za preprocess, inferencję, trening, ewaluację i artefakty techniczne procesu, ale nie jest systemowym `source of truth`.
 
 ## Zasady
-- Handlery API mają być cienkie; logika CV/ML trafia do osobnych modułów / serwisów.
+- Clean architecture ML jest podzielone na `api`, `application`, `infrastructure` i `models`.
+- `api` zawiera startup, kontrolery HTTP i modele API; `application` zawiera use case'y CQRS; `infrastructure` zawiera adaptery do bibliotek/systemu; `models` zawiera wyłącznie modele domenowe.
+- W `application` stosujemy układ feature-first, np. `application/features/runtime_status/queries/get_runtime_status/...`, zamiast jednego globalnego katalogu `queries` lub `commands`.
+- Nazwy mają być jawne: `..._query.py`, `..._query_handler.py`, `..._query_result_dto.py`, `..._command.py`, `..._command_handler.py`, `..._command_result_dto.py`.
 - ML powinien być możliwie stateless z perspektywy stanu systemowego: wykonuje operacje i zwraca wynik, status, metryki oraz referencje do artefaktów.
 - ML nie utrzymuje niezależnego rejestru biznesowego datasetów, treningów ani aktywnego modelu; te decyzje należą do Backendu.
-- Jeśli ML zapisuje pliki, zapisuje tylko techniczne artefakty procesu (np. processed data, checkpointy, raporty, debug artifacts) w katalogach wskazanych przez konfigurację.
-- Nie hardcodujemy ścieżek typu `/opt/sudoku/...`, `data/raw`, `examples/`, `models/registry` ani adresów usług.
-- Konfiguracja serwisu ML pochodzi z jednego modułu ustawień opartego o `.env` / zmienne środowiskowe.
+- Jeśli ML zapisuje pliki, zapisuje tylko techniczne artefakty procesu w katalogach wskazanych przez konfigurację.
+- Nie hardcodujemy runtimeowych ścieżek danych, modeli, treningów, przykładów ani adresów usług w kodzie aplikacji ML.
 - Katalogi systemowe (`data`, `examples`, `models`, `benchmark`, `trainings`, `tmp`) traktujemy jako zewnętrzną konfigurację, nie część kodu aplikacji.
+
+## Flow konfiguracji `.env`
+- Projektem startowym ML jest `src/MachineLearning/api`; to tam trzymamy `main.py`, pliki `.env*` i logikę ich scalania.
+- Jedynym źródłem konfiguracji runtime ML jest loader z `src/MachineLearning/api/config/environment.py`; nie przywracamy `settings.py` ani drugiego równoległego systemu ustawień.
+- `src/MachineLearning/api/.env` zawiera bazę i domyślne wartości wspólne; startowo `ML_ENVIRONMENT=local`.
+- `src/MachineLearning/api/.env.{ML_ENVIRONMENT}` zawiera overlay środowiskowy, np. `src/MachineLearning/api/.env.local` i `src/MachineLearning/api/.env.production`.
+- Runtime wybiera środowisko z już ustawionego `ML_ENVIRONMENT`, a jeśli go nie ma, bierze je z `.env`, a na końcu fallbackuje do `local`.
+- Runtime scala `.env` z `.env.{environment}`; overlay nadpisuje bazę, a istniejące już zmienne środowiskowe mają pierwszeństwo nad wartościami z plików.
+- Ścieżki runtime typu `data`, `examples`, `models`, `benchmark`, `trainings`, `tmp` trzymamy w `.env.{environment}`, nie w kodzie i nie w GitHub Variables.
+- Sekrety, jeśli będą potrzebne, wstrzykujemy jako zmienne środowiskowe z zewnątrz; nie commitujemy ich do `.env*`.
+
+## Zależności i modele
+- `application` nie zna warstwy `api` i nie używa modeli API.
+- `api/models` zawiera modele request/response HTTP.
+- `application/.../..._result_dto.py` zawiera DTO wychodzące z use case'ów.
+- `models` zawiera wyłącznie modele domenowe, bez modeli konfiguracji startupowej.
+- Adaptery typu zegar systemowy, provider wersji pakietu czy slugify umieszczamy w `infrastructure` i wstrzykujemy do handlerów przez DI.
+
+## Flow deployu ML
+- `.github/workflows/ml-cd.yml` pakuje całe `src/MachineLearning` do release `app/` oraz dołącza `requirements.txt`; nie generuje alternatywnego systemu konfiguracji dla runtime aplikacji.
+- Workflow ustawia w release `ML_ENVIRONMENT=production` w `app/api/.env` i dołącza odpowiadający overlay `app/api/.env.production`.
+- Zmienne techniczne CD, np. katalog release i komenda deployu, nie należą do `.env*`; są częścią workflow i infrastruktury serwera.

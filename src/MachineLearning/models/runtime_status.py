@@ -1,11 +1,9 @@
+from dataclasses import dataclass
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
 
-
-class RuntimeStatusResponse(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+@dataclass(frozen=True)
+class RuntimeStatus:
     status: str
     message: str
     service: str

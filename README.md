@@ -117,7 +117,7 @@ Docelowo: frontend web wysyła obraz do C# endpointu, a C# wywołuje serwis ML w
 Przykład:
 
 ```bash
-python -m src.ml.train --data-dir "data/..." --out-model "data/models/model.pt"
+python -m src.ml.train --data-dir "data/..." --out-models "data/models/model.pt"
 ```
 
 ---
