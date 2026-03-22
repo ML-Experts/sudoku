@@ -19,7 +19,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  ML_APP_SOURCE_DIR: src/MachineLearning/app
+  ML_SOURCE_DIR: src/MachineLearning
   ML_REQUIREMENTS_PATH: requirements.txt
   ML_RELEASE_DIR: artifacts/ml/release
   ML_ENVIRONMENT: production
@@ -58,9 +58,10 @@ jobs:
         shell: bash
         run: |
           python - <<'PY'
+          import os
           from pathlib import Path
 
-          source_dir = Path("src/MachineLearning/app")
+          source_dir = Path(os.environ["ML_SOURCE_DIR"])
           python_files = sorted(source_dir.rglob("*.py"))
 
           if not python_files:
@@ -77,7 +78,7 @@ jobs:
         run: |
           rm -rf "$ML_RELEASE_DIR"
           mkdir -p "$ML_RELEASE_DIR/app"
-          cp -R "$ML_APP_SOURCE_DIR"/. "$ML_RELEASE_DIR/app"
+          cp -R "$ML_SOURCE_DIR"/. "$ML_RELEASE_DIR/app"
           cp "$ML_REQUIREMENTS_PATH" "$ML_RELEASE_DIR/requirements.txt"
 
       - name: Prepare ML environment files
@@ -87,14 +88,14 @@ jobs:
           import os
           from pathlib import Path
 
-          release_app_dir = Path(os.environ["ML_RELEASE_DIR"]) / "app"
+          release_api_dir = Path(os.environ["ML_RELEASE_DIR"]) / "app" / "api"
           target_environment = os.environ["ML_ENVIRONMENT"].strip()
 
           if not target_environment:
               raise SystemExit("ML_ENVIRONMENT cannot be empty.")
 
-          base_env_path = release_app_dir / ".env"
-          overlay_env_path = release_app_dir / f".env.{target_environment}"
+          base_env_path = release_api_dir / ".env"
+          overlay_env_path = release_api_dir / f".env.{target_environment}"
 
           if not base_env_path.exists():
               raise SystemExit(f"Missing base environment file: {base_env_path}")
@@ -120,7 +121,9 @@ jobs:
               updated_lines.append(f"ML_ENVIRONMENT={target_environment}")
 
           base_env_path.write_text("\n".join(updated_lines) + "\n", encoding="utf-8")
-          print(f"Prepared app/.env to load app/.env.{target_environment} at runtime.")
+          print(
+              f"Prepared app/api/.env to load app/api/.env.{target_environment} at runtime."
+          )
           PY
 
       - name: Package ML release
