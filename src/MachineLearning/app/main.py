@@ -29,3 +29,4 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
+cos = 'nic'
