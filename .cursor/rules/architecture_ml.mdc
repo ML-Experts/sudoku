@@ -38,6 +38,6 @@ alwaysApply: false
 - Adaptery typu zegar systemowy, provider wersji pakietu czy slugify umieszczamy w `infrastructure` i wstrzykujemy do handlerów przez DI.
 
 ## Flow deployu ML
-- `.github/workflows/ml-cd.yml` pakuje całe `src/MachineLearning` do release `app/` oraz dołącza `requirements.txt`; nie generuje alternatywnego systemu konfiguracji dla runtime aplikacji.
-- Workflow ustawia w release `ML_ENVIRONMENT=production` w `app/api/.env` i dołącza odpowiadający overlay `app/api/.env.production`.
+- `.github/workflows/ml-cd.yml` pakuje całe `src/MachineLearning` do roota release'u ML oraz dołącza `requirements.txt`; nie generuje alternatywnego systemu konfiguracji dla runtime aplikacji.
+- Workflow ustawia w release `ML_ENVIRONMENT=production` w `api/.env` i dołącza odpowiadający overlay `api/.env.production`.
 - Zmienne techniczne CD, np. katalog release i komenda deployu, nie należą do `.env*`; są częścią workflow i infrastruktury serwera.

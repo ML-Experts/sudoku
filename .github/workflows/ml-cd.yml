@@ -77,8 +77,8 @@ jobs:
         shell: bash
         run: |
           rm -rf "$ML_RELEASE_DIR"
-          mkdir -p "$ML_RELEASE_DIR/app"
-          cp -R "$ML_SOURCE_DIR"/. "$ML_RELEASE_DIR/app"
+          mkdir -p "$ML_RELEASE_DIR"
+          cp -R "$ML_SOURCE_DIR"/. "$ML_RELEASE_DIR"
           cp "$ML_REQUIREMENTS_PATH" "$ML_RELEASE_DIR/requirements.txt"
 
       - name: Prepare ML environment files
@@ -88,7 +88,7 @@ jobs:
           import os
           from pathlib import Path
 
-          release_api_dir = Path(os.environ["ML_RELEASE_DIR"]) / "app" / "api"
+          release_api_dir = Path(os.environ["ML_RELEASE_DIR"]) / "api"
           target_environment = os.environ["ML_ENVIRONMENT"].strip()
 
           if not target_environment:
@@ -122,8 +122,30 @@ jobs:
 
           base_env_path.write_text("\n".join(updated_lines) + "\n", encoding="utf-8")
           print(
-              f"Prepared app/api/.env to load app/api/.env.{target_environment} at runtime."
+              f"Prepared api/.env to load api/.env.{target_environment} at runtime."
           )
+          PY
+
+      - name: Validate ML release entrypoint
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os
+          import sys
+          from pathlib import Path
+
+          release_dir = Path(os.environ["ML_RELEASE_DIR"])
+          sys.path.insert(0, str(release_dir))
+
+          if not (release_dir / "api" / "main.py").exists():
+              raise SystemExit("Missing api/main.py in prepared ML release.")
+
+          from api.main import app
+
+          if app is None:
+              raise SystemExit("ML release entrypoint api.main:app resolved to None.")
+
+          print("Validated ML release entrypoint api.main:app.")
           PY
 
       - name: Package ML release

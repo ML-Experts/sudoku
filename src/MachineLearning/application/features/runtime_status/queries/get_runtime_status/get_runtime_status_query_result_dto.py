@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-from MachineLearning.models.runtime_status import RuntimeStatus
+from models.runtime_status import RuntimeStatus
 
 
 @dataclass(frozen=True)

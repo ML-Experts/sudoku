@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 
-from MachineLearning.api.config.environment import load_runtime_environment
-from MachineLearning.api.controllers.runtime_status_controller import (
+from api.config.environment import load_runtime_environment
+from api.controllers.runtime_status_controller import (
     runtime_status_controller,
 )
 
