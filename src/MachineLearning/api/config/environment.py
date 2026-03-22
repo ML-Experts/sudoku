@@ -3,7 +3,7 @@ from pathlib import Path
 
 from dotenv import dotenv_values
 
-from MachineLearning.api.config.runtime_settings import RuntimeSettings
+from api.config.runtime_settings import RuntimeSettings
 
 API_DIR = Path(__file__).resolve().parents[1]
 DEFAULT_ENVIRONMENT = "local"

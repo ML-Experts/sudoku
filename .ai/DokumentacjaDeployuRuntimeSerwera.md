@@ -224,7 +224,7 @@ Workflow backendu musi:
 
 Warstwa ML używa:
 
-* `.env`
+* `api/.env`
 * `requirements.txt`
 
 Te pliki:
@@ -236,9 +236,9 @@ Te pliki:
 
 Workflow ML musi:
 
-* przygotować właściwy `.env` dla środowiska,
+* przygotować właściwy `api/.env` dla środowiska,
 * dostarczyć `requirements.txt`,
-* spakować kod aplikacji razem z `.env` i `requirements.txt`.
+* spakować kod aplikacji razem z `api/.env*` i `requirements.txt`.
 
 ## `/etc/sudoku`
 
@@ -396,7 +396,7 @@ Jeśli później konkretne biblioteki ML zostaną świadomie przetestowane i zaa
 ## Co workflow ML ma zrobić
 
 * przygotować kod aplikacji,
-* podstawić właściwy `.env`,
+* podstawić właściwy `api/.env`,
 * dołączyć `requirements.txt`,
 * spakować release do `.tar.gz`,
 * przesłać archiwum do `/opt/sudoku/releases/ml/`.
@@ -406,9 +406,12 @@ Jeśli później konkretne biblioteki ML zostaną świadomie przetestowane i zaa
 Przykładowy layout po rozpakowaniu:
 
 ```text
-app/
+api/
+application/
+infrastructure/
+models/
+main.py
 requirements.txt
-.env
 ```
 
 lub inny, jeśli zgadza się z `ExecStart` i ścieżkami w systemd.
@@ -645,7 +648,7 @@ Asystent generujący workflow, skrypty lub konfigurację ma przyjmować następu
 
 ## ML
 
-* kod + `.env` + `requirements.txt` w release
+* kod + `api/.env*` + `requirements.txt` w release
 * upload do `releases/ml`
 * deploy do `/opt/sudoku/ml`
 * `.venv` i `pip install -r requirements.txt` na serwerze

@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
-from MachineLearning.application.features.runtime_status.queries.get_runtime_status.get_runtime_status_query_result_dto import (
+from application.features.runtime_status.queries.get_runtime_status.get_runtime_status_query_result_dto import (
     GetRuntimeStatusQueryResultDto,
 )
 

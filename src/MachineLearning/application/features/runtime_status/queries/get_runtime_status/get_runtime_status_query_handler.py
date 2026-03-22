@@ -1,13 +1,13 @@
 from datetime import datetime
 from typing import Protocol
 
-from MachineLearning.application.features.runtime_status.queries.get_runtime_status.get_runtime_status_query import (
+from application.features.runtime_status.queries.get_runtime_status.get_runtime_status_query import (
     GetRuntimeStatusQuery,
 )
-from MachineLearning.application.features.runtime_status.queries.get_runtime_status.get_runtime_status_query_result_dto import (
+from application.features.runtime_status.queries.get_runtime_status.get_runtime_status_query_result_dto import (
     GetRuntimeStatusQueryResultDto,
 )
-from MachineLearning.models.runtime_status import RuntimeStatus
+from models.runtime_status import RuntimeStatus
 
 DEPENDENCY_NAME = "python-slugify"
 
