@@ -29,7 +29,7 @@ def _build_runtime_status_query(
     )
 
 
-@runtime_status_controller.get("/ping", response_model=RuntimeStatusResponseModel)
+@runtime_status_controller.get("/ping", response_model=str)
 async def get_ping() -> str:
     return "pong"
 
