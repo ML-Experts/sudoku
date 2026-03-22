@@ -23,6 +23,8 @@ env:
   ML_REQUIREMENTS_PATH: requirements.txt
   ML_RELEASE_DIR: artifacts/ml/release
   ML_ENVIRONMENT: production
+  ML_RELEASES_DIR: /opt/sudoku/releases/ml
+  ML_DEPLOY_COMMAND: sudo /opt/sudoku/scripts/deploy_ml.sh
 
 jobs:
   deploy-ml:
@@ -174,7 +176,6 @@ jobs:
           CD_SSH_HOST: ${{ secrets.CD_SSH_HOST }}
           CD_SSH_PORT: ${{ secrets.CD_SSH_PORT }}
           CD_SSH_USER: ${{ secrets.CD_SSH_USER }}
-          ML_RELEASES_DIR: ${{ vars.ML_RELEASES_DIR }}
         run: |
           scp -o BatchMode=yes -o IdentitiesOnly=yes -P "$CD_SSH_PORT" "$ARCHIVE_NAME" \
             "$CD_SSH_USER@$CD_SSH_HOST:$ML_RELEASES_DIR/$ARCHIVE_NAME"
@@ -185,5 +186,4 @@ jobs:
           CD_SSH_HOST: ${{ secrets.CD_SSH_HOST }}
           CD_SSH_PORT: ${{ secrets.CD_SSH_PORT }}
           CD_SSH_USER: ${{ secrets.CD_SSH_USER }}
-          ML_DEPLOY_COMMAND: ${{ vars.ML_DEPLOY_COMMAND }}
         run: ssh -o BatchMode=yes -o IdentitiesOnly=yes -p "$CD_SSH_PORT" "$CD_SSH_USER@$CD_SSH_HOST" "$ML_DEPLOY_COMMAND"
