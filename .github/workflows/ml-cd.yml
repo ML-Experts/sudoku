@@ -77,7 +77,7 @@ jobs:
           cp -R "$ML_APP_SOURCE_DIR"/. "$ML_RELEASE_DIR/app"
           cp "$ML_REQUIREMENTS_PATH" "$ML_RELEASE_DIR/requirements.txt"
 
-      - name: Generate production .env
+      - name: Generate runtime override .env
         shell: bash
         env:
           ML_SERVICE_NAME: ${{ vars.ML_SERVICE_NAME }}
@@ -102,14 +102,12 @@ jobs:
 
           release_dir = Path(os.environ["ML_RELEASE_DIR"])
           env_path = release_dir / ".env"
+          target_environment = os.environ.get("ML_ENVIRONMENT") or "production"
 
-          core_values = {
-              "ML_SERVICE_NAME": os.environ.get("ML_SERVICE_NAME") or "sudoku-ml",
-              "ML_SERVICE_VERSION": os.environ.get("ML_SERVICE_VERSION") or "0.1.0",
-              "ML_ENVIRONMENT": os.environ.get("ML_ENVIRONMENT") or "production",
-              "ML_PING_RESPONSE_MESSAGE": os.environ.get("ML_PING_RESPONSE_MESSAGE") or "pong",
-          }
-          optional_keys = [
+          override_keys = [
+              "ML_SERVICE_NAME",
+              "ML_SERVICE_VERSION",
+              "ML_PING_RESPONSE_MESSAGE",
               "ML_DATA_RAW_DIR",
               "ML_DATA_PROCESSED_DIR",
               "ML_DATA_BENCHMARK_DIR",
@@ -123,9 +121,9 @@ jobs:
               "ML_TMP_DIR",
           ]
 
-          lines = [f"{key}={value}" for key, value in core_values.items()]
+          lines = [f"ML_ENVIRONMENT={target_environment}"]
 
-          for key in optional_keys:
+          for key in override_keys:
               value = os.environ.get(key)
               if value:
                   lines.append(f"{key}={value}")

@@ -1,4 +1,4 @@
 fastapi
-pydantic-settings
+python-dotenv
 python-slugify
 uvicorn
