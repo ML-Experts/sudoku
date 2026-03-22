@@ -15,7 +15,7 @@ def load_runtime_environment() -> RuntimeSettings:
         for key, value in dotenv_values(API_DIR / ".env").items()
         if value is not None
     }
-
+    cos = 'nic'
     environment_name = (
         os.getenv("ML_ENVIRONMENT")
         or base_values.get("ML_ENVIRONMENT")
