@@ -22,6 +22,7 @@ env:
   ML_APP_SOURCE_DIR: src/MachineLearning/app
   ML_REQUIREMENTS_PATH: requirements.txt
   ML_RELEASE_DIR: artifacts/ml/release
+  ML_ENVIRONMENT: production
 
 jobs:
   deploy-ml:
@@ -77,58 +78,47 @@ jobs:
           cp -R "$ML_APP_SOURCE_DIR"/. "$ML_RELEASE_DIR/app"
           cp "$ML_REQUIREMENTS_PATH" "$ML_RELEASE_DIR/requirements.txt"
 
-      - name: Generate runtime override .env
+      - name: Prepare ML environment files
         shell: bash
-        env:
-          ML_SERVICE_NAME: ${{ vars.ML_SERVICE_NAME }}
-          ML_SERVICE_VERSION: ${{ vars.ML_SERVICE_VERSION }}
-          ML_ENVIRONMENT: ${{ vars.ML_ENVIRONMENT }}
-          ML_PING_RESPONSE_MESSAGE: ${{ vars.ML_PING_RESPONSE_MESSAGE }}
-          ML_DATA_RAW_DIR: ${{ vars.ML_DATA_RAW_DIR }}
-          ML_DATA_PROCESSED_DIR: ${{ vars.ML_DATA_PROCESSED_DIR }}
-          ML_DATA_BENCHMARK_DIR: ${{ vars.ML_DATA_BENCHMARK_DIR }}
-          ML_MODELS_ACTIVE_DIR: ${{ vars.ML_MODELS_ACTIVE_DIR }}
-          ML_MODELS_REGISTRY_DIR: ${{ vars.ML_MODELS_REGISTRY_DIR }}
-          ML_TRAININGS_RUNS_DIR: ${{ vars.ML_TRAININGS_RUNS_DIR }}
-          ML_TRAININGS_REPORTS_DIR: ${{ vars.ML_TRAININGS_REPORTS_DIR }}
-          ML_TRAININGS_METADATA_DIR: ${{ vars.ML_TRAININGS_METADATA_DIR }}
-          ML_EXAMPLES_UPLOADS_DIR: ${{ vars.ML_EXAMPLES_UPLOADS_DIR }}
-          ML_EXAMPLES_GENERATED_DIR: ${{ vars.ML_EXAMPLES_GENERATED_DIR }}
-          ML_TMP_DIR: ${{ vars.ML_TMP_DIR }}
         run: |
           python - <<'PY'
           import os
           from pathlib import Path
 
-          release_dir = Path(os.environ["ML_RELEASE_DIR"])
-          env_path = release_dir / ".env"
-          target_environment = os.environ.get("ML_ENVIRONMENT") or "production"
+          release_app_dir = Path(os.environ["ML_RELEASE_DIR"]) / "app"
+          target_environment = os.environ["ML_ENVIRONMENT"].strip()
 
-          override_keys = [
-              "ML_SERVICE_NAME",
-              "ML_SERVICE_VERSION",
-              "ML_PING_RESPONSE_MESSAGE",
-              "ML_DATA_RAW_DIR",
-              "ML_DATA_PROCESSED_DIR",
-              "ML_DATA_BENCHMARK_DIR",
-              "ML_MODELS_ACTIVE_DIR",
-              "ML_MODELS_REGISTRY_DIR",
-              "ML_TRAININGS_RUNS_DIR",
-              "ML_TRAININGS_REPORTS_DIR",
-              "ML_TRAININGS_METADATA_DIR",
-              "ML_EXAMPLES_UPLOADS_DIR",
-              "ML_EXAMPLES_GENERATED_DIR",
-              "ML_TMP_DIR",
-          ]
+          if not target_environment:
+              raise SystemExit("ML_ENVIRONMENT cannot be empty.")
 
-          lines = [f"ML_ENVIRONMENT={target_environment}"]
+          base_env_path = release_app_dir / ".env"
+          overlay_env_path = release_app_dir / f".env.{target_environment}"
 
-          for key in override_keys:
-              value = os.environ.get(key)
-              if value:
-                  lines.append(f"{key}={value}")
+          if not base_env_path.exists():
+              raise SystemExit(f"Missing base environment file: {base_env_path}")
 
-          env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          if not overlay_env_path.exists():
+              raise SystemExit(
+                  f"Missing environment overlay file for '{target_environment}': {overlay_env_path}"
+              )
+
+          base_lines = base_env_path.read_text(encoding="utf-8").splitlines()
+          updated_lines: list[str] = []
+          replaced_environment = False
+
+          for line in base_lines:
+              if line.startswith("ML_ENVIRONMENT="):
+                  updated_lines.append(f"ML_ENVIRONMENT={target_environment}")
+                  replaced_environment = True
+                  continue
+
+              updated_lines.append(line)
+
+          if not replaced_environment:
+              updated_lines.append(f"ML_ENVIRONMENT={target_environment}")
+
+          base_env_path.write_text("\n".join(updated_lines) + "\n", encoding="utf-8")
+          print(f"Prepared app/.env to load app/.env.{target_environment} at runtime.")
           PY
 
       - name: Package ML release
