@@ -1,0 +1,148 @@
+name: frontend-cd
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - closed
+    paths:
+      - 'src/Frontend/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frontend-production
+  cancel-in-progress: false
+
+env:
+  FRONTEND_DIR: src/Frontend
+  FRONTEND_DIST_DIR: src/Frontend/dist
+
+jobs:
+  deploy-frontend:
+    if: >
+      (
+        github.event_name == 'workflow_dispatch' &&
+        github.ref_name == 'main'
+      ) ||
+      (
+        github.event.pull_request.merged == true &&
+        github.event.pull_request.base.ref == 'main' &&
+        github.event.pull_request.head.ref == 'dev'
+      )
+    runs-on: ubuntu-latest
+    environment: main
+    env:
+      FE_VITE_API_BASE_URL: ${{ vars.FE_VITE_API_BASE_URL }}
+      FE_RELEASES_DIR: ${{ vars.FE_RELEASES_DIR }}
+      FE_DEPLOY_COMMAND: ${{ vars.FE_DEPLOY_COMMAND }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Validate main environment variables
+        shell: bash
+        run: |
+          if [ -z "$FE_RELEASES_DIR" ]; then
+            echo "Missing FE_RELEASES_DIR variable for the selected GitHub environment."
+            exit 1
+          fi
+
+          if [ -z "$FE_DEPLOY_COMMAND" ]; then
+            echo "Missing FE_DEPLOY_COMMAND variable for the selected GitHub environment."
+            exit 1
+          fi
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Prepare release metadata
+        shell: bash
+        run: echo "ARCHIVE_NAME=frontend-${GITHUB_RUN_ID}-${GITHUB_SHA}.tar.gz" >> "$GITHUB_ENV"
+
+      - name: Install frontend dependencies
+        working-directory: ${{ env.FRONTEND_DIR }}
+        run: npm install
+
+      - name: Build frontend
+        working-directory: ${{ env.FRONTEND_DIR }}
+        run: VITE_API_BASE_URL="${FE_VITE_API_BASE_URL:-/api}" npm run build
+
+      - name: Validate frontend release layout
+        shell: bash
+        run: |
+          if [ ! -f "$FRONTEND_DIST_DIR/index.html" ]; then
+            echo "Frontend build is missing dist/index.html."
+            exit 1
+          fi
+
+      - name: Package frontend release
+        shell: bash
+        run: tar -czf "$ARCHIVE_NAME" -C "$FRONTEND_DIST_DIR" .
+
+      - name: Configure SSH access
+        shell: bash
+        env:
+          CD_SSH_PRIVATE_KEY: ${{ secrets.CD_SSH_PRIVATE_KEY }}
+          CD_SSH_KNOWN_HOSTS: ${{ secrets.CD_SSH_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          key = os.environ.get("CD_SSH_PRIVATE_KEY", "")
+
+          if not key.strip():
+              raise SystemExit("Missing CD_SSH_PRIVATE_KEY secret.")
+
+          key = key.strip()
+
+          if (key.startswith('"') and key.endswith('"')) or (key.startswith("'") and key.endswith("'")):
+              key = key[1:-1]
+
+          if "\\n" in key and "\n" not in key:
+              key = key.replace("\\n", "\n")
+
+          key = key.replace("\r", "")
+
+          key_path = Path.home() / ".ssh" / "id_ed25519"
+          key_path.write_text(key + "\n", encoding="utf-8")
+          PY
+
+          chmod 600 ~/.ssh/id_ed25519
+
+          if ! ssh-keygen -y -f ~/.ssh/id_ed25519 > /dev/null 2>&1; then
+            echo "CD_SSH_PRIVATE_KEY is not a valid unencrypted SSH private key."
+            echo "Use the full private key contents in OpenSSH format, not the public key, not a PuTTY .ppk file, and not a passphrase-protected key."
+            exit 1
+          fi
+
+          printf '%s\n' "$CD_SSH_KNOWN_HOSTS" | tr -d '\r' > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Upload frontend release archive
+        shell: bash
+        env:
+          CD_SSH_HOST: ${{ secrets.CD_SSH_HOST }}
+          CD_SSH_PORT: ${{ secrets.CD_SSH_PORT }}
+          CD_SSH_USER: ${{ secrets.CD_SSH_USER }}
+        run: |
+          scp -o BatchMode=yes -o IdentitiesOnly=yes -P "$CD_SSH_PORT" "$ARCHIVE_NAME" \
+            "$CD_SSH_USER@$CD_SSH_HOST:$FE_RELEASES_DIR/$ARCHIVE_NAME"
+
+      - name: Promote frontend release on server
+        shell: bash
+        env:
+          CD_SSH_HOST: ${{ secrets.CD_SSH_HOST }}
+          CD_SSH_PORT: ${{ secrets.CD_SSH_PORT }}
+          CD_SSH_USER: ${{ secrets.CD_SSH_USER }}
+        run: ssh -o BatchMode=yes -o IdentitiesOnly=yes -p "$CD_SSH_PORT" "$CD_SSH_USER@$CD_SSH_HOST" "$FE_DEPLOY_COMMAND"

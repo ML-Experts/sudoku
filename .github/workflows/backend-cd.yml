@@ -8,6 +8,9 @@ on:
       - closed
     paths:
       - 'src/Backend/**'
+      - '!src/Backend/**/bin/**'
+      - '!src/Backend/**/obj/**'
+      - '!src/Backend/**/.vs/**'
   workflow_dispatch:
 
 permissions:
@@ -35,10 +38,26 @@ jobs:
       )
     runs-on: ubuntu-latest
     environment: main
+    env:
+      BE_RELEASES_DIR: ${{ vars.BE_RELEASES_DIR }}
+      BE_DEPLOY_COMMAND: ${{ vars.BE_DEPLOY_COMMAND }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Validate main environment variables
+        shell: bash
+        run: |
+          if [ -z "$BE_RELEASES_DIR" ]; then
+            echo "Missing BE_RELEASES_DIR variable for the selected GitHub environment."
+            exit 1
+          fi
+
+          if [ -z "$BE_DEPLOY_COMMAND" ]; then
+            echo "Missing BE_DEPLOY_COMMAND variable for the selected GitHub environment."
+            exit 1
+          fi
 
       - name: Setup .NET 10
         uses: actions/setup-dotnet@v5
@@ -192,7 +211,6 @@ jobs:
           CD_SSH_HOST: ${{ secrets.CD_SSH_HOST }}
           CD_SSH_PORT: ${{ secrets.CD_SSH_PORT }}
           CD_SSH_USER: ${{ secrets.CD_SSH_USER }}
-          BE_RELEASES_DIR: ${{ vars.BE_RELEASES_DIR }}
         run: |
           scp -o BatchMode=yes -o IdentitiesOnly=yes -P "$CD_SSH_PORT" "$ARCHIVE_NAME" \
             "$CD_SSH_USER@$CD_SSH_HOST:$BE_RELEASES_DIR/$ARCHIVE_NAME"
@@ -203,5 +221,4 @@ jobs:
           CD_SSH_HOST: ${{ secrets.CD_SSH_HOST }}
           CD_SSH_PORT: ${{ secrets.CD_SSH_PORT }}
           CD_SSH_USER: ${{ secrets.CD_SSH_USER }}
-          BE_DEPLOY_COMMAND: ${{ vars.BE_DEPLOY_COMMAND }}
         run: ssh -o BatchMode=yes -o IdentitiesOnly=yes -p "$CD_SSH_PORT" "$CD_SSH_USER@$CD_SSH_HOST" "$BE_DEPLOY_COMMAND"
