@@ -9,6 +9,7 @@ from api.controllers.runtime_status_controller import (
 def create_app() -> FastAPI:
     runtime_settings = load_runtime_environment()
 
+    i = 0
     app = FastAPI(
         title=runtime_settings.service_name,
         version=runtime_settings.service_version,
