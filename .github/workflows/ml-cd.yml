@@ -23,8 +23,6 @@ env:
   ML_REQUIREMENTS_PATH: requirements.txt
   ML_RELEASE_DIR: artifacts/ml/release
   ML_ENVIRONMENT: production
-  ML_RELEASES_DIR: /opt/sudoku/releases/ml
-  ML_DEPLOY_COMMAND: sudo /opt/sudoku/scripts/deploy_ml.sh
 
 jobs:
   deploy-ml:
@@ -40,10 +38,26 @@ jobs:
       )
     runs-on: ubuntu-latest
     environment: main
+    env:
+      ML_RELEASES_DIR: ${{ vars.ML_RELEASES_DIR }}
+      ML_DEPLOY_COMMAND: ${{ vars.ML_DEPLOY_COMMAND }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Validate main environment variables
+        shell: bash
+        run: |
+          if [ -z "$ML_RELEASES_DIR" ]; then
+            echo "Missing ML_RELEASES_DIR variable for the selected GitHub environment."
+            exit 1
+          fi
+
+          if [ -z "$ML_DEPLOY_COMMAND" ]; then
+            echo "Missing ML_DEPLOY_COMMAND variable for the selected GitHub environment."
+            exit 1
+          fi
 
       - name: Setup Python 3.12
         uses: actions/setup-python@v6
