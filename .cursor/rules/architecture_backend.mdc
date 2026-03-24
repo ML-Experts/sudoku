@@ -13,7 +13,7 @@ alwaysApply: false
 - `Models/` — modele domenowe / DTO bez zależności na HTTP, pliki, ML client.
 - `Application/` — use-case’y, walidacje, orkiestracja, interfejsy portów.
 - `Infrastructure/` — implementacje portów: file storage, ML service client, persistence, integracje systemowe.
-- `Api/` lub `Interface/` — kontrolery HTTP, request/response, composition root, konfiguracja.
+- `Api/` — kontrolery HTTP, request/response, composition root, konfiguracja.
 
 ## Zasady
 - Zależności idą do środka: `Api/Interface -> Application -> Models`; `Infrastructure` implementuje porty z `Application`.
