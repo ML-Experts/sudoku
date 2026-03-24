@@ -4,7 +4,7 @@ using Sudoku.Contracts;
 using Sudoku.Infrastructure.Ml;
 
 var builder = WebApplication.CreateBuilder(args);
-
+int i = 0;
 builder.Services
     .AddOptions<MlServiceOptions>()
     .BindConfiguration(MlServiceOptions.SectionName)
