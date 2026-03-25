@@ -1,0 +1,18 @@
+---
+description: Backend C# naming and style conventions
+globs: src/Backend/**/*.cs
+alwaysApply: false
+---
+
+# Styl C# Backend
+
+- W kodzie C# używamy `PascalCase` dla klas, rekordów, interfejsów, enumów, metod publicznych i właściwości.
+- Parametry metod i zmienne lokalne mają nazwy w `camelCase`.
+- Prywatne pola mają nazwy w `_camelCase`.
+- Metody asynchroniczne kończą się sufiksem `Async`.
+- Modele HTTP wejściowe mają sufiks `ApiEntry`, a modele HTTP wyjściowe mają sufiks `ApiResponse`.
+- Modele warstwy `Application` i DTO use case'ów mają sufiks `Dto`.
+- Nie używamy sufiksu `Dto` dla modeli API wystawianych przez HTTP.
+- Typy konfiguracyjne nazywamy jawnie, np. `...Options`.
+- Kontrolery i endpointy pozostają cienkie; logika trafia do `Application`.
+- Publiczny JSON API używa kluczy w `camelCase`.

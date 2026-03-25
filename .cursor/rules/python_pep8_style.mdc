@@ -1,0 +1,21 @@
+---
+description: Python PEP 8 style for ML service
+globs: src/MachineLearning/**/*.py
+alwaysApply: false
+---
+
+# Styl Python / PEP 8
+
+- Kod Pythona ma być zgodny z `PEP 8`.
+- Używamy 4 spacji do wcięć i nie używamy tabów.
+- Funkcje, zmienne i metody mają nazwy w `snake_case`.
+- Moduły i pliki `.py` mają nazwy w `snake_case`.
+- Klasy mają nazwy w `PascalCase`.
+- Stałe mają nazwy w `UPPER_SNAKE_CASE`.
+- Modele HTTP wejściowe mają sufiks `ApiEntry`, a modele HTTP wyjściowe mają sufiks `ApiResponse`.
+- DTO warstwy aplikacyjnej mają sufiks `Dto`.
+- Nie używamy sufiksu `Dto` dla modeli API wystawianych przez HTTP.
+- Importy grupujemy w kolejności: standard library, third-party, local modules.
+- Komentarze wyjaśniają „dlaczego”, a nie oczywiste „co”.
+- Jeśli używany jest `Black`, dopuszczalna różnica względem `PEP 8` dotyczy tylko długości linii; przyjmujemy limit `88` znaków.
+- Publiczny JSON API używa kluczy w `camelCase`.
