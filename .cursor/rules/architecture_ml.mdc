@@ -20,6 +20,15 @@ alwaysApply: false
 - Nie hardcodujemy runtimeowych ścieżek danych, modeli, treningów, przykładów ani adresów usług w kodzie aplikacji ML.
 - Katalogi systemowe (`data`, `examples`, `models`, `benchmark`, `trainings`, `tmp`) traktujemy jako zewnętrzną konfigurację, nie część kodu aplikacji.
 
+## Styl
+- Kod Pythona w serwisie ML jest zgodny z `PEP 8`.
+- Używamy `snake_case` dla funkcji, zmiennych i metod.
+- Moduły i pliki `.py` również mają nazwy w `snake_case`.
+- Klasy mają nazwy w `PascalCase`, a stałe w `UPPER_SNAKE_CASE`.
+- Jeśli używany jest formatter `Black`, dopuszczalna różnica względem domyślnego `PEP 8` dotyczy tylko długości linii; przyjmujemy limit `88` znaków.
+- Publiczne payloady JSON wystawiane przez ML używają kluczy w `camelCase`.
+- Modele HTTP wejściowe mają sufiks `ApiEntry`, modele HTTP wyjściowe mają sufiks `ApiResponse`, a DTO warstwy aplikacyjnej mają sufiks `Dto`.
+
 ## Flow konfiguracji `.env`
 - Projektem startowym ML jest `src/MachineLearning/api`; to tam trzymamy `main.py`, pliki `.env*` i logikę ich scalania.
 - Jedynym źródłem konfiguracji runtime ML jest loader z `src/MachineLearning/api/config/environment.py`; nie przywracamy `settings.py` ani drugiego równoległego systemu ustawień.

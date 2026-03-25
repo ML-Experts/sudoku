@@ -24,3 +24,9 @@ alwaysApply: false
 - Nie hardcodujemy ścieżek serwerowych typu `/opt/sudoku/...` ani nazw katalogów danych w klasach i use-case’ach.
 - Dostęp do konfiguracji realizujemy przez typed options / dedykowane obiekty konfiguracji, a nie przez rozproszone `Environment.GetEnvironmentVariable()`.
 
+## Styl
+- W kodzie C# używamy `PascalCase` dla klas, rekordów, interfejsów, enumów, metod publicznych i właściwości.
+- Parametry metod i zmienne lokalne mają nazwy w `camelCase`, a prywatne pola w `_camelCase`.
+- Publiczne payloady JSON wystawiane przez Backend używają kluczy w `camelCase`, nawet jeśli kod C# używa nazw w `PascalCase`.
+- Modele HTTP wejściowe mają sufiks `ApiEntry`, modele HTTP wyjściowe mają sufiks `ApiResponse`, a DTO warstwy aplikacyjnej mają sufiks `Dto`.
+

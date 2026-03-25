@@ -146,18 +146,19 @@ Uwaga organizacyjna:
   - Formularz uploadu pliku (jpg/png) do biblioteki przykładów.
   - Informacja o powodzeniu/błędzie uploadu.
 - **BE**:
-  - Endpoint do uploadu przykładu (np. `POST /api/examples`) + walidacja typu/rozmiaru.
-  - Zapis pliku i metadanych (nazwa, data, rozmiar, ewentualnie tagi) w magazynie.
+  - Endpoint do uploadu przykładu `POST /api/examples` + walidacja typu/rozmiaru.
+  - Zapis pliku w magazynie pod kanoniczną nazwą `name` oraz zwrot podstawowych metadanych pliku (`name`, `contentType`, `sizeBytes`, `storedAtUtc`).
 - **ML**:
   - — (nie wymagane na tym etapie).
   - **AC**:
-    - Plik po uploadzie jest dostępny na liście (UC-02) i możliwy do pobrania (UC-03).
+    - Plik po uploadzie jest dostępny na liście (UC-02), możliwy do pobrania (UC-03) i użycia w preprocessingu (UC-04).
 
 #### UC-02 — „Lista dostępnych przykładów sudoku”
 - **FE**:
   - Widok listy (nazwa, miniatura/ikona, data dodania, przyciski: pobierz / wybierz do przetworzenia).
 - **BE**:
-  - Endpoint listujący przykłady (np. `GET /api/examples`) zwracający metadane i identyfikatory.
+  - Endpoint `GET /api/examples` zwracający listę plików przykładowych i ich podstawowe metadane (`name`, `contentType`, `sizeBytes`, `storedAtUtc`).
+  - Źródłem danych dla listy jest magazyn plików `examples`, bez dodatkowego trwałego rejestru rekordów examples.
 - **ML**:
   - —.
   - **AC**:
@@ -167,7 +168,7 @@ Uwaga organizacyjna:
 - **FE**:
   - Akcja „Pobierz” dla wybranego przykładu.
 - **BE**:
-  - Endpoint zwracający plik (np. `GET /api/examples/{id}/download`).
+  - Endpoint zwracający plik `GET /api/examples/{name}/download`.
 - **ML**:
   - —.
   - **AC**:
@@ -175,21 +176,29 @@ Uwaga organizacyjna:
 
 #### UC-04 — „Wybierz przykład do przetworzenia i wykonaj wstępną obróbkę”
 - **FE**:
-  - Akcja „Wybierz do rozwiązania” + podgląd wyniku wstępnej obróbki (np. wyprostowana plansza / siatka / status).
+  - Pobranie wybranego obrazu przykładowego do podglądu przez `GET /api/examples/{name}`.
+  - Akcja „Wykryj planszę”, która uruchamia etap 1 preprocessingu i prezentuje obraz po korekcji perspektywy.
+  - Akcja „Podziel na siatkę 9x9”, która wysyła do backendu obraz z etapu 1 i prezentuje wynik jako tablicę 9×9 obrazów komórek.
 - **BE**:
-  - Endpoint inicjujący wstępne przetwarzanie przykładu (np. `POST /api/examples/{id}/preprocess`) i zwracający wynik/stan.
-  - Obsługa błędów (np. „nie wykryto planszy”).
+  - `GET /api/examples/{name}` — zwraca wybrany obraz przykładowy jako `ImageApiResponse`.
+  - `PUT /api/examples/{name}/preprocess/board` — uruchamia etap 1 preprocessingu i zwraca `ImageApiResponse`.
+  - `PUT /api/examples/preprocess/cells` — przyjmuje `ImageApiEntry` z etapu 1 i zwraca `CellsGridApiResponse`.
+  - Odpowiedzi błędów zwracają `errorType` i `message` oraz korzystają z czytelnych statusów HTTP.
 - **ML**:
-  - Pipeline CV „preprocess”: wykrycie planszy + korekcja perspektywy + (opcjonalnie) detekcja siatki/komórek.
+  - `PUT /ml/preprocess/board` — wykrycie planszy i korekcja perspektywy; wynik zwracany do BE jako `ImageApiResponse`.
+  - `PUT /ml/preprocess/cells` — podział obrazu planszy na siatkę 9×9; wynik zwracany do BE jako `CellsGridApiResponse`.
+  - Wyniki preprocessingu nie są trwale zapisywane; ML zwraca wynik bezpośrednio do BE, a następnie do FE.
   - Ten UC dotyczy preprocessingu planszy w ścieżce inferencji użytkownika (runtime `end-to-end`), a nie augmentacji danych treningowych.
   - **AC**:
-    - System zwraca artefakt wstępnej obróbki (np. obraz po warp) albo czytelny błąd.
+    - Użytkownik może pobrać wybrany obraz do podglądu.
+    - System zwraca obraz po korekcji perspektywy albo czytelny błąd.
+    - System zwraca planszę podzieloną na siatkę 9×9 komórek albo czytelny błąd.
 
 #### UC-05 — „Rozwiąż wybrany plik przez system”
 - **FE**:
   - Akcja „Rozwiąż” + prezentacja wyniku: rozpoznany grid, rozwiązany grid, overlay.
 - **BE**:
-  - Endpoint rozwiązania dla przykładu (np. `POST /api/examples/{id}/solve`) albo reuse jednego endpointu solve z parametrami.
+  - Endpoint rozwiązania dla przykładu (np. `POST /api/examples/{name}/solve`) albo reuse jednego endpointu solve z parametrami.
   - Przekazanie żądania do serwisu ML i zwrot odpowiedzi do FE.
 - **ML**:
   - End-to-end: preprocess → rozpoznanie cyfr → grid → solver → overlay.
