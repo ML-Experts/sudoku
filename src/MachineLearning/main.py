@@ -10,6 +10,7 @@ if __package__ in {None, ""}:
 
 from api.main import app
 
+i = 0
 
 if __name__ == "__main__":
     import uvicorn
