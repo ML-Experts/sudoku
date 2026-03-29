@@ -1,24 +1,26 @@
 {
+  "$schema": "https://json.schemastore.org/launchsettings.json",
   "profiles": {
     "Sudoku": {
       "commandName": "Project",
-      "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development",
-        "SUDOKU_ENVIRONMENT": "local"
-      },
       "dotnetRunMessages": true,
-      "applicationUrl": "http://127.0.0.1:5000"
-    },
-    "WSL": {
-      "commandName": "WSL2",
-      "launchUrl": "http://127.0.0.1:5000",
+      "launchBrowser": false,
+      "applicationUrl": "http://127.0.0.1:5000",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "ASPNETCORE_URLS": "http://127.0.0.1:5000",
         "SUDOKU_ENVIRONMENT": "local"
-      },
-      "distributionName": "Ubuntu"
+      }
+    },
+    "Sudoku (WSL)": {
+      "commandName": "WSL",
+      "distributionName": "Ubuntu",
+      "workingDirectory": "/home/wojtek/projects/sudoku/src/Backend/Sudoku/Sudoku",
+      "commandLineArgs": "bin/Debug/net10.0/Sudoku.dll",
+      "launchBrowser": false,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "SUDOKU_ENVIRONMENT": "local"
+      }
     }
-  },
-  "$schema": "https://json.schemastore.org/launchsettings.json"
+  }
 }
