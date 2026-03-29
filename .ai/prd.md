@@ -100,7 +100,7 @@ Uwaga organizacyjna:
     - Jest podpięta domena (DNS) oraz SSL (np. certyfikaty) i reverse proxy (np. Nginx/Caddy) kierujące ruch do właściwych usług.
     - Są ustawione podstawowe zabezpieczenia: firewall, ograniczenie rozmiaru uploadu, sensowne timeouty, logowanie błędów.
     - Jest przygotowany uzgodniony layout systemowy katalogów (np. `/opt/sudoku`, `/var/www/sudoku/fe`, `/etc/sudoku`, `/var/log/sudoku`) lub jego równoważnik.
-    - Konfiguracja produkcyjna (`appsettings`, `.env`, sekrety, pliki środowiskowe) jest przechowywana poza repozytorium, w dedykowanym miejscu na serwerze.
+    - Podstawowa konfiguracja release (`appsettings.json`, `appsettings.{Environment}.json`, `.env`, `.env.{Environment}` dla środowisk współdzielonych) jest wersjonowana i dostarczana w release, a sekrety oraz ewentualne lokalne override'y developerskie są dostarczane bezpiecznie poza kodem lub przez CI/CD.
 
 - **INF-04**: Jako zespół chcemy utrzymywać jakość kodu i przewidywalne standardy pracy, aby łatwiej współpracować.
   - **AC**:
@@ -312,11 +312,11 @@ Uwaga organizacyjna:
 #### Konfiguracja środowiskowa i layout serwera
 - **Backend** korzysta z `appsettings.json` / `appsettings.{Environment}.json` z override przez zmienne środowiskowe.
 - **Serwis ML** korzysta z `.env` / zmiennych środowiskowych.
-- Konfiguracja produkcyjna i sekrety są przechowywane poza repozytorium, np. w dedykowanym katalogu serwera (`/etc/sudoku` lub równoważnik).
+- Podstawowa konfiguracja release (`appsettings.json`, `appsettings.{Environment}.json`, `.env`, `.env.{Environment}` dla środowisk współdzielonych) jest wersjonowana i dostarczana razem z release; sekrety i ewentualne lokalne override'y developerskie są wstrzykiwane poza kodem, np. przez zmienne środowiskowe lub CI/CD.
 - Przykładowy layout systemowy serwera może obejmować:
   - `/opt/sudoku/` — katalog aplikacji, release’ów i współdzielonych danych,
   - `/var/www/sudoku/fe` — aktywny frontend dla reverse proxy,
-  - `/etc/sudoku/` — pliki konfiguracyjne i środowiskowe,
+  - `/etc/sudoku/` — opcjonalne override'y, konfigurację infrastrukturalną i inne pliki systemowe,
   - `/var/log/sudoku/` — logi aplikacyjne (jeśli nie tylko `journald`).
 - Katalogi systemowe dla `data`, `examples`, `models`, `benchmark`, `trainings` i `tmp` są parametrami konfiguracyjnymi, a nie stałymi ścieżkami zaszytymi w kodzie.
 
@@ -379,7 +379,7 @@ Uwaga: nie ma wymogu trwałego zapisywania `recognized_grid`/`solved_grid` do pl
 - **R6: brak / niska jakość obrazów do demo (lub rozjazd domeny danych)** → przygotować i wersjonować `examples/` (różne warunki), jasno opisać zakres (drukowane vs ręczne), umożliwić korektę rozpoznanego gridu.
 - **R7: rozjazd między danymi treningowymi (np. „czyste”/wyprostowane z Kaggle) a danymi z pipeline’u (siatka, perspektywa, blur)** → budować/uzupełniać trening o wycinki generowane własnym pipeline’em + augmentacje perspektywy/kontrastu/rozmycia i testować zarówno na wspólnym benchmarku Sudoku, jak i `examples/` w scenariuszu end-to-end.
 - **R8: dwa źródła prawdy dla datasetów, treningów i modeli w BE i ML** → Backend pozostaje systemowym `source of truth`, a ML zwraca statusy, metryki i referencje do artefaktów zamiast utrzymywać niezależny rejestr biznesowy.
-- **R9: hardcodowane ścieżki i ustawienia środowiskowe** → wszystkie ścieżki, URL-e integracyjne i ustawienia środowiskowe trzymamy w `appsettings*.json`, `.env` i konfiguracji serwera poza repo.
+- **R9: hardcodowane ścieżki i ustawienia środowiskowe** → wszystkie ścieżki, URL-e integracyjne i ustawienia środowiskowe trzymamy w `appsettings*.json`, `.env` i ewentualnych override'ach zmiennych środowiskowych, a nie w kodzie.
 
 ### 14) Kamienie milowe (propozycja)
 - **M1**: pipeline OpenCV (wykrycie + warp + cięcie) + solver backtracking.
@@ -393,6 +393,6 @@ Uwaga: nie ma wymogu trwałego zapisywania `recognized_grid`/`solved_grid` do pl
 - Skrypty: trening modelu, inferencja end-to-end.
 - Modele/artefakty (np. plik modelu) lub instrukcja pobrania.
 - Przykładowe obrazy wejściowe i wyniki (np. w `examples/`).
-- Szablony / opis konfiguracji środowiskowej (`appsettings*.json`, `.env`, `.env.example` lub równoważna instrukcja dla środowiska produkcyjnego) bez hardcodowanych ścieżek.
+- Wersjonowane pliki konfiguracji runtime potrzebne do release (`appsettings.json`, `appsettings.{Environment}.json`, `.env`, `.env.{Environment}` dla środowisk współdzielonych) lub równoważna instrukcja, bez sekretów; ścieżki runtime i URL-e są konfigurowane w plikach lub zmiennych środowiskowych, a nie hardcodowane w kodzie.
 - Prezentacja 5–7 minut + demo działania.
 

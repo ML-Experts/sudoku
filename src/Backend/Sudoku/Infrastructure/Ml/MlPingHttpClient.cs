@@ -1,18 +1,21 @@
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Sudoku.Configuration;
+using Sudoku.Application.Abstractions;
+using Sudoku.Infrastructure.Configuration;
+using Sudoku.Models.Ping;
 
 namespace Sudoku.Infrastructure.Ml;
 
-public sealed class MlPingClient : IMlPingClient
+public sealed class MlPingHttpClient : IMlPingGateway
 {
     private readonly HttpClient _httpClient;
     private readonly MlServiceOptions _options;
-    private readonly ILogger<MlPingClient> _logger;
+    private readonly ILogger<MlPingHttpClient> _logger;
 
-    public MlPingClient(
+    public MlPingHttpClient(
         HttpClient httpClient,
         IOptions<MlServiceOptions> options,
-        ILogger<MlPingClient> logger)
+        ILogger<MlPingHttpClient> logger)
     {
         _httpClient = httpClient;
         _options = options.Value;
@@ -29,7 +32,7 @@ public sealed class MlPingClient : IMlPingClient
             {
                 return new MlPingResult(
                     IsAvailable: true,
-                    StatusCode: response.StatusCode,
+                    StatusCode: (int)response.StatusCode,
                     Message: "Received pong from ML.");
             }
 
@@ -37,7 +40,7 @@ public sealed class MlPingClient : IMlPingClient
 
             return new MlPingResult(
                 IsAvailable: false,
-                StatusCode: response.StatusCode,
+                StatusCode: (int)response.StatusCode,
                 Message: $"No pong from ML. ML service returned status code {(int)response.StatusCode}.");
         }
         catch (OperationCanceledException exception) when (!cancellationToken.IsCancellationRequested)

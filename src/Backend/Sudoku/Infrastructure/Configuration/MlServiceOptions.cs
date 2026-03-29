@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace Sudoku.Configuration;
+namespace Sudoku.Infrastructure.Configuration;
 
 public sealed class MlServiceOptions
 {

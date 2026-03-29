@@ -1,14 +1,24 @@
 {
-  "$schema": "https://json.schemastore.org/launchsettings.json",
   "profiles": {
     "Sudoku": {
       "commandName": "Project",
-      "dotnetRunMessages": true,
-      "launchBrowser": false,
-      "applicationUrl": "http://127.0.0.1:5000",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
-      }
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "SUDOKU_ENVIRONMENT": "local"
+      },
+      "dotnetRunMessages": true,
+      "applicationUrl": "http://127.0.0.1:5000"
+    },
+    "WSL": {
+      "commandName": "WSL2",
+      "launchUrl": "http://127.0.0.1:5000",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://127.0.0.1:5000",
+        "SUDOKU_ENVIRONMENT": "local"
+      },
+      "distributionName": ""
     }
-  }
+  },
+  "$schema": "https://json.schemastore.org/launchsettings.json"
 }
