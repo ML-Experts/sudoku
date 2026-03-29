@@ -1,44 +1,23 @@
-using Microsoft.Extensions.Options;
+using Sudoku.Application;
 using Sudoku.Configuration;
-using Sudoku.Contracts;
-using Sudoku.Infrastructure.Ml;
+using Sudoku.Endpoints;
+using Sudoku.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.AddBackendConfiguration(args);
 
 builder.Services
-    .AddOptions<MlServiceOptions>()
-    .BindConfiguration(MlServiceOptions.SectionName)
+    .AddOptions<BackendRuntimeOptions>()
+    .BindConfiguration(BackendRuntimeOptions.SectionName)
     .ValidateDataAnnotations()
-    .Validate(
-        options => Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out _),
-        $"{MlServiceOptions.SectionName}:BaseUrl must be an absolute URL.")
-    .ValidateOnStart(); 
+    .ValidateOnStart();
 
-builder.Services.AddHttpClient<IMlPingClient, MlPingClient>((serviceProvider, client) =>
-{
-    var options = serviceProvider.GetRequiredService<IOptions<MlServiceOptions>>().Value;
-
-    client.BaseAddress = new Uri(options.BaseUrl, UriKind.Absolute);
-    client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
-});
+builder.Services
+    .AddApplication()
+    .AddInfrastructure(builder.Configuration);
 
 var app = builder.Build();
 
-app.MapGet("/api/ping", async (IMlPingClient mlPingClient, CancellationToken cancellationToken) =>
-{
-    var mlPingResult = await mlPingClient.PingAsync(cancellationToken);
-    var message = $"Backend responded successfully. {mlPingResult.Message}";
-
-    var response = new PingResponse(
-        BackendStatus: "ok",
-        MlStatus: mlPingResult.IsAvailable ? "ok" : "unavailable",
-        TimestampUtc: DateTimeOffset.UtcNow,
-        Message: message);
-
-    return mlPingResult.IsAvailable
-        ? Results.Ok(response)
-        : Results.Json(response, statusCode: StatusCodes.Status503ServiceUnavailable);
-})
-.WithName("Ping");
+app.MapPingEndpoints();
 
 app.Run();

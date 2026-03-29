@@ -1,6 +1,6 @@
 namespace Sudoku.Contracts;
 
-public sealed record PingResponse(
+public sealed record PingApiResponse(
     string BackendStatus,
     string MlStatus,
     DateTimeOffset TimestampUtc,

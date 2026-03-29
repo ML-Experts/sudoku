@@ -1,6 +1,6 @@
 ---
 description: Backend architecture — Clean Architecture, BE as orchestrator/system of record
-globs: **/*.cs
+globs: {**/*.cs,**/appsettings*.json,**/launchSettings.json}
 alwaysApply: false
 ---
 
@@ -29,4 +29,14 @@ alwaysApply: false
 - Parametry metod i zmienne lokalne mają nazwy w `camelCase`, a prywatne pola w `_camelCase`.
 - Publiczne payloady JSON wystawiane przez Backend używają kluczy w `camelCase`, nawet jeśli kod C# używa nazw w `PascalCase`.
 - Modele HTTP wejściowe mają sufiks `ApiEntry`, modele HTTP wyjściowe mają sufiks `ApiResponse`, a DTO warstwy aplikacyjnej mają sufiks `Dto`.
+
+## Flow konfiguracji `appsettings`
+- Projektem startowym backendu jest `src/Backend/Sudoku/Sudoku`; tam trzymamy `Program.cs`, `appsettings*.json` i logikę scalania konfiguracji.
+- Jedynym źródłem konfiguracji runtime backendu jest loader z `src/Backend/Sudoku/Sudoku/Configuration/BackendConfigurationExtensions.cs`; nie dokładamy drugiego równoległego systemu ustawień.
+- `src/Backend/Sudoku/Sudoku/appsettings.json` zawiera bazę i wartości wspólne; startowo `Runtime.Environment=local`.
+- `src/Backend/Sudoku/Sudoku/appsettings.{SUDOKU_ENVIRONMENT}.json` zawiera overlay środowiskowy, np. `appsettings.local.json` i docelowo `appsettings.production.json`.
+- Runtime wybiera środowisko z już ustawionego `SUDOKU_ENVIRONMENT`, a jeśli go nie ma, bierze je z `Runtime.Environment` w `appsettings.json`, a na końcu fallbackuje do `local`.
+- Runtime scala `appsettings.json` z `appsettings.{environment}.json`; overlay nadpisuje bazę, a zmienne środowiskowe i argumenty procesu mają pierwszeństwo nad wartościami z plików.
+- Ścieżki runtime oraz URL-e integracyjne trzymamy w `appsettings.{environment}.json`, nie w kodzie i nie w GitHub Variables.
+- Sekrety, jeśli będą potrzebne, wstrzykujemy jako zmienne środowiskowe z zewnątrz; nie commitujemy ich do `appsettings*.json`.
 

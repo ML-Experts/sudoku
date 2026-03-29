@@ -1,0 +1,29 @@
+# .NET build artifacts
+*.dll
+*.pdb
+*.user
+*.suo
+**/bin/
+**/obj/
+**/Debug/
+**/Release/
+**/.vs/
+
+# Backend local config
+/src/Backend/Sudoku/Sudoku/appsettings.local.json
+
+# Python local env and caches
+**/.venv/
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.ruff_cache/
+**/.mypy_cache/
+/src/MachineLearning/api/.env.local
+
+# IDE metadata
+**/.idea/
+*.iml
+
+# Generated verification artifacts
+/artifacts/backend-check/
