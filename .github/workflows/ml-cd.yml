@@ -8,7 +8,6 @@ on:
       - closed
     paths:
       - 'src/MachineLearning/**'
-      - 'requirements.txt'
   workflow_dispatch:
 
 permissions:
@@ -20,10 +19,11 @@ concurrency:
 
 env:
   ML_SOURCE_DIR: src/MachineLearning
-  ML_REQUIREMENTS_PATH: requirements.txt
   ML_RELEASE_DIR: artifacts/ml/release
   ML_ENVIRONMENT: production
-
+  
+  ML_RELEASES_DIR: /opt/sudoku/releases/ml
+  ML_DEPLOY_COMMAND: sudo /opt/sudoku/scripts/deploy_ml.sh
 jobs:
   deploy-ml:
     if: >
@@ -87,13 +87,42 @@ jobs:
           print(f"Validated syntax for {len(python_files)} Python files.")
           PY
 
+      - name: Validate ML source layout
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          source_dir = Path(os.environ["ML_SOURCE_DIR"])
+
+          required_paths = [
+              source_dir / "requirements.txt",
+              source_dir / "main.py",
+              source_dir / "api" / "main.py",
+              source_dir / "api" / ".env",
+              source_dir / "application",
+              source_dir / "infrastructure",
+              source_dir / "models",
+          ]
+
+          missing_paths = [str(path) for path in required_paths if not path.exists()]
+
+          if missing_paths:
+              raise SystemExit(
+                  "Missing required files or directories in ML source:\n"
+                  + "\n".join(missing_paths)
+              )
+
+          print("Validated ML source layout.")
+          PY
+
       - name: Stage ML release files
         shell: bash
         run: |
           rm -rf "$ML_RELEASE_DIR"
           mkdir -p "$ML_RELEASE_DIR"
           cp -R "$ML_SOURCE_DIR"/. "$ML_RELEASE_DIR"
-          cp "$ML_REQUIREMENTS_PATH" "$ML_RELEASE_DIR/requirements.txt"
 
       - name: Prepare ML environment files
         shell: bash
