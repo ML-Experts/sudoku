@@ -17,7 +17,7 @@
         "ASPNETCORE_URLS": "http://127.0.0.1:5000",
         "SUDOKU_ENVIRONMENT": "local"
       },
-      "distributionName": ""
+      "distributionName": "Ubuntu"
     }
   },
   "$schema": "https://json.schemastore.org/launchsettings.json"
