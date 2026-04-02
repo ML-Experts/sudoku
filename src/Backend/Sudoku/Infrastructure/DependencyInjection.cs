@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using Sudoku.Application.Abstractions;
 using Sudoku.Infrastructure.Configuration;
 using Sudoku.Infrastructure.Ml;
+using Sudoku.Infrastructure.Storage;
 
 namespace Sudoku.Infrastructure;
 
@@ -21,6 +22,8 @@ public static class DependencyInjection
                 options => Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out _),
                 $"{MlServiceOptions.SectionName}:BaseUrl must be an absolute URL.")
             .ValidateOnStart();
+
+        services.AddTransient<IFileStorageGateway, LocalFileStorageGateway>();
 
         services.AddHttpClient<IMlPingGateway, MlPingHttpClient>((serviceProvider, client) =>
         {
