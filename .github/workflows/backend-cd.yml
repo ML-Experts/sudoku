@@ -169,6 +169,11 @@ jobs:
                   "PingPath": os.environ["BE_ML_PING_PATH"],
                   "TimeoutSeconds": ml_timeout_seconds,
               },
+              "ExamplesStorage": {
+                  "RootPath": "/opt/sudoku/shared/examples",
+                  "UploadsSubdirectory": "uploads",
+                  "MaxUploadSizeBytes": 10485760,
+              },
           }
 
           with (publish_dir / "appsettings.json").open("w", encoding="utf-8") as handle:

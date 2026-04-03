@@ -1,7 +1,7 @@
 ---
 description: Backend architecture — Clean Architecture, BE as orchestrator/system of record
 globs: {**/*.cs,**/appsettings*.json,**/launchSettings.json}
-alwaysApply: false
+alwaysApply: true
 ---
 
 # Architektura backendu
@@ -13,11 +13,19 @@ alwaysApply: false
 - `Models/` — modele domenowe / DTO bez zależności na HTTP, pliki, ML client.
 - `Application/` — use-case’y, walidacje, orkiestracja, interfejsy portów.
 - `Infrastructure/` — implementacje portów: file storage, ML service client, persistence, integracje systemowe.
-- `Api/` — kontrolery HTTP, request/response, composition root, konfiguracja.
+- `Api/` — kontrolery HTTP (`Controllers/`), request/response, composition root, konfiguracja.
 
 ## Zasady
 - Zależności idą do środka: `Api/Interface -> Application -> Models`; `Infrastructure` implementuje porty z `Application`.
 - Kontrolery mają być cienkie; logika workflow nie trafia do `Api`.
+- Publiczne endpointy BE implementujemy przez ASP.NET Controllers (atrybuty `ApiController`, `Route`, `Http*`), nie przez minimal API `Map*Endpoints`.
+- Routing organizujemy kontrolerami (np. `api/examples` na klasie kontrolera), a szczegóły metody przez atrybuty `Http*` na akcjach.
+- Walidacja modeli wejściowych i reguł use-case’ów należy do warstwy `Application` (validator per komenda/zapytanie), nie do endpointu.
+- Standard walidacji: `FluentValidation` + pipeline MediatR (np. `ValidationBehavior`), tak aby handler uruchamiał się dopiero po poprawnej walidacji.
+- Warstwa `Api` odpowiada tylko za bind requestu i mapowanie błędów walidacji na `400 Bad Request` w kontrakcie API.
+- Adaptery `Infrastructure` mają być generyczne i wielokrotnego użytku (np. operacje file storage), bez zaszywania ścieżek i semantyki pojedynczego use-case’u.
+- Decyzja *co* i *gdzie* zapisać należy do `Application`; `Infrastructure` dostaje te dane jako parametry wejściowe.
+- Opcje konfiguracyjne specyficzne dla use-case’ów (np. katalog runtime examples, limity uploadu) definiujemy w `Application`, a bindowanie wykonujemy w composition root (`Program.cs` / DI bootstrap).
 - Backend przechowuje rekordy systemowe dla datasetów, treningów, modeli i aktywnego modelu; nie zakłada drugiego źródła prawdy po stronie ML.
 - Jeśli Backend zapisuje referencje do artefaktów ML, przechowuje tylko metadane potrzebne workflow i UI.
 - URL-e usług, ścieżki do `data/examples/models/benchmark/tmp` i inne ustawienia środowiskowe pochodzą z `appsettings*.json` + override przez zmienne środowiskowe.
