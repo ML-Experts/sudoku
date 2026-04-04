@@ -80,6 +80,11 @@ h2 {
   font-size: 1.25rem;
 }
 
+h3 {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
 .hero-copy,
 .muted-copy {
   margin: 0;
@@ -128,6 +133,72 @@ h2 {
 .primary-button:disabled {
   opacity: 0.75;
   cursor: progress;
+}
+
+.upload-section {
+  display: grid;
+  gap: 1rem;
+}
+
+.upload-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+}
+
+.file-picker {
+  flex: 1 1 12rem;
+  min-width: 0;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.6);
+  color: #e2e8f0;
+  font-size: 0.9rem;
+}
+
+.file-picker::file-selector-button {
+  margin-right: 0.75rem;
+  padding: 0.45rem 0.85rem;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(56, 189, 248, 0.2);
+  color: #e0f2fe;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.file-picker:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.examples-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.examples-list li {
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.5);
+  font-size: 0.9rem;
+  color: #e2e8f0;
+}
+
+.examples-list code {
+  font-size: 0.85em;
+  color: #93c5fd;
+}
+
+.examples-session-heading {
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
 }
 
 .status-banner {
