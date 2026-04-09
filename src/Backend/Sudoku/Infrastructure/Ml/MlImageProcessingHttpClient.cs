@@ -78,11 +78,13 @@ public sealed class MlImageProcessingHttpClient : IMlImageProcessingGateway
     {
         try
         {
+            var img = new ImageApiContract(
+                MimeType: image.MimeType,
+                Base64: Convert.ToBase64String(image.Content)
+            );
             using var response = await _httpClient.PutAsJsonAsync(
                 relativePath,
-                new ImageApiContract(
-                    MimeType: image.MimeType,
-                    Base64: Convert.ToBase64String(image.Content)),
+                img,
                 cancellationToken);
 
             if (!response.IsSuccessStatusCode)
