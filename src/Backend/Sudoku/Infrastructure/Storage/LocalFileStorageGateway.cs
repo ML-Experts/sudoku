@@ -40,6 +40,39 @@ public sealed class LocalFileStorageGateway : IFileStorageGateway
         }
     }
 
+    public Task<Stream> OpenReadAsync(
+        string directoryPath,
+        string fileName,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var fullDirectoryPath = Path.GetFullPath(directoryPath);
+        var targetPath = Path.GetFullPath(Path.Combine(fullDirectoryPath, fileName));
+        EnsurePathIsWithinDirectory(fullDirectoryPath, targetPath);
+
+        try
+        {
+            Stream stream = new FileStream(
+                targetPath,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read,
+                bufferSize: 81920,
+                useAsync: true);
+
+            return Task.FromResult(stream);
+        }
+        catch (DirectoryNotFoundException)
+        {
+            throw new FileStorageItemNotFoundException("Wskazany katalog nie istnieje.");
+        }
+        catch (FileNotFoundException)
+        {
+            throw new FileStorageItemNotFoundException("Wskazany plik nie istnieje.");
+        }
+    }
+
     private static void EnsurePathIsWithinDirectory(string baseDirectoryPath, string targetPath)
     {
         var basePathWithSeparator =

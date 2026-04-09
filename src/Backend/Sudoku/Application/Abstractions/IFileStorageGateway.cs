@@ -7,4 +7,9 @@ public interface IFileStorageGateway
         string fileName,
         Stream content,
         CancellationToken cancellationToken = default);
+
+    Task<Stream> OpenReadAsync(
+        string directoryPath,
+        string fileName,
+        CancellationToken cancellationToken = default);
 }

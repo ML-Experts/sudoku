@@ -2,6 +2,7 @@ using FluentValidation;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Sudoku.Application.Examples;
+using Sudoku.Application.Ml;
 using Sudoku.Application.Storage;
 using Sudoku.Contracts;
 
@@ -16,6 +17,89 @@ public sealed class ExamplesController : ControllerBase
     public ExamplesController(ISender sender)
     {
         _sender = sender;
+    }
+
+    [HttpGet("{name}")]
+    [ProducesResponseType(typeof(ImageApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetByNameAsync(
+        [FromRoute] string name,
+        CancellationToken cancellationToken)
+    {
+        var query = new GetExampleImageQuery(Name: name);
+
+        try
+        {
+            var result = await _sender.Send(query, cancellationToken);
+            return Ok(new ImageApiResponse(
+                MimeType: result.MimeType,
+                Base64: result.Base64));
+        }
+        catch (ValidationException exception)
+        {
+            return MapValidationError(exception, GetExampleImageErrorTypes.InvalidRequest);
+        }
+        catch (FileStorageItemNotFoundException exception)
+        {
+            return NotFound(new ErrorApiResponse(
+                ErrorType: GetExampleImageErrorTypes.ExampleNotFound,
+                Message: exception.Message));
+        }
+    }
+
+    [HttpPut("{name}/preprocess/board")]
+    [ProducesResponseType(typeof(ImageApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status503ServiceUnavailable)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status504GatewayTimeout)]
+    public async Task<IActionResult> PreprocessBoardAsync(
+        [FromRoute] string name,
+        CancellationToken cancellationToken)
+    {
+        var command = new PreprocessExampleBoardCommand(Name: name);
+
+        try
+        {
+            var result = await _sender.Send(command, cancellationToken);
+            return Ok(new ImageApiResponse(
+                MimeType: result.MimeType,
+                Base64: result.Base64));
+        }
+        catch (ValidationException exception)
+        {
+            return MapValidationError(exception, PreprocessExampleBoardErrorTypes.InvalidRequest);
+        }
+        catch (FileStorageItemNotFoundException exception)
+        {
+            return NotFound(new ErrorApiResponse(
+                ErrorType: PreprocessExampleBoardErrorTypes.ExampleNotFound,
+                Message: exception.Message));
+        }
+        catch (MlOperationFailedException exception)
+        {
+            return UnprocessableEntity(new ErrorApiResponse(
+                ErrorType: exception.ErrorType,
+                Message: exception.Message));
+        }
+        catch (MlServiceUnavailableException exception)
+        {
+            return StatusCode(
+                StatusCodes.Status503ServiceUnavailable,
+                new ErrorApiResponse(
+                    ErrorType: PreprocessExampleBoardErrorTypes.MlUnavailable,
+                    Message: exception.Message));
+        }
+        catch (MlServiceTimeoutException exception)
+        {
+            return StatusCode(
+                StatusCodes.Status504GatewayTimeout,
+                new ErrorApiResponse(
+                    ErrorType: PreprocessExampleBoardErrorTypes.MlTimeout,
+                    Message: exception.Message));
+        }
     }
 
     [HttpPost]
@@ -48,7 +132,7 @@ public sealed class ExamplesController : ControllerBase
         }
         catch (ValidationException exception)
         {
-            return MapValidationError(exception);
+            return MapValidationError(exception, UploadExampleErrorTypes.InvalidRequest);
         }
         catch (FileStorageConflictException exception)
         {
@@ -58,10 +142,10 @@ public sealed class ExamplesController : ControllerBase
         }
     }
 
-    private IActionResult MapValidationError(ValidationException exception)
+    private IActionResult MapValidationError(ValidationException exception, string defaultErrorType)
     {
         var failure = exception.Errors.FirstOrDefault();
-        var errorType = failure?.ErrorCode ?? UploadExampleErrorTypes.InvalidRequest;
+        var errorType = failure?.ErrorCode ?? defaultErrorType;
         var message = failure?.ErrorMessage ?? "Nieprawidłowe dane wejściowe.";
         var statusCode = errorType switch
         {
