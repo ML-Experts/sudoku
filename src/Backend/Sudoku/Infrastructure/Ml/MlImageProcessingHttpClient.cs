@@ -64,11 +64,36 @@ public sealed class MlImageProcessingHttpClient : IMlImageProcessingGateway
                 "Serwis ML zwrócił nieprawidłową strukturę odpowiedzi dla siatki komórek.");
         }
 
-        var cells = payload.Cells
-            .Select(row => (IReadOnlyList<ImageContent>)row.Select(ToImageContent).ToArray())
-            .ToArray();
+        var mappedRows = new List<IReadOnlyList<ImageContent>>(payload.Cells.Count);
+        for (var rowIndex = 0; rowIndex < payload.Cells.Count; rowIndex++)
+        {
+            var row = payload.Cells[rowIndex];
+            if (row is null)
+            {
+                throw new MlOperationFailedException(
+                    DefaultOperationErrorType,
+                    $"Serwis ML zwrócił nieprawidłową strukturę odpowiedzi dla wiersza {rowIndex} siatki komórek.");
+            }
 
-        return new CellsGrid(cells);
+            var mappedColumns = new ImageContent[row.Count];
+            for (var columnIndex = 0; columnIndex < row.Count; columnIndex++)
+            {
+                mappedColumns[columnIndex] = ToImageContent(row[columnIndex]);
+            }
+
+            mappedRows.Add(mappedColumns);
+        }
+
+        try
+        {
+            return new CellsGrid(mappedRows);
+        }
+        catch (ArgumentException exception)
+        {
+            throw new MlOperationFailedException(
+                DefaultOperationErrorType,
+                exception.Message);
+        }
     }
 
     private async Task<TResponse> SendAsync<TResponse>(
@@ -184,8 +209,15 @@ public sealed class MlImageProcessingHttpClient : IMlImageProcessingGateway
         }
     }
 
-    private static ImageContent ToImageContent(ImageApiContract payload)
+    private static ImageContent ToImageContent(ImageApiContract? payload)
     {
+        if (payload is null)
+        {
+            throw new MlOperationFailedException(
+                DefaultOperationErrorType,
+                "Serwis ML zwrócił pusty payload obrazu.");
+        }
+
         if (string.IsNullOrWhiteSpace(payload.MimeType))
         {
             throw new MlOperationFailedException(
@@ -219,7 +251,7 @@ public sealed class MlImageProcessingHttpClient : IMlImageProcessingGateway
         string? Base64);
 
     private sealed record CellsGridApiContract(
-        IReadOnlyList<IReadOnlyList<ImageApiContract>>? Cells);
+        IReadOnlyList<IReadOnlyList<ImageApiContract?>?>? Cells);
 
     private sealed record ErrorApiContract(
         string? ErrorType,

@@ -102,6 +102,53 @@ public sealed class ExamplesController : ControllerBase
         }
     }
 
+    [HttpPut("preprocess/cells")]
+    [ProducesResponseType(typeof(CellsGridApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status503ServiceUnavailable)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status504GatewayTimeout)]
+    public async Task<IActionResult> PreprocessCellsAsync(
+        [FromBody] ImageApiEntry? entry,
+        CancellationToken cancellationToken)
+    {
+        var command = new PreprocessExampleCellsCommand(
+            MimeType: entry?.MimeType,
+            Base64: entry?.Base64);
+
+        try
+        {
+            var result = await _sender.Send(command, cancellationToken);
+            return Ok(ToCellsGridApiResponse(result));
+        }
+        catch (ValidationException exception)
+        {
+            return MapValidationError(exception, PreprocessExampleCellsErrorTypes.InvalidRequest);
+        }
+        catch (MlOperationFailedException exception)
+        {
+            return UnprocessableEntity(new ErrorApiResponse(
+                ErrorType: exception.ErrorType,
+                Message: exception.Message));
+        }
+        catch (MlServiceUnavailableException exception)
+        {
+            return StatusCode(
+                StatusCodes.Status503ServiceUnavailable,
+                new ErrorApiResponse(
+                    ErrorType: PreprocessExampleCellsErrorTypes.MlUnavailable,
+                    Message: exception.Message));
+        }
+        catch (MlServiceTimeoutException exception)
+        {
+            return StatusCode(
+                StatusCodes.Status504GatewayTimeout,
+                new ErrorApiResponse(
+                    ErrorType: PreprocessExampleCellsErrorTypes.MlTimeout,
+                    Message: exception.Message));
+        }
+    }
+
     [HttpPost]
     [Consumes("multipart/form-data")]
     [ProducesResponseType(typeof(ExampleFileApiResponse), StatusCodes.Status201Created)]
@@ -159,5 +206,18 @@ public sealed class ExamplesController : ControllerBase
             new ErrorApiResponse(
                 ErrorType: errorType,
                 Message: message));
+    }
+
+    private static CellsGridApiResponse ToCellsGridApiResponse(PreprocessCellsResultDto result)
+    {
+        var rows = result.Cells.Cells
+            .Select(row => (IReadOnlyList<ImageApiResponse>)row
+                .Select(cell => new ImageApiResponse(
+                    MimeType: cell.MimeType,
+                    Base64: Convert.ToBase64String(cell.Content)))
+                .ToArray())
+            .ToArray();
+
+        return new CellsGridApiResponse(Cells: rows);
     }
 }
