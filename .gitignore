@@ -25,5 +25,9 @@
 **/.idea/
 *.iml
 
-# Generated verification artifacts
-/artifacts/backend-check/
+# Local runtime data (never versioned)
+/examples/
+
+# Generated artifacts (CI/local outputs, never versioned)
+/artifacts/
+/src/Backend/Sudoku/Sudoku/examples/
