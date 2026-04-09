@@ -1,4 +1,7 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+
+import { ExampleUploadApiError, postExampleUpload } from "./api/examples";
+import type { ExampleFileApiResponse } from "./types/api";
 
 type PingResponse = {
   backendStatus: string;
@@ -33,9 +36,39 @@ type PingState =
       httpStatus: number | null;
     };
 
-const defaultState: PingState = {
+type UploadState =
+  | {
+      kind: "idle";
+      error: null;
+      httpStatus: null;
+    }
+  | {
+      kind: "loading";
+      error: null;
+      httpStatus: null;
+    }
+  | {
+      kind: "success";
+      error: null;
+      httpStatus: number;
+      response: ExampleFileApiResponse;
+    }
+  | {
+      kind: "error";
+      error: string;
+      httpStatus: number | null;
+      errorType: string | null;
+    };
+
+const defaultPingState: PingState = {
   kind: "idle",
   response: null,
+  error: null,
+  httpStatus: null,
+};
+
+const defaultUploadState: UploadState = {
+  kind: "idle",
   error: null,
   httpStatus: null,
 };
@@ -66,10 +99,40 @@ function formatTimestamp(timestampUtc: string): string {
   }).format(parsedDate);
 }
 
+function formatBytes(sizeBytes: number): string {
+  if (!Number.isFinite(sizeBytes) || sizeBytes < 0) {
+    return String(sizeBytes);
+  }
+
+  if (sizeBytes < 1024) {
+    return `${sizeBytes} B`;
+  }
+
+  const units = ["KiB", "MiB", "GiB"];
+  let value = sizeBytes / 1024;
+  let unitIndex = 0;
+
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+
+  return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[unitIndex]}`;
+}
+
 export default function App() {
   const apiBaseUrl = normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL);
   const pingEndpoint = `${apiBaseUrl}/ping`;
-  const [pingState, setPingState] = useState<PingState>(defaultState);
+  const examplesUploadEndpoint = `${apiBaseUrl}/examples`;
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [pingState, setPingState] = useState<PingState>(defaultPingState);
+  const [uploadState, setUploadState] = useState<UploadState>(defaultUploadState);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [sessionExamples, setSessionExamples] = useState<ExampleFileApiResponse[]>(
+    []
+  );
 
   async function handlePingClick() {
     setPingState({
@@ -128,6 +191,59 @@ export default function App() {
     }
   }
 
+  async function handleUploadClick() {
+    if (!selectedFile) {
+      return;
+    }
+
+    setUploadState({
+      kind: "loading",
+      error: null,
+      httpStatus: null,
+    });
+
+    try {
+      const result = await postExampleUpload(apiBaseUrl, selectedFile);
+
+      setUploadState({
+        kind: "success",
+        error: null,
+        httpStatus: 201,
+        response: result,
+      });
+
+      setSessionExamples((previous) => [...previous, result]);
+
+      setSelectedFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    } catch (error) {
+      if (error instanceof ExampleUploadApiError) {
+        setUploadState({
+          kind: "error",
+          error: error.message,
+          httpStatus: error.status,
+          errorType: error.errorType ?? null,
+        });
+        return;
+      }
+
+      setUploadState({
+        kind: "error",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Nie udało się wysłać pliku do backendu.",
+        httpStatus: null,
+        errorType: null,
+      });
+    }
+  }
+
+  const isUploadBusy = uploadState.kind === "loading";
+  const canSubmitUpload = Boolean(selectedFile) && !isUploadBusy;
+
   return (
     <main className="page-shell">
       <section className="hero-card">
@@ -155,8 +271,41 @@ export default function App() {
         </button>
       </section>
 
+      <section className="hero-card upload-section">
+        <p className="eyebrow">UC-01 — Upload przykładu</p>
+        <h2>Dodaj plik do biblioteki przykładów</h2>
+        <p className="hero-copy">
+          Wyślij obraz sudoku na endpoint{" "}
+          <code>{examplesUploadEndpoint}</code> (<code>multipart/form-data</code>
+          , pole <code>file</code>). Kanoniczną nazwę pliku nadaje backend.
+        </p>
+
+        <div className="upload-controls">
+          <input
+            ref={fileInputRef}
+            className="file-picker"
+            type="file"
+            accept="image/jpeg,image/png,.jpg,.jpeg,.png"
+            disabled={isUploadBusy}
+            aria-busy={isUploadBusy}
+            onChange={(event) => {
+              const file = event.target.files?.[0] ?? null;
+              setSelectedFile(file);
+            }}
+          />
+          <button
+            className="primary-button"
+            type="button"
+            disabled={!canSubmitUpload}
+            onClick={() => void handleUploadClick()}
+          >
+            {isUploadBusy ? "Wysyłanie..." : "Wyślij plik"}
+          </button>
+        </div>
+      </section>
+
       <section className="result-card" aria-live="polite">
-        <h2>Wynik</h2>
+        <h2>Wynik (UC-00)</h2>
 
         {pingState.kind === "idle" ? (
           <p className="muted-copy">
@@ -203,6 +352,78 @@ export default function App() {
               <dd>{pingState.response.message}</dd>
             </div>
           </dl>
+        ) : null}
+      </section>
+
+      <section className="result-card" aria-live="polite">
+        <h2>Wynik uploadu (UC-01)</h2>
+
+        {uploadState.kind === "idle" ? (
+          <p className="muted-copy">
+            Wybierz plik JPG lub PNG i wyślij go na backend.
+          </p>
+        ) : null}
+
+        {uploadState.kind === "loading" ? (
+          <p className="status-banner status-loading">Wysyłanie pliku...</p>
+        ) : null}
+
+        {uploadState.kind === "error" ? (
+          <>
+            <p className="status-banner status-error">{uploadState.error}</p>
+            {uploadState.errorType ? (
+              <p className="muted-copy">Typ błędu: {uploadState.errorType}</p>
+            ) : null}
+            {uploadState.httpStatus !== null ? (
+              <p className="muted-copy">HTTP status: {uploadState.httpStatus}</p>
+            ) : null}
+          </>
+        ) : null}
+
+        {uploadState.kind === "success" ? (
+          <>
+            <p className="status-banner status-success">
+              Plik zapisany w bibliotece przykładów (201 Created).
+            </p>
+            <p className="muted-copy">HTTP status: {uploadState.httpStatus}</p>
+            <dl className="result-grid">
+              <div>
+                <dt>Nazwa (BE)</dt>
+                <dd>{uploadState.response.name}</dd>
+              </div>
+              <div>
+                <dt>Typ zawartości</dt>
+                <dd>{uploadState.response.contentType}</dd>
+              </div>
+              <div>
+                <dt>Rozmiar</dt>
+                <dd>{formatBytes(uploadState.response.sizeBytes)}</dd>
+              </div>
+              <div>
+                <dt>Zapisano (UTC)</dt>
+                <dd>{formatTimestamp(uploadState.response.storedAtUtc)}</dd>
+              </div>
+            </dl>
+          </>
+        ) : null}
+
+        {sessionExamples.length > 0 ? (
+          <>
+            <h3 className="muted-copy examples-session-heading">
+              Przykłady dodane w tej sesji ({sessionExamples.length})
+            </h3>
+            <ul className="examples-list">
+              {sessionExamples.map((item) => (
+                <li key={`${item.name}-${item.storedAtUtc}`}>
+                  <code>{item.name}</code>
+                  {" · "}
+                  {formatBytes(item.sizeBytes)}
+                  {" · "}
+                  {item.contentType}
+                </li>
+              ))}
+            </ul>
+          </>
         ) : null}
       </section>
     </main>
