@@ -135,6 +135,92 @@ h3 {
   cursor: progress;
 }
 
+.secondary-button {
+  padding: 0.5rem 0.9rem;
+  border: 1px solid rgba(125, 211, 252, 0.35);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.55);
+  color: #e0f2fe;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    opacity 120ms ease;
+}
+
+.secondary-button:hover:not(:disabled) {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(125, 211, 252, 0.55);
+}
+
+.secondary-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.examples-library-section {
+  display: grid;
+  gap: 1rem;
+}
+
+.examples-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.25rem;
+}
+
+.examples-total {
+  font-size: 0.9rem;
+}
+
+.examples-table-wrap {
+  overflow-x: auto;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.examples-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.examples-table th,
+.examples-table td {
+  padding: 0.65rem 0.85rem;
+  text-align: left;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+  vertical-align: middle;
+}
+
+.examples-table th {
+  color: #93c5fd;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.examples-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.examples-table-name {
+  word-break: break-all;
+}
+
+.examples-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.uc04-placeholder .secondary-button {
+  margin-top: 0.5rem;
+}
+
 .upload-section {
   display: grid;
   gap: 1rem;
