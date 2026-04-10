@@ -33,3 +33,6 @@
 /src/Backend/Sudoku/Sudoku/examples/
 /.ai/SystemPlikowWSerwerze.md
 /.ai/AnalizaOdpowiedzialnosciBE-ML.md
+
+# TypeScript incremental build info (Vite / tsc -b)
+**/*.tsbuildinfo
