@@ -28,6 +28,12 @@ builder.Services
     .ValidateOnStart();
 
 builder.Services
+    .AddOptions<ExamplesPreprocessOptions>()
+    .BindConfiguration(ExamplesPreprocessOptions.SectionName)
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+builder.Services
     .AddApplication()
     .AddInfrastructure(builder.Configuration);
 builder.Services.AddControllers();
