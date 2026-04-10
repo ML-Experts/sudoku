@@ -18,6 +18,26 @@ public sealed class ExamplesController : ControllerBase
         _sender = sender;
     }
 
+    [HttpGet]
+    [ProducesResponseType(typeof(ExamplesListApiResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ListAsync(CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new ListExamplesQuery(), cancellationToken);
+        var items = result.Items
+            .Select(item => new ExampleFileApiResponse(
+                Name: item.Name,
+                ContentType: item.ContentType,
+                SizeBytes: item.SizeBytes,
+                StoredAtUtc: item.StoredAtUtc))
+            .ToArray();
+
+        var response = new ExamplesListApiResponse(
+            Items: items,
+            TotalCount: result.TotalCount);
+
+        return Ok(response);
+    }
+
     [HttpPost]
     [Consumes("multipart/form-data")]
     [ProducesResponseType(typeof(ExampleFileApiResponse), StatusCodes.Status201Created)]

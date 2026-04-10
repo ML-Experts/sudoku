@@ -13,12 +13,18 @@ builder.Services
     .ValidateOnStart();
 
 builder.Services
-    .AddOptions<ExamplesUploadOptions>()
-    .BindConfiguration(ExamplesUploadOptions.SectionName)
+    .AddOptions<ExamplesStorageOptions>()
+    .BindConfiguration(ExamplesStorageOptions.SectionName)
     .ValidateDataAnnotations()
     .Validate(
         options => !Path.IsPathRooted(options.UploadsSubdirectory),
-        $"{ExamplesUploadOptions.SectionName}:UploadsSubdirectory must be a relative path.")
+        $"{ExamplesStorageOptions.SectionName}:UploadsSubdirectory must be a relative path.")
+    .ValidateOnStart();
+
+builder.Services
+    .AddOptions<ExamplesUploadOptions>()
+    .BindConfiguration(ExamplesUploadOptions.SectionName)
+    .ValidateDataAnnotations()
     .ValidateOnStart();
 
 builder.Services

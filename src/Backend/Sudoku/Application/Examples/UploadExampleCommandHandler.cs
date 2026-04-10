@@ -7,16 +7,16 @@ namespace Sudoku.Application.Examples;
 public sealed class UploadExampleCommandHandler : IRequestHandler<UploadExampleCommand, UploadExampleCommandResultDto>
 {
     private readonly IFileStorageGateway _fileStorageGateway;
-    private readonly ExamplesUploadOptions _options;
+    private readonly ExamplesStorageOptions _storageOptions;
     private readonly TimeProvider _timeProvider;
 
     public UploadExampleCommandHandler(
         IFileStorageGateway fileStorageGateway,
-        IOptions<ExamplesUploadOptions> options,
+        IOptions<ExamplesStorageOptions> storageOptions,
         TimeProvider timeProvider)
     {
         _fileStorageGateway = fileStorageGateway;
-        _options = options.Value;
+        _storageOptions = storageOptions.Value;
         _timeProvider = timeProvider;
     }
 
@@ -67,7 +67,7 @@ public sealed class UploadExampleCommandHandler : IRequestHandler<UploadExampleC
 
     private string ResolveUploadsDirectoryPath()
     {
-        var rootPath = Path.GetFullPath(_options.RootPath);
-        return Path.GetFullPath(Path.Combine(rootPath, _options.UploadsSubdirectory));
+        var rootPath = Path.GetFullPath(_storageOptions.RootPath);
+        return Path.GetFullPath(Path.Combine(rootPath, _storageOptions.UploadsSubdirectory));
     }
 }
