@@ -209,10 +209,10 @@ public sealed class ExamplesController : ControllerBase
         }
     }
 
-    private IActionResult MapValidationError(ValidationException exception)
+    private IActionResult MapValidationError(ValidationException exception, string? defaultErrorType = null)
     {
         var failure = exception.Errors.FirstOrDefault();
-        var errorType = failure?.ErrorCode ?? UploadExampleErrorTypes.InvalidRequest;
+        var errorType = failure?.ErrorCode ?? defaultErrorType ?? UploadExampleErrorTypes.InvalidRequest;
         var message = failure?.ErrorMessage ?? "Nieprawidłowe dane wejściowe.";
         var statusCode = errorType switch
         {

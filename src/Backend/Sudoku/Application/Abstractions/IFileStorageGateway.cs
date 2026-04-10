@@ -1,3 +1,5 @@
+using Sudoku.Application.Storage;
+
 namespace Sudoku.Application.Abstractions;
 
 public interface IFileStorageGateway
