@@ -1,6 +1,9 @@
 from fastapi import FastAPI
 
 from api.config.environment import load_runtime_environment
+from api.controllers.preprocessing_controller import (
+    preprocessing_controller,
+)
 from api.controllers.runtime_status_controller import (
     runtime_status_controller,
 )
@@ -9,7 +12,6 @@ from api.controllers.runtime_status_controller import (
 def create_app() -> FastAPI:
     runtime_settings = load_runtime_environment()
 
-    i = 0
     app = FastAPI(
         title=runtime_settings.service_name,
         version=runtime_settings.service_version,
@@ -19,6 +21,7 @@ def create_app() -> FastAPI:
     )
     app.state.runtime_settings = runtime_settings
     app.include_router(runtime_status_controller)
+    app.include_router(preprocessing_controller)
     return app
 
 

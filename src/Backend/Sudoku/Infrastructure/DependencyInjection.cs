@@ -25,14 +25,17 @@ public static class DependencyInjection
 
         services.AddTransient<IFileStorageGateway, LocalFileStorageGateway>();
 
-        services.AddHttpClient<IMlPingGateway, MlPingHttpClient>((serviceProvider, client) =>
-        {
-            var options = serviceProvider.GetRequiredService<IOptions<MlServiceOptions>>().Value;
-
-            client.BaseAddress = new Uri(options.BaseUrl, UriKind.Absolute);
-            client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
-        });
+        services.AddHttpClient<IMlPingGateway, MlPingHttpClient>(ConfigureMlHttpClient);
+        services.AddHttpClient<IMlImageProcessingGateway, MlImageProcessingHttpClient>(ConfigureMlHttpClient);
 
         return services;
+    }
+
+    private static void ConfigureMlHttpClient(IServiceProvider serviceProvider, HttpClient client)
+    {
+        var options = serviceProvider.GetRequiredService<IOptions<MlServiceOptions>>().Value;
+
+        client.BaseAddress = new Uri(options.BaseUrl, UriKind.Absolute);
+        client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
     }
 }

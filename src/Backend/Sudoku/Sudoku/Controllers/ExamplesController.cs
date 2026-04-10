@@ -2,6 +2,7 @@ using FluentValidation;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Sudoku.Application.Examples;
+using Sudoku.Application.Ml;
 using Sudoku.Application.Storage;
 using Sudoku.Contracts;
 
@@ -16,6 +17,136 @@ public sealed class ExamplesController : ControllerBase
     public ExamplesController(ISender sender)
     {
         _sender = sender;
+    }
+
+    [HttpGet("{name}")]
+    [ProducesResponseType(typeof(ImageApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetByNameAsync(
+        [FromRoute] string name,
+        CancellationToken cancellationToken)
+    {
+        var query = new GetExampleImageQuery(Name: name);
+
+        try
+        {
+            var result = await _sender.Send(query, cancellationToken);
+            return Ok(new ImageApiResponse(
+                MimeType: result.MimeType,
+                Base64: result.Base64));
+        }
+        catch (ValidationException exception)
+        {
+            return MapValidationError(exception, GetExampleImageErrorTypes.InvalidRequest);
+        }
+        catch (FileStorageItemNotFoundException exception)
+        {
+            return NotFound(new ErrorApiResponse(
+                ErrorType: GetExampleImageErrorTypes.ExampleNotFound,
+                Message: exception.Message));
+        }
+    }
+
+    [HttpPut("{name}/preprocess/board")]
+    [ProducesResponseType(typeof(ImageApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status503ServiceUnavailable)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status504GatewayTimeout)]
+    public async Task<IActionResult> PreprocessBoardAsync(
+        [FromRoute] string name,
+        CancellationToken cancellationToken)
+    {
+        var command = new PreprocessExampleBoardCommand(Name: name);
+
+        try
+        {
+            var result = await _sender.Send(command, cancellationToken);
+            return Ok(new ImageApiResponse(
+                MimeType: result.MimeType,
+                Base64: result.Base64));
+        }
+        catch (ValidationException exception)
+        {
+            return MapValidationError(exception, PreprocessExampleBoardErrorTypes.InvalidRequest);
+        }
+        catch (FileStorageItemNotFoundException exception)
+        {
+            return NotFound(new ErrorApiResponse(
+                ErrorType: PreprocessExampleBoardErrorTypes.ExampleNotFound,
+                Message: exception.Message));
+        }
+        catch (MlOperationFailedException exception)
+        {
+            return UnprocessableEntity(new ErrorApiResponse(
+                ErrorType: exception.ErrorType,
+                Message: exception.Message));
+        }
+        catch (MlServiceUnavailableException exception)
+        {
+            return StatusCode(
+                StatusCodes.Status503ServiceUnavailable,
+                new ErrorApiResponse(
+                    ErrorType: PreprocessExampleBoardErrorTypes.MlUnavailable,
+                    Message: exception.Message));
+        }
+        catch (MlServiceTimeoutException exception)
+        {
+            return StatusCode(
+                StatusCodes.Status504GatewayTimeout,
+                new ErrorApiResponse(
+                    ErrorType: PreprocessExampleBoardErrorTypes.MlTimeout,
+                    Message: exception.Message));
+        }
+    }
+
+    [HttpPut("preprocess/cells")]
+    [ProducesResponseType(typeof(CellsGridApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status503ServiceUnavailable)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status504GatewayTimeout)]
+    public async Task<IActionResult> PreprocessCellsAsync(
+        [FromBody] ImageApiEntry? entry,
+        CancellationToken cancellationToken)
+    {
+        var command = new PreprocessExampleCellsCommand(
+            MimeType: entry?.MimeType,
+            Base64: entry?.Base64);
+
+        try
+        {
+            var result = await _sender.Send(command, cancellationToken);
+            return Ok(ToCellsGridApiResponse(result));
+        }
+        catch (ValidationException exception)
+        {
+            return MapValidationError(exception, PreprocessExampleCellsErrorTypes.InvalidRequest);
+        }
+        catch (MlOperationFailedException exception)
+        {
+            return UnprocessableEntity(new ErrorApiResponse(
+                ErrorType: exception.ErrorType,
+                Message: exception.Message));
+        }
+        catch (MlServiceUnavailableException exception)
+        {
+            return StatusCode(
+                StatusCodes.Status503ServiceUnavailable,
+                new ErrorApiResponse(
+                    ErrorType: PreprocessExampleCellsErrorTypes.MlUnavailable,
+                    Message: exception.Message));
+        }
+        catch (MlServiceTimeoutException exception)
+        {
+            return StatusCode(
+                StatusCodes.Status504GatewayTimeout,
+                new ErrorApiResponse(
+                    ErrorType: PreprocessExampleCellsErrorTypes.MlTimeout,
+                    Message: exception.Message));
+        }
     }
 
     [HttpGet]
@@ -95,5 +226,18 @@ public sealed class ExamplesController : ControllerBase
             new ErrorApiResponse(
                 ErrorType: errorType,
                 Message: message));
+    }
+
+    private static CellsGridApiResponse ToCellsGridApiResponse(PreprocessCellsResultDto result)
+    {
+        var rows = result.Cells.Cells
+            .Select(row => (IReadOnlyList<ImageApiResponse>)row
+                .Select(cell => new ImageApiResponse(
+                    MimeType: cell.MimeType,
+                    Base64: Convert.ToBase64String(cell.Content)))
+                .ToArray())
+            .ToArray();
+
+        return new CellsGridApiResponse(Cells: rows);
     }
 }
