@@ -1,3 +1,5 @@
+using Sudoku.Application.Storage;
+
 namespace Sudoku.Application.Abstractions;
 
 public interface IFileStorageGateway
@@ -6,5 +8,9 @@ public interface IFileStorageGateway
         string directoryPath,
         string fileName,
         Stream content,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<StoredFileMetadataDto>> ListFilesAsync(
+        string directoryPath,
         CancellationToken cancellationToken = default);
 }
