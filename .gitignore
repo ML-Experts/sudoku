@@ -31,3 +31,5 @@
 # Generated artifacts (CI/local outputs, never versioned)
 /artifacts/
 /src/Backend/Sudoku/Sudoku/examples/
+/.ai/SystemPlikowWSerwerze.md
+/.ai/AnalizaOdpowiedzialnosciBE-ML.md

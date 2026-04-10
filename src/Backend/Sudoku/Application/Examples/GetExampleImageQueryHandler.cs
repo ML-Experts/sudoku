@@ -7,14 +7,14 @@ namespace Sudoku.Application.Examples;
 public sealed class GetExampleImageQueryHandler : IRequestHandler<GetExampleImageQuery, GetExampleImageResultDto>
 {
     private readonly IFileStorageGateway _fileStorageGateway;
-    private readonly ExamplesUploadOptions _options;
+    private readonly ExamplesStorageOptions _storageOptions;
 
     public GetExampleImageQueryHandler(
         IFileStorageGateway fileStorageGateway,
-        IOptions<ExamplesUploadOptions> options)
+        IOptions<ExamplesStorageOptions> storageOptions)
     {
         _fileStorageGateway = fileStorageGateway;
-        _options = options.Value;
+        _storageOptions = storageOptions.Value;
     }
 
     public async Task<GetExampleImageResultDto> Handle(
@@ -54,7 +54,7 @@ public sealed class GetExampleImageQueryHandler : IRequestHandler<GetExampleImag
 
     private string ResolveUploadsDirectoryPath()
     {
-        var rootPath = Path.GetFullPath(_options.RootPath);
-        return Path.GetFullPath(Path.Combine(rootPath, _options.UploadsSubdirectory));
+        var rootPath = Path.GetFullPath(_storageOptions.RootPath);
+        return Path.GetFullPath(Path.Combine(rootPath, _storageOptions.UploadsSubdirectory));
     }
 }

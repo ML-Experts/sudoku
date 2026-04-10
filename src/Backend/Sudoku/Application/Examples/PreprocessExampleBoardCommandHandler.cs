@@ -9,16 +9,16 @@ public sealed class PreprocessExampleBoardCommandHandler : IRequestHandler<Prepr
 {
     private readonly IFileStorageGateway _fileStorageGateway;
     private readonly IMlImageProcessingGateway _mlImageProcessingGateway;
-    private readonly ExamplesUploadOptions _options;
+    private readonly ExamplesStorageOptions _storageOptions;
 
     public PreprocessExampleBoardCommandHandler(
         IFileStorageGateway fileStorageGateway,
         IMlImageProcessingGateway mlImageProcessingGateway,
-        IOptions<ExamplesUploadOptions> options)
+        IOptions<ExamplesStorageOptions> storageOptions)
     {
         _fileStorageGateway = fileStorageGateway;
         _mlImageProcessingGateway = mlImageProcessingGateway;
-        _options = options.Value;
+        _storageOptions = storageOptions.Value;
     }
 
     public async Task<PreprocessBoardResultDto> Handle(
@@ -64,7 +64,7 @@ public sealed class PreprocessExampleBoardCommandHandler : IRequestHandler<Prepr
 
     private string ResolveUploadsDirectoryPath()
     {
-        var rootPath = Path.GetFullPath(_options.RootPath);
-        return Path.GetFullPath(Path.Combine(rootPath, _options.UploadsSubdirectory));
+        var rootPath = Path.GetFullPath(_storageOptions.RootPath);
+        return Path.GetFullPath(Path.Combine(rootPath, _storageOptions.UploadsSubdirectory));
     }
 }
