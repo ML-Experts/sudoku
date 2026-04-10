@@ -25,6 +25,9 @@
 **/.idea/
 *.iml
 
+# TypeScript incremental build info (Vite / tsc -b)
+**/*.tsbuildinfo
+
 # Local runtime data (never versioned)
 /examples/
 
