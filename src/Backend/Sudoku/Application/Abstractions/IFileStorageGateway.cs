@@ -12,4 +12,8 @@ public interface IFileStorageGateway
         string directoryPath,
         string fileName,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<StoredFileMetadataDto>> ListFilesAsync(
+        string directoryPath,
+        CancellationToken cancellationToken = default);
 }

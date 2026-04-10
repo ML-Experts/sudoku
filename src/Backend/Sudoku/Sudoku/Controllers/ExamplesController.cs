@@ -149,6 +149,26 @@ public sealed class ExamplesController : ControllerBase
         }
     }
 
+    [HttpGet]
+    [ProducesResponseType(typeof(ExamplesListApiResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ListAsync(CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new ListExamplesQuery(), cancellationToken);
+        var items = result.Items
+            .Select(item => new ExampleFileApiResponse(
+                Name: item.Name,
+                ContentType: item.ContentType,
+                SizeBytes: item.SizeBytes,
+                StoredAtUtc: item.StoredAtUtc))
+            .ToArray();
+
+        var response = new ExamplesListApiResponse(
+            Items: items,
+            TotalCount: result.TotalCount);
+
+        return Ok(response);
+    }
+
     [HttpPost]
     [Consumes("multipart/form-data")]
     [ProducesResponseType(typeof(ExampleFileApiResponse), StatusCodes.Status201Created)]
@@ -179,7 +199,7 @@ public sealed class ExamplesController : ControllerBase
         }
         catch (ValidationException exception)
         {
-            return MapValidationError(exception, UploadExampleErrorTypes.InvalidRequest);
+            return MapValidationError(exception);
         }
         catch (FileStorageConflictException exception)
         {
@@ -189,10 +209,10 @@ public sealed class ExamplesController : ControllerBase
         }
     }
 
-    private IActionResult MapValidationError(ValidationException exception, string defaultErrorType)
+    private IActionResult MapValidationError(ValidationException exception)
     {
         var failure = exception.Errors.FirstOrDefault();
-        var errorType = failure?.ErrorCode ?? defaultErrorType;
+        var errorType = failure?.ErrorCode ?? UploadExampleErrorTypes.InvalidRequest;
         var message = failure?.ErrorMessage ?? "Nieprawidłowe dane wejściowe.";
         var statusCode = errorType switch
         {

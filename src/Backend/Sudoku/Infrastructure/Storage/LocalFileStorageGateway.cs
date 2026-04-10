@@ -73,6 +73,31 @@ public sealed class LocalFileStorageGateway : IFileStorageGateway
         }
     }
 
+    public Task<IReadOnlyList<StoredFileMetadataDto>> ListFilesAsync(
+        string directoryPath,
+        CancellationToken cancellationToken = default)
+    {
+        var fullDirectoryPath = Path.GetFullPath(directoryPath);
+        if (!Directory.Exists(fullDirectoryPath))
+        {
+            return Task.FromResult<IReadOnlyList<StoredFileMetadataDto>>(Array.Empty<StoredFileMetadataDto>());
+        }
+
+        var directoryInfo = new DirectoryInfo(fullDirectoryPath);
+        var files = new List<StoredFileMetadataDto>();
+
+        foreach (var fileInfo in directoryInfo.EnumerateFiles("*", SearchOption.TopDirectoryOnly))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            files.Add(new StoredFileMetadataDto(
+                Name: fileInfo.Name,
+                SizeBytes: fileInfo.Length,
+                LastModifiedUtc: new DateTimeOffset(fileInfo.LastWriteTimeUtc)));
+        }
+
+        return Task.FromResult<IReadOnlyList<StoredFileMetadataDto>>(files);
+    }
+
     private static void EnsurePathIsWithinDirectory(string baseDirectoryPath, string targetPath)
     {
         var basePathWithSeparator =
