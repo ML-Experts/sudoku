@@ -37,6 +37,8 @@
 - `benchmarkName` identyfikuje wspólny benchmark używany do końcowego porównania modeli.
 - `seed` jest ziarnem losowości runu potrzebnym do powtarzalności eksperymentu.
 - W `MVP` profile i pozostała resolved konfiguracja runu nie są dziedziczone z modelu bazowego i nie są podawane przez użytkownika.
+- W `MVP` system wspiera dokładnie jeden preset treningowy i dokładnie jeden preset augmentacji po stronie `BE`.
+- `FE` nie pobiera katalogu presetów i nie przekazuje żadnych identyfikatorów presetów w `POST /api/trainings`.
 - W `MVP` `BE` rozwiązuje je po swojej stronie na podstawie własnej polityki oraz `TrainingDefaults.*` z `appsettings.{environment}.json`.
 - `TrainingDefaults.DefaultTrainingProfileName` wskazuje domyślny preset parametrów treningu dla nowego runu.
 - `TrainingDefaults.DefaultAugmentationProfileName` wskazuje domyślny preset augmentacji dla nowego runu.
@@ -46,6 +48,10 @@
 ### `snapshot` i `sequence`
 - `snapshot` jest jednorazowym zrzutem bieżącego stanu runu wysyłanym przez `BE` zaraz po zestawieniu albo odtworzeniu kanału `SignalR`.
 - `snapshot` nie jest komendą sterującą runem i nie pochodzi bezpośrednio z `ML`.
+- `snapshot` opisuje aktualny publiczny stan runu znany przez `BE`, a nie surowo ostatni event techniczny otrzymany z `ML`.
+- Jeśli run nie wszedł jeszcze w realne wykonywanie po stronie `ML`, `snapshot` może zwrócić stabilny stan `queued`.
+- Jeśli run zdążył się już zakończyć przed zestawieniem albo odtworzeniem kanału, `snapshot` może być terminalny i nieść ten sam stan publiczny, który `BE` pokazałby w końcowym evencie.
+- Po dostarczeniu terminalnego `snapshot` `BE` nie ma obowiązku utrzymywania kanału otwartego dłużej niż potrzeba do wysłania tego jednego komunikatu.
 - `sequence` jest rosnącym numerem porządkowym stanu w obrębie jednego runu.
 - `snapshot.sequence` jest równe ostatniej sekwencji zaakceptowanej przez `BE` w momencie wygenerowania `snapshot`.
 - `FE` może ignorować spóźnione eventy o niższym `sequence`, aby nie cofać UI do starszego stanu.
@@ -66,13 +72,15 @@
 - Katalogi bazowe dla tych referencji są rozwiązywane przez `BE` z `appsettings.{environment}.json`; w `local` są wpisane w `appsettings.local.json`, a w `production` przygotowuje je workflow w `appsettings.production.json`.
 
 ### `requestDisposition` dla odpowiedzi `cancel`
-- `CancelTrainingRunApiResponse.status` opisuje rzeczywisty bieżący stan runu w chwili odpowiedzi, a nie stan "wymuszony" przez samo żądanie `cancel`.
+- `CancelTrainingRunApiResponse.status` opisuje rzeczywisty bieżący stan dopasowanego runu w chwili odpowiedzi, a nie stan "wymuszony" przez samo żądanie `cancel`.
+- `CancelTrainingRunApiResponse.status` może być `null`, jeśli żądanie `cancel` nie dopasowało żadnego znanego runu i serwer zwraca techniczne `202 Accepted` typu no-op.
 - `CancelTrainingRunApiResponse.requestDisposition` opisuje, jak serwer obsłużył samo żądanie anulowania.
 - W `MVP` dopuszczalne wartości `requestDisposition` to:
   - `cancellationRequested` — aktywny run przyjął nowe żądanie anulowania,
   - `alreadyCancelling` — run był już wcześniej w stanie `cancelling`,
-  - `noopAlreadyFinished` — run był już zakończony i nowe żądanie nie zmieniło jego stanu.
-- `cancellationRequestedAtUtc` jest timestampem pierwszego skutecznie przyjętego żądania anulowania dla danego runu; może być `null`, jeśli run zakończył się bez przejścia przez ścieżkę anulowania.
+  - `noopAlreadyFinished` — run był już zakończony i nowe żądanie nie zmieniło jego stanu,
+  - `noopNoMatchingRun` — żądanie nie dopasowało żadnego znanego runu, ale API zachowuje uproszczone `202 Accepted`.
+- `cancellationRequestedAtUtc` jest timestampem pierwszego skutecznie przyjętego żądania anulowania dla danego runu; może być `null`, jeśli run zakończył się bez przejścia przez ścieżkę anulowania albo żądanie nie dopasowało żadnego runu.
 
 ## Role warstw
 ### `FE`
@@ -133,15 +141,19 @@
   - `cancelling`
 - System nie buduje kolejki kolejnych runów.
 - Drugie kliknięcie Start nie może utworzyć nowego runu.
-- Jeśli aktywny run już istnieje, `BE` zwraca `409 training_run_already_active`.
+- Jeśli aktywny run już istnieje, `BE` zwraca publiczne `409 training_run_already_active`.
+- Publiczne `409 training_run_already_active` jest zarezerwowane wyłącznie dla konfliktu z istniejącym aktywnym runem.
 - Po takim `409` klient nie zgaduje `runName`, tylko pobiera aktywny run przez `GET /api/trainings/active`.
+- Konflikty technicznej rezerwacji `runName` albo `producedModelName` są obsługiwane wewnętrznym retry po stronie `BE` i nie są normalnym publicznym przypadkiem `409`.
 - Po zakończeniu albo anulowaniu aktywnego runu można uruchomić kolejny.
 
 ## Publiczne eventy `BE -> FE`
 - `snapshot`
   - generowany wyłącznie przez `BE` po zestawieniu kanału,
   - nie pochodzi bezpośrednio z `ML`,
-  - dla aktywnego runu niesie bieżący `status`, `stage` i `progress`, a `result = null` i `failure = null`.
+  - niesie aktualny publiczny stan runu znany przez `BE`,
+  - dla aktywnego runu niesie bieżący `status`, `stage` i `progress`, a `result = null` i `failure = null`,
+  - dla runu zakończonego może być terminalny i wtedy odzwierciedla końcowy stan publiczny: sukces z `result`, błąd z `failure` albo anulowanie bez obu tych pól.
 - `statusChanged`
   - zmiana stanu workflow w trakcie aktywnego runu; `result = null`, `failure = null`.
 - `progress`
@@ -161,15 +173,24 @@
 - `cancelled`
 - `ML` nie wysyła eventu `snapshot`.
 
+## Niezawodność dostarczania eventów
+- `BE -> FE` przez `SignalR` nie używa potwierdzeń aplikacyjnych `ACK` z `FE`; utrata połączenia jest odzyskiwana przez reconnect i `snapshot`.
+- `ML -> BE` może powtórzyć wysyłkę tego samego eventu z tym samym `sequence`, jeśli nie otrzymało odpowiedzi `2xx` albo wystąpił timeout transportowy.
+- `BE` zapisuje `lastAcceptedSequence` i traktuje event o tym samym `sequence` jako idempotentne ponowienie, a event o niższym `sequence` jako spóźniony.
+- Końcowy event `completed`, `failed` albo `cancelled` musi zostać dostarczony do `BE` niezawodnie; `ML` przechowuje go jako pending i retry-uje z backoffem aż do skutecznego zapisu po stronie `BE`.
+- Retry końcowego eventu nie może blokować zasobów wykonawczych treningu; po stronie `ML` trwa tylko lekki mechanizm dostarczenia finalnego stanu.
+
 ## Kanoniczne inwarianty kontraktu
-- `snapshot`, `statusChanged` i `progress` zawsze mają `result = null` oraz `failure = null`.
+- `statusChanged` i `progress` zawsze mają `result = null` oraz `failure = null`.
+- `snapshot` dla aktywnego runu ma `result = null` oraz `failure = null`.
+- `snapshot` dla runu zakończonego odzwierciedla końcowy stan publiczny znany przez `BE`.
 - `completed` zawsze oznacza `status = succeeded`, `result != null` i `failure = null`.
 - `failed` zawsze oznacza `status = failed`, `result = null` i `failure != null`.
 - `cancelled` zawsze oznacza `status = cancelled`, `result = null` i `failure = null`.
-- `reportStatus` może pojawić się tylko wtedy, gdy `result != null`, czyli wyłącznie w końcowym evencie `completed`.
+- `reportStatus` może pojawić się tylko wtedy, gdy `result != null`, czyli wyłącznie w końcowym evencie `completed` albo w terminalnym `snapshot` runu zakończonego sukcesem.
 - Jeśli jedynym problemem końcowym jest brakujący albo uszkodzony raport, ale artefakty modelu są kompletne i model nadaje się do inferencji, run kończy się `completed`, a nie `failed`.
 - Jeśli run kończy się `failed`, oznacza to, że model wynikowy nie jest używalny do inferencji albo proces nie został poprawnie domknięty biznesowo; w takim przypadku `BE` sprząta artefakty runtime tak samo jak dla `cancelled`.
-- `CancelTrainingRunApiResponse.status` zwraca bieżący stan runu, a `requestDisposition` wyjaśnia, czy żądanie anulowania było nowe, duplikatem czy no-opem dla już zakończonego runu.
+- `CancelTrainingRunApiResponse.status` zwraca bieżący stan dopasowanego runu albo `null`, jeśli nie znaleziono żadnego dopasowania, a `requestDisposition` wyjaśnia, czy żądanie anulowania było nowe, duplikatem czy no-opem.
 
 ## Przebieg end-to-end
 1. Użytkownik administracyjny otwiera ekran `UC-06`.
@@ -198,7 +219,7 @@
    - dokładną równość `inputProfile` modelu bazowego i `preprocessingProfile` datasetu w MVP,
    - brak aktywnego runu.
 11. Jeśli aktywny run już istnieje, `BE` zwraca `409 training_run_already_active`, a `FE` pobiera `GET /api/trainings/active` i przechodzi do monitoringu istniejącego runu.
-12. Jeśli aktywnego runu nie ma, `BE` generuje `runName` i `producedModelName`.
+12. Jeśli aktywnego runu nie ma, `BE` generuje `runName` i `producedModelName`; jeśli rezerwacja tych nazw koliduje z istniejącym stanem plikowym, `BE` wykonuje wewnętrzny retry i nie eksponuje tego przypadku jako publicznego `409`.
 13. `BE` zapisuje rekord `trainings/metadata/{runName}.json` w przejściowym stanie `starting`.
 14. `BE` rozwiązuje wszystkie potrzebne ścieżki absolutne na podstawie `appsettings.{environment}.json`; w `local` pochodzą z `appsettings.local.json`, a w `production` z `appsettings.production.json` przygotowanego przez workflow.
 15. `BE` rozwiązuje konfigurację runu; w `MVP` przypisuje `trainingMode = fineTuning`, ustala `trainingProfileName`, `augmentationProfileName`, `benchmarkName` i `seed` po swojej stronie, a `FE` nie przekazuje tych pól w requestcie.
@@ -264,9 +285,9 @@
 - `BE` publikuje publiczny event `cancelled` dopiero po zakończeniu cleanupu.
 - `cancel` jest operacją kooperacyjną i idempotentną; dla uproszczenia endpoint zawsze zwraca `202 Accepted`.
 - Odpowiedź `CancelTrainingRunApiResponse` zwraca:
-  - `status` równy rzeczywistemu bieżącemu statusowi runu,
-  - `requestDisposition` opisujące, czy żądanie było nowe, duplikatem czy no-opem dla runu już zakończonego.
-- Jeśli żądanie nie powoduje nowej zmiany stanu, `202 Accepted` nadal oznacza przyjęcie żądania typu no-op, ale klient nie musi zgadywać wyniku, bo dostaje aktualny `status` i `requestDisposition`.
+  - `status` równy rzeczywistemu bieżącemu statusowi dopasowanego runu albo `null`, jeśli nie znaleziono dopasowania,
+  - `requestDisposition` opisujące, czy żądanie było nowe, duplikatem czy no-opem dla runu już zakończonego albo niedopasowanego.
+- Jeśli żądanie nie powoduje nowej zmiany stanu, `202 Accepted` nadal oznacza przyjęcie żądania typu no-op, ale klient nie musi zgadywać wyniku, bo dostaje `status` i `requestDisposition`.
 
 ## Statusy runu
 - `status` jest maszyną stanów workflow runu.
@@ -297,7 +318,9 @@
 
 ### Publiczna widoczność `starting`
 - `starting` może istnieć w rekordzie `BE` i w krótkim oknie przejściowym workflow, ale nie jest traktowany jako pierwszy stabilny publiczny stan runu.
+- Publicznie może pojawić się wyjątkowo tylko w odpowiedzi `GET /api/trainings/active`, jeśli drugi klient trafi w krótkie okno synchronicznego startu po stronie `BE`.
 - Po udanym `POST /api/trainings` pierwszym stabilnym publicznym statusem zwracanym do `FE` jest `queued`.
+- Kanał `SignalR /ws/trainings/{runName}` nie emituje `status = starting`; pierwszym stabilnym publicznym stanem na kanale jest `queued`.
 - Jeśli start nie powiedzie się jeszcze w oknie `starting`, `BE` robi rollback i nie pozostawia trwałego aktywnego runu.
 
 ## Wartości `stage`
@@ -328,7 +351,7 @@
 - Rozszerzona semantyka z tej sekcji jest kanoniczna dla `FE`, `BE` i `ML`.
 
 ### Wartości i znaczenie
-- `snapshot` — zrzut bieżącego stanu runu generowany przez `BE` po zestawieniu albo odtworzeniu kanału; nie jest wysyłany przez `ML`.
+- `snapshot` — zrzut aktualnego publicznego stanu runu generowany przez `BE` po zestawieniu albo odtworzeniu kanału; nie jest wysyłany przez `ML` i może być aktywny albo terminalny.
 - `statusChanged` — komunikat o zmianie stanu workflow albo istotnym przejściu technicznym, bez końcowego `result` i bez `failure`.
 - `progress` — aktualizacja postępu w aktywnym runie; zwykle towarzyszy `status = running` i również nie niesie końcowego `result`.
 - `completed` — końcowy sukces runu; zawsze oznacza `status = succeeded`.
@@ -338,7 +361,7 @@
 ### Relacja `eventType` do warstw
 - `BE -> FE` używa publicznych eventów `snapshot`, `statusChanged`, `progress`, `completed`, `failed`, `cancelled`.
 - `ML -> BE` używa eventów `statusChanged`, `progress`, `completed`, `failed`, `cancelled`.
-- `ML` nie wysyła eventu `snapshot`, a `status = starting` pozostaje przejściowym stanem po stronie `BE`.
+- `ML` nie wysyła eventu `snapshot`, a `status = starting` pozostaje przejściowym stanem po stronie `BE`, widocznym publicznie co najwyżej przez `GET /api/trainings/active`, ale nie przez `SignalR`.
 
 ## Rozwiązywanie konfiguracji runu
 - W `MVP` `FE` wysyła tylko `baseModelName` i `processedDatasetName`.
@@ -346,6 +369,7 @@
 - W `local` wartości pochodzą z `appsettings.local.json`, a w `production` z `appsettings.production.json` przygotowanego przez workflow.
 - W `MVP` `BE` przypisuje `trainingMode = fineTuning`; to nie jest parametr wejściowy z `FE`.
 - W `MVP` `trainingProfileName` i `augmentationProfileName` nie są dziedziczone z modelu bazowego i nie są jeszcze podawane przez użytkownika.
+- W `MVP` istnieje dokładnie jedna wspierana wartość `trainingProfileName` i dokładnie jedna wspierana wartość `augmentationProfileName`; `FE` nie wybiera ich i nie pobiera osobnego katalogu presetów.
 - `trainingMode` widoczne na liście modeli opisuje istniejący wpis rejestru i jego pochodzenie, a nie konfigurację nowo uruchamianego runu.
 
 ## Reguła zgodności modelu i datasetu
