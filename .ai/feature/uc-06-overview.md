@@ -65,6 +65,15 @@
 - `summaryRelativePath`, `metricsRelativePath` i `confusionMatrixRelativePath` są ścieżkami względnymi względem `trainings/reports/{runName}`.
 - Katalogi bazowe dla tych referencji są rozwiązywane przez `BE` z `appsettings.{environment}.json`; w `local` są wpisane w `appsettings.local.json`, a w `production` przygotowuje je workflow w `appsettings.production.json`.
 
+### `requestDisposition` dla odpowiedzi `cancel`
+- `CancelTrainingRunApiResponse.status` opisuje rzeczywisty bieżący stan runu w chwili odpowiedzi, a nie stan "wymuszony" przez samo żądanie `cancel`.
+- `CancelTrainingRunApiResponse.requestDisposition` opisuje, jak serwer obsłużył samo żądanie anulowania.
+- W `MVP` dopuszczalne wartości `requestDisposition` to:
+  - `cancellationRequested` — aktywny run przyjął nowe żądanie anulowania,
+  - `alreadyCancelling` — run był już wcześniej w stanie `cancelling`,
+  - `noopAlreadyFinished` — run był już zakończony i nowe żądanie nie zmieniło jego stanu.
+- `cancellationRequestedAtUtc` jest timestampem pierwszego skutecznie przyjętego żądania anulowania dla danego runu; może być `null`, jeśli run zakończył się bez przejścia przez ścieżkę anulowania.
+
 ## Role warstw
 ### `FE`
 - pokazuje listę modeli i datasetów,
@@ -140,7 +149,7 @@
 - `completed`
   - sukces runu; `status = succeeded`, `result != null`, `failure = null`.
 - `failed`
-  - błąd techniczny albo crash po uruchomieniu runu; `status = failed`, `result = null`, `failure != null`.
+  - błąd techniczny albo błąd domknięcia runu po uruchomieniu, po którym model wynikowy nie może zostać użyty do inferencji; przed publikacją eventu `BE` wykonuje cleanup artefaktów runtime analogiczny do `cancelled`; `status = failed`, `result = null`, `failure != null`.
 - `cancelled`
   - run przerwany na żądanie użytkownika; publiczny event jest publikowany po cleanupie artefaktów runtime, z `status = cancelled`, `result = null`, `failure = null`.
 
@@ -151,6 +160,16 @@
 - `failed`
 - `cancelled`
 - `ML` nie wysyła eventu `snapshot`.
+
+## Kanoniczne inwarianty kontraktu
+- `snapshot`, `statusChanged` i `progress` zawsze mają `result = null` oraz `failure = null`.
+- `completed` zawsze oznacza `status = succeeded`, `result != null` i `failure = null`.
+- `failed` zawsze oznacza `status = failed`, `result = null` i `failure != null`.
+- `cancelled` zawsze oznacza `status = cancelled`, `result = null` i `failure = null`.
+- `reportStatus` może pojawić się tylko wtedy, gdy `result != null`, czyli wyłącznie w końcowym evencie `completed`.
+- Jeśli jedynym problemem końcowym jest brakujący albo uszkodzony raport, ale artefakty modelu są kompletne i model nadaje się do inferencji, run kończy się `completed`, a nie `failed`.
+- Jeśli run kończy się `failed`, oznacza to, że model wynikowy nie jest używalny do inferencji albo proces nie został poprawnie domknięty biznesowo; w takim przypadku `BE` sprząta artefakty runtime tak samo jak dla `cancelled`.
+- `CancelTrainingRunApiResponse.status` zwraca bieżący stan runu, a `requestDisposition` wyjaśnia, czy żądanie anulowania było nowe, duplikatem czy no-opem dla już zakończonego runu.
 
 ## Przebieg end-to-end
 1. Użytkownik administracyjny otwiera ekran `UC-06`.
@@ -199,8 +218,10 @@
    - raporty do `trainings/reports/{runName}`,
    - finalne artefakty modelu do `models/registry/{producedModelName}/artifacts`.
 24. Po zdarzeniu końcowym `completed` `BE` finalizuje `models/registry/{producedModelName}/model.json`.
-25. Po zdarzeniu końcowym `cancelled` `BE` zachowuje `trainings/metadata/{runName}.json` ze statusem `cancelled`, usuwa artefakty runtime runu z `trainings/runs/{runName}`, `trainings/reports/{runName}`, katalogu tymczasowego oraz częściowo utworzonego katalogu `models/registry/{producedModelName}`, a dopiero potem publikuje publiczny event `cancelled`.
-26. Run staje się widoczny w późniejszych use case'ach:
+25. Jeśli końcowy problem dotyczy wyłącznie raportu (`missing` albo `corrupted`), ale artefakty modelu są kompletne, `ML` raportuje `completed`, a `BE` zachowuje model wynikowy i publikuje ostrzeżenie zamiast przechodzić do `failed`.
+26. Po zdarzeniu końcowym `failed` `BE` zachowuje `trainings/metadata/{runName}.json` ze statusem `failed`, usuwa artefakty runtime runu z `trainings/runs/{runName}`, `trainings/reports/{runName}`, katalogu tymczasowego oraz częściowo utworzonego katalogu `models/registry/{producedModelName}`, a dopiero potem publikuje publiczny event `failed`.
+27. Po zdarzeniu końcowym `cancelled` `BE` zachowuje `trainings/metadata/{runName}.json` ze statusem `cancelled`, usuwa artefakty runtime runu z `trainings/runs/{runName}`, `trainings/reports/{runName}`, katalogu tymczasowego oraz częściowo utworzonego katalogu `models/registry/{producedModelName}`, a dopiero potem publikuje publiczny event `cancelled`.
+28. Run staje się widoczny w późniejszych use case'ach:
    - `UC-07` postęp,
    - `UC-08` lista treningów i modeli,
    - `UC-09` szczegóły i metryki,
@@ -242,30 +263,82 @@
 - `BE` zachowuje `trainings/metadata/{runName}.json` ze statusem `cancelled`, usuwa artefakty runtime runu z `trainings/runs/{runName}`, `trainings/reports/{runName}`, katalogu tymczasowego oraz częściowo utworzonego katalogu `models/registry/{producedModelName}`.
 - `BE` publikuje publiczny event `cancelled` dopiero po zakończeniu cleanupu.
 - `cancel` jest operacją kooperacyjną i idempotentną; dla uproszczenia endpoint zawsze zwraca `202 Accepted`.
-- Jeśli żądanie nie powoduje nowej zmiany stanu, `202 Accepted` oznacza przyjęcie żądania typu no-op, a bieżący stan runu klient odzyskuje później przez `GET /api/trainings/active` albo kanał `SignalR`.
+- Odpowiedź `CancelTrainingRunApiResponse` zwraca:
+  - `status` równy rzeczywistemu bieżącemu statusowi runu,
+  - `requestDisposition` opisujące, czy żądanie było nowe, duplikatem czy no-opem dla runu już zakończonego.
+- Jeśli żądanie nie powoduje nowej zmiany stanu, `202 Accepted` nadal oznacza przyjęcie żądania typu no-op, ale klient nie musi zgadywać wyniku, bo dostaje aktualny `status` i `requestDisposition`.
 
 ## Statusy runu
+- `status` jest maszyną stanów workflow runu.
+- `status` mówi, w jakim stanie biznesowym znajduje się run; nie zastępuje pola `stage`.
+- Rozszerzona semantyka z tej sekcji jest kanoniczna dla `FE`, `BE` i `ML`; dokumenty warstwowe odwołują się do niej zamiast powielać pełny opis.
+
 ### Statusy aktywne
-- `queued`
 - `starting`
+- `queued`
 - `running`
 - `cancelling`
+
+### Znaczenie statusów aktywnych
+- `starting` — `BE` zapisał rekord runu i wykonuje synchroniczny start do `ML`; to stan przejściowy używany głównie do ochrony workflow i rollbacku.
+- `queued` — `ML` przyjęło start runu, ale właściwe wykonywanie nie weszło jeszcze w fazę treningu; ta nazwa nie oznacza kolejki wielu runów, tylko stan "zaakceptowany i oczekujący na wykonanie".
+- `running` — run jest wykonywany; o bieżącej fazie technicznej mówi dopiero `stage`.
+- `cancelling` — `BE` przyjęło żądanie anulowania i czeka na bezpieczne zatrzymanie pracy przez `ML`; to nadal status aktywny, a nie końcowy.
 
 ### Statusy końcowe
 - `succeeded`
 - `failed`
 - `cancelled`
 
+### Znaczenie statusów końcowych
+- `succeeded` — run domknął się sukcesem; model wynikowy pozostaje używalny do inferencji, a stan raportu opisuje `reportStatus`.
+- `failed` — run zakończył się błędem technicznym albo błędem domknięcia workflow; model wynikowy nie jest traktowany jako używalny do inferencji.
+- `cancelled` — run został kooperacyjnie przerwany na żądanie użytkownika, a `BE` zakończył cleanup artefaktów runtime.
+
+### Publiczna widoczność `starting`
+- `starting` może istnieć w rekordzie `BE` i w krótkim oknie przejściowym workflow, ale nie jest traktowany jako pierwszy stabilny publiczny stan runu.
+- Po udanym `POST /api/trainings` pierwszym stabilnym publicznym statusem zwracanym do `FE` jest `queued`.
+- Jeśli start nie powiedzie się jeszcze w oknie `starting`, `BE` robi rollback i nie pozostawia trwałego aktywnego runu.
+
 ## Wartości `stage`
 - `stage` jest grubą fazą techniczną runu i nie zastępuje pola `status`.
+- `status` mówi, czy run trwa, kończy się albo zakończył, a `stage` mówi, na jakiej technicznej fazie pracy aktualnie jest albo był.
+- Rozszerzona semantyka z tej sekcji jest kanoniczna dla wszystkich warstw.
 - W MVP dopuszczalne wartości to:
   - `queued`
   - `training`
   - `evaluation`
   - `finished`
-- `status` opisuje stan workflow, a `stage` opisuje bieżącą fazę techniczną pracy.
-- `starting` jest stanem przejściowym po zapisaniu rekordu runu i przed otrzymaniem `202 Accepted` z `ML`.
-- Jeśli start nie powiedzie się jeszcze w tym oknie synchronicznym, `BE` robi rollback i nie pozostawia trwałego aktywnego runu w statusie `starting`.
+
+### Znaczenie wartości `stage`
+- `queued` — run został zaakceptowany, ale nie wszedł jeszcze w realne wykonywanie.
+- `training` — trwa właściwy trening modelu.
+- `evaluation` — trwa końcowa ewaluacja, zapis raportów, benchmark lub finalizacja technicznych artefaktów modelu.
+- `finished` — run został technicznie domknięty.
+
+### Relacja `status` i `stage`
+- `status = running` może występować z `stage = training` albo `evaluation`.
+- `status = cancelling` zachowuje ostatnią realną fazę pracy, najczęściej `training` albo `evaluation`, aż do końcowego eventu `cancelled`.
+- Dla stanów końcowych `succeeded` i `cancelled` oczekiwane `stage` to `finished`.
+- Dla `failed` `stage` może pozostać ostatnią realną fazą pracy, np. `training` albo `evaluation`, aby było wiadomo, gdzie run się zatrzymał.
+- `starting` jest stanem przejściowym po zapisaniu rekordu runu i przed otrzymaniem `202 Accepted` z `ML`; nie jest osobną wartością `stage`.
+
+## Znaczenie `eventType`
+- `eventType` opisuje typ komunikatu transportowego; nie jest stanem runu i nie zastępuje pól `status` ani `stage`.
+- Rozszerzona semantyka z tej sekcji jest kanoniczna dla `FE`, `BE` i `ML`.
+
+### Wartości i znaczenie
+- `snapshot` — zrzut bieżącego stanu runu generowany przez `BE` po zestawieniu albo odtworzeniu kanału; nie jest wysyłany przez `ML`.
+- `statusChanged` — komunikat o zmianie stanu workflow albo istotnym przejściu technicznym, bez końcowego `result` i bez `failure`.
+- `progress` — aktualizacja postępu w aktywnym runie; zwykle towarzyszy `status = running` i również nie niesie końcowego `result`.
+- `completed` — końcowy sukces runu; zawsze oznacza `status = succeeded`.
+- `failed` — końcowy błąd runu; zawsze oznacza `status = failed`.
+- `cancelled` — końcowe anulowanie runu; zawsze oznacza `status = cancelled`.
+
+### Relacja `eventType` do warstw
+- `BE -> FE` używa publicznych eventów `snapshot`, `statusChanged`, `progress`, `completed`, `failed`, `cancelled`.
+- `ML -> BE` używa eventów `statusChanged`, `progress`, `completed`, `failed`, `cancelled`.
+- `ML` nie wysyła eventu `snapshot`, a `status = starting` pozostaje przejściowym stanem po stronie `BE`.
 
 ## Rozwiązywanie konfiguracji runu
 - W `MVP` `FE` wysyła tylko `baseModelName` i `processedDatasetName`.
@@ -287,12 +360,13 @@
 - `trainings/metadata/{runName}.json`
 - finalne `models/registry/{producedModelName}/model.json` wyłącznie po `completed`
 - pełną konfigurację eksperymentu, w tym `sourceRevision` ustawione w `MVP` na `null`, oraz referencje do artefaktów raportu potrzebnych później w UI
+- przy `failed` i `cancelled` zachowuje rekord `trainings/metadata/{runName}.json`, ale usuwa pozostałe artefakty runtime runu oraz częściowo utworzony katalog modelu wynikowego
 
 ### Co zapisuje `ML`
 - `trainings/runs/{runName}`
 - `trainings/reports/{runName}`
 - `models/registry/{producedModelName}/artifacts` wyłącznie dla runu zakończonego sukcesem
-- Przy `cancelled` artefakty runtime runu są usuwane, ale `trainings/metadata/{runName}.json` pozostaje zachowane po stronie `BE`.
+- Przy `failed` i `cancelled` artefakty runtime runu są usuwane przez `BE`, ale `trainings/metadata/{runName}.json` pozostaje zachowane po stronie `BE`.
 
 ## Uszkodzony raport a używalny model
 - Błąd raportu nie musi oznaczać, że run jest całkowicie bezużyteczny.
@@ -305,6 +379,7 @@
   - ostrzeżenie o raporcie trafia do `warnings`,
   - UI powinno pokazać ostrzeżenie o raporcie,
   - model może nadal być dostępny do aktywacji i inferencji.
+- Taki przypadek nie może kończyć się eventem `failed`.
 
 ## Najważniejsze zasady architektoniczne
 - `FE` wybiera tylko nazwy logiczne, nigdy ścieżki systemowe.

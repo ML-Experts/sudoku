@@ -262,8 +262,9 @@ Uwaga organizacyjna:
 - **BE**:
   - Endpoint startujący trening (np. `POST /api/trainings`) i zwracający `runName`, czyli nazwę plikowego rekordu i katalogu runu, a nie sztuczne `training_id` z bazy danych.
   - Endpoint lekkiego odczytu aktywnego runu (np. `GET /api/trainings/active`) zwracający bieżący run albo pusty wynik, tak aby `FE` mogło wejść z powrotem w monitoring po odświeżeniu strony albo po `409`.
-  - Endpoint anulowania aktywnego runu (np. `POST /api/trainings/{runName}/cancel`) jest kooperacyjny, idempotentny i dla uproszczenia zawsze zwraca `202 Accepted`; system nadal egzekwuje zasadę, że może istnieć tylko jeden aktywny run jednocześnie, a kolejne starty nie tworzą kolejki.
+  - Endpoint anulowania aktywnego runu (np. `POST /api/trainings/{runName}/cancel`) jest kooperacyjny, idempotentny i dla uproszczenia zawsze zwraca `202 Accepted`; odpowiedź zwraca jednak rzeczywisty bieżący `status` runu oraz `requestDisposition`, tak aby `FE` wiedziało, czy anulowanie zostało właśnie przyjęte, było duplikatem czy było no-opem dla runu już zakończonego.
   - Po końcowym `cancelled` Backend zachowuje `trainings/metadata/{runName}.json` ze statusem `cancelled`, ale czyści techniczne artefakty runtime runu z `trainings/runs`, `trainings/reports`, katalogu tymczasowego i częściowo utworzonego katalogu modelu wynikowego.
+  - Po końcowym `failed` Backend zachowuje `trainings/metadata/{runName}.json` ze statusem `failed`, ale czyści techniczne artefakty runtime runu analogicznie do `cancelled`; stan `failed` jest zarezerwowany dla przypadków, w których model wynikowy nie nadaje się do inferencji albo workflow nie dał się poprawnie domknąć.
   - Endpointy listujące wpisy rejestru modeli i przygotowane zestawy `.npz` dostępne do treningu; źródłem listy modeli jest wyłącznie skan `models/registry/*/model.json`.
   - Utworzenie plikowego rekordu treningu / eksperymentu (np. `trainings/metadata/{runName}.json`) i zapamiętanie pełnej konfiguracji (model bazowy, zestaw `.npz`, seed, profil treningu, profil augmentacji, `sourceRevision` / commit / wersja); w `MVP` pole `sourceRevision` istnieje, ale przyjmuje wartość `null`, a później może zostać podpięte pod wersję kodu lub konfiguracji. Rekord przechowuje także status, `producedModelName` oraz referencje do artefaktów potrzebnych UI.
   - Wsparcie zarówno dla wpisów bootstrap bez historii `trainings/*`, jak i dla modeli wcześniej wytrenowanych w systemie.
@@ -277,6 +278,7 @@ Uwaga organizacyjna:
   - Finalna ewaluacja porównawcza modeli odbywa się na wspólnym, stałym benchmarku / secie testowym Sudoku.
   - Zapis artefaktów technicznych (model/checkpoint + metryki + raporty) odbywa się wyłącznie w skonfigurowanych katalogach systemowych; `BE` przekazuje `ML` resolved ścieżki wejścia i wyjścia, a `ML` raportuje wynik i referencje do Backendu potrzebne do finalizacji `model.json`.
   - `ML` raportuje postęp, anulowanie i stan końcowy do `BE` przez wewnętrzny endpoint statusowy; `FE` nie łączy się z `ML` bezpośrednio.
+  - Jeśli jedynym problemem końcowym jest brakujący albo uszkodzony raport, ale artefakty modelu są kompletne i model nadaje się do inferencji, `ML` raportuje `completed` z ostrzeżeniem i `reportStatus = missing | corrupted`, a nie `failed`.
   - **AC**:
     - Użytkownik może uruchomić trening przez wybór dokładnie jednego wpisu modelu bazowego z rejestru i jednego przygotowanego zestawu `.npz`.
     - Model bootstrap może zostać wybrany do treningu, jeśli jego manifest ma `canStartTraining = true`, mimo braku własnego `runName`.
@@ -284,9 +286,11 @@ Uwaga organizacyjna:
     - Jeśli drugi start trafi na już istniejący aktywny run, `FE` może odzyskać jego dane przez endpoint aktywnego runu i przejść do monitoringu.
     - Aktywny run może zostać anulowany i dopiero wtedy można uruchomić kolejny run.
     - Po anulowaniu system zachowuje `trainings/metadata/{runName}.json` ze statusem `cancelled`, ale usuwa techniczne artefakty runtime tego runu.
+    - Po `failed` system zachowuje `trainings/metadata/{runName}.json` ze statusem `failed`, ale usuwa techniczne artefakty runtime tego runu analogicznie do `cancelled`.
     - Run tworzy wpis treningu widoczny w liście (UC-08), a run zakończony sukcesem tworzy dodatkowo docelowy wpis modelu wynikowego w rejestrze.
     - Utrata połączenia `SignalR` między `FE` i `BE` nie zatrzymuje runu.
     - Jeśli raport końcowy jest uszkodzony albo brakujący, ale artefakty modelu są kompletne, model nadal może zostać użyty do inferencji przy czytelnym ostrzeżeniu o raporcie.
+    - Jeśli raport końcowy jest uszkodzony albo brakujący, ale artefakty modelu są kompletne, run kończy się sukcesem z ostrzeżeniem, a nie statusem `failed`.
     - Dla zakończonego treningu dostępna jest pełna konfiguracja eksperymentu i relacja `run -> producedModelName -> reports`, potrzebna do późniejszego porównania wyników.
 
 #### UC-07 — „Pokazuj postęp treningu i informuj o zakończeniu”
@@ -305,7 +309,7 @@ Uwaga organizacyjna:
 - **FE**:
   - Widok listy treningów (status, data, krótki opis: model / dataset / tryb treningu) oraz powiązanych modeli, w tym wpisów bootstrap i modeli wytrenowanych w systemie.
 - **BE**:
-  - Endpoint listujący treningi i modele (np. `GET /api/trainings`, `GET /api/models`) na podstawie rekordów systemowych utrzymywanych przez Backend oraz manifestów modeli w rejestrze.
+  - Endpoint listujący treningi i modele (np. `GET /api/trainings`, `GET /api/models/registry`) na podstawie rekordów systemowych utrzymywanych przez Backend oraz manifestów modeli w rejestrze.
 - **ML**:
   - Dostarczenie skróconych danych technicznych lub referencji do artefaktów potrzebnych do aktualizacji rekordów widocznych w Backendzie.
   - **AC**:
@@ -455,7 +459,7 @@ Uwaga organizacyjna:
 - **Frontend → Backend (C#)**: `GET /api/models/registry` — lista wpisów rejestru modeli z capability do treningu i inferencji; endpoint chroniony tokenem.
 - **Frontend → Backend (C#)**: `GET /api/trainings/active` — lekki odczyt bieżącego aktywnego runu treningowego; endpoint chroniony tokenem i używany do odzyskania monitoringu po odświeżeniu lub konflikcie `409`.
 - **Frontend → Backend (C#)**: `POST /api/trainings` — start asynchronicznego treningu na jednym przygotowanym `.npz`; endpoint chroniony tokenem i zwracający `runName`.
-- **Frontend → Backend (C#)**: `POST /api/trainings/{runName}/cancel` — kooperacyjne anulowanie aktywnego runu.
+- **Frontend → Backend (C#)**: `POST /api/trainings/{runName}/cancel` — kooperacyjne anulowanie aktywnego runu; odpowiedź zwraca bieżący `status` runu i `requestDisposition`.
 - **Frontend → Backend (C#)**: `GET /api/trainings/{runName}` — szczegóły pojedynczego runu treningowego.
 - **Frontend → Backend (C#)**: `PUT /api/models/active` — ustawienie aktywnego modelu inferencyjnego przez aktualizację wskaźnika w `models/active`.
 - **Frontend → Backend (C#)**: `POST /api/solve-from-image` — przyjmuje obraz, zwraca JSON (kontrakt poniżej); endpoint publiczny dostępny także bez tokenu.
@@ -568,7 +572,9 @@ Uwaga: nie ma wymogu trwałego zapisywania `recognized_grid`/`solved_grid` do pl
   - system dopuszcza dokładnie jeden aktywny run jednocześnie; kolejny start nie tworzy kolejki, ale aktywny run można anulować,
   - Backend uruchamia trening, odbiera status z `ML` i publikuje postęp przez `SignalR`,
   - utrata połączenia `SignalR` po stronie `FE` nie zatrzymuje runu,
-  - po zakończeniu zapisujemy wytrenowany model jako nowy wpis rejestru modeli oraz raport treningu w skonfigurowanych lokalizacjach systemowych.
+  - po zakończeniu sukcesem zapisujemy wytrenowany model jako nowy wpis rejestru modeli oraz raport treningu w skonfigurowanych lokalizacjach systemowych,
+  - jeśli run kończy się `failed`, Backend zachowuje rekord metadanych, ale czyści artefakty runtime analogicznie do `cancelled`,
+  - jeśli jedynym problemem końcowym jest raport, ale model wynikowy jest kompletny, run kończy się sukcesem z ostrzeżeniem, a nie statusem `failed`.
 - **Rejestr modeli**:
   - wpis rejestru jest katalogiem `models/registry/{modelName}`,
   - minimalnie zawiera `model.json` oraz `artifacts/`,
@@ -582,6 +588,7 @@ Uwaga: nie ma wymogu trwałego zapisywania `recognized_grid`/`solved_grid` do pl
   - po starcie runu Backend zapisuje `trainings/metadata/{runName}.json`, rezerwuje `producedModelName` i utrzymuje pełną konfigurację eksperymentu wraz z `sourceRevision`; w `MVP` temu polu przypisuje `null`, a docelowo może ono wskazywać wersję kodu albo konfiguracji użytej do treningu. Rekord zawiera też referencje do artefaktów raportu,
   - w trakcie runu `ML` zapisuje checkpointy i logi w `trainings/runs/{runName}` oraz raporty w `trainings/reports/{runName}`,
   - po sukcesie `ML` zapisuje artefakty modelu do `models/registry/{producedModelName}/artifacts`, a `BE` finalizuje `models/registry/{producedModelName}/model.json` i aktualizuje rekord runu,
+  - po `failed` Backend zachowuje `trainings/metadata/{runName}.json` ze statusem końcowym `failed`, ale usuwa artefakty runtime runu z `trainings/runs`, `trainings/reports`, katalogu tymczasowego i częściowo utworzonego katalogu modelu wynikowego,
   - po `cancelled` Backend zachowuje `trainings/metadata/{runName}.json` ze statusem końcowym `cancelled`, ale usuwa artefakty runtime runu z `trainings/runs`, `trainings/reports`, katalogu tymczasowego i częściowo utworzonego katalogu modelu wynikowego,
   - jeśli raport jest uszkodzony albo brakujący, ale artefakty modelu są kompletne, rekord runu powinien to odnotować jako ostrzeżenie bez automatycznego unieważniania modelu.
 - **Wyjątki i stany graniczne**:
