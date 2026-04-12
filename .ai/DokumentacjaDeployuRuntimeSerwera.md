@@ -58,33 +58,39 @@ Oznacza to, że backend i ML słuchają tylko na localhost i nie są bezpośredn
 
 ```text
 /opt/sudoku/
-├── backend/                   # aktywna wersja backendu
+├── backend/                   # aktywna wersja BE
 ├── ml/                        # aktywna wersja ML
 ├── releases/
-│   ├── backend/               # wrzutnia release'ów backendu
-│   ├── ml/                    # wrzutnia release'ów ML
-│   └── fe/                    # wrzutnia release'ów frontendu
+│   ├── backend/               # wrzutnia buildów BE
+│   ├── ml/                    # wrzutnia buildów ML
+│   └── fe/                    # wrzutnia buildów FE
 ├── shared/
 │   ├── data/
-│   │   ├── raw/
-│   │   ├── processed/
-│   │   └── benchmark/
+│   │   ├── raw/               # katalog nadrzędny na surowe datasety
+│   │   │   ├── boards/        # datasety plansz sudoku
+│   │   │   └── digits/        # datasety pojedynczych cyfr
+│   │   ├── processed/         # dane przygotowane / po preprocessingu
+│   │   └── benchmark/         # wspólny benchmark testowy
 │   ├── models/
 │   │   ├── active/
+│   │   │   └── inference.json # wskaźnik na aktualnie używany model do inferencji
 │   │   └── registry/
+│   │       └── {modelName}/
+│   │           ├── model.json # manifest wpisu rejestru
+│   │           └── artifacts/ # artefakty modelu gotowe do użycia
 │   ├── trainings/
-│   │   ├── runs/
-│   │   ├── reports/
-│   │   └── metadata/
+│   │   ├── runs/              # katalogi poszczególnych treningów
+│   │   ├── reports/           # raporty ewaluacyjne, confusion matrix itp.
+│   │   └── metadata/          # metadane treningów / modeli
 │   ├── examples/
-│   │   ├── uploads/
-│   │   └── generated/
-│   └── tmp/
+│   │   ├── uploads/           # pliki wrzucone przez użytkownika
+│   │   └── generated/         # opcjonalne artefakty debug / preprocess
+│   └── tmp/                   # ewentualne pliki tymczasowe
 └── scripts/                   # skrypty deployowe
 
-/var/www/sudoku/fe             # aktywny frontend serwowany przez nginx
-/etc/sudoku/                   # miejsce na systemowe dodatki / przyszłe override'y
-/var/log/sudoku/               # logi aplikacyjne jeśli używane poza journald
+/var/www/sudoku/fe             # aktywny frontend dla nginx
+/etc/sudoku/                   # env/config systemowy
+/var/log/sudoku/               # logi jeśli nie tylko journald
 ```
 
 ## Znaczenie katalogów
@@ -132,6 +138,58 @@ Przykłady:
 * uploady użytkowników
 * artefakty generowane przez preprocess
 * pliki tymczasowe
+
+#### Rejestr modeli i bootstrap
+
+`/opt/sudoku/shared/models/registry` jest trwałym magazynem modeli runtime i nie jest nadpisywany zwykłym deployem aplikacji.
+
+Każdy wpis rejestru musi mieć postać:
+
+```text
+/opt/sudoku/shared/models/registry/{modelName}/
+├── model.json
+└── artifacts/
+    └── ...
+```
+
+Zasady:
+
+* model bootstrap / seed jest dodawany operacyjnie do `registry` i nie musi mieć własnego `trainings/*`,
+* model wytrenowany w systemie jest zapisywany do nowego katalogu `registry/{producedModelName}`,
+* `model.json` jest obowiązkowy zarówno dla modeli bootstrap, jak i dla modeli po treningu.
+
+Przykładowy minimalny manifest:
+
+```json
+{
+  "modelName": "cnn-mnist-baseline",
+  "displayName": "CNN MNIST Baseline",
+  "sourceType": "bootstrap",
+  "sourceRunName": null,
+  "parentModelName": null,
+  "trainingMode": "externalBaseline",
+  "primaryArtifactRelativePath": "artifacts/model.keras",
+  "inputProfile": "default-28x28-v1",
+  "canStartTraining": true,
+  "canUseForInference": true
+}
+```
+
+#### Aktywny model inferencyjny
+
+`/opt/sudoku/shared/models/active` nie przechowuje kopii pełnego modelu.
+
+Zawiera wyłącznie lekki plik wskaźnikowy, np.:
+
+```text
+/opt/sudoku/shared/models/active/inference.json
+```
+
+W praktyce oznacza to:
+
+* `BE` aktualizuje wskaźnik podczas `PUT /api/models/active`,
+* `ML` odczytuje wskaźnik i przeładowuje model,
+* deploy aplikacji nie powinien czyścić ani nadpisywać tego pliku bez wyraźnej potrzeby operacyjnej.
 
 ### `/opt/sudoku/scripts`
 
@@ -271,6 +329,12 @@ To oznacza:
 
 Nie budujemy aplikacji produkcyjnej bezpośrednio na serwerze, poza instalacją zależności Python dla ML.
 
+Kluczowa zasada operacyjna:
+
+* deploy release'ów **nie nadpisuje** katalogów współdzielonych runtime, takich jak `data/`, `models/`, `trainings/` i `examples/`,
+* katalogi `shared` żyją dłużej niż pojedynczy release i przechowują stan systemu,
+* bootstrap pierwszego modelu bazowego do `models/registry` jest osobnym krokiem operacyjnym / deployowym, a nie skutkiem zwykłego wdrożenia kodu BE lub ML.
+
 ---
 
 # 6. Deploy FE
@@ -353,6 +417,14 @@ Skrypt deployu backendu:
 * ustawia ownera i prawa,
 * restartuje `sudoku-backend.service`.
 
+Skrypt deployu backendu nie powinien czyścić ani nadpisywać:
+
+* `/opt/sudoku/shared/models/registry`,
+* `/opt/sudoku/shared/models/active`,
+* `/opt/sudoku/shared/trainings`,
+* `/opt/sudoku/shared/data`,
+* `/opt/sudoku/shared/examples`.
+
 ## Ważne
 
 W `systemd` trzeba wskazać rzeczywistą nazwę pliku DLL wygenerowanego przez publish.
@@ -429,6 +501,21 @@ Skrypt deployu ML:
 * wykonuje `pip install -r requirements.txt`,
 * restartuje `sudoku-ml.service`.
 
+Skrypt deployu ML nie powinien czyścić ani nadpisywać:
+
+* `/opt/sudoku/shared/models/registry`,
+* `/opt/sudoku/shared/models/active`,
+* `/opt/sudoku/shared/trainings`,
+* `/opt/sudoku/shared/data`,
+* `/opt/sudoku/shared/examples`.
+
+Jeśli deploy obejmuje bootstrap nowego modelu seed, to powinien to robić jawnie jako osobny krok:
+
+1. utworzyć `models/registry/{modelName}/artifacts`,
+2. skopiować artefakty modelu,
+3. utworzyć `models/registry/{modelName}/model.json`,
+4. opcjonalnie ustawić `models/active/inference.json`, jeśli model ma stać się aktywny po wdrożeniu.
+
 ## Dlaczego ten model
 
 Ten model jest bardziej praktyczny niż pakowanie `.venv` do release, bo:
@@ -451,6 +538,12 @@ Usługa backendu:
 * jest restartowana po deployu,
 * nie jest wystawiona publicznie.
 
+Backend potrzebuje zapisu co najmniej do:
+
+* `trainings/metadata`,
+* `models/active`,
+* `models/registry` dla rezerwacji katalogu modelu wynikowego i finalizacji `model.json` po treningu.
+
 ## ML
 
 Usługa ML:
@@ -460,6 +553,13 @@ Usługa ML:
 * słucha na `127.0.0.1:8000`,
 * nie jest wystawiona publicznie,
 * jest restartowana po deployu.
+
+ML potrzebuje zapisu przy treningu co najmniej do:
+
+* `trainings/runs`,
+* `trainings/reports`,
+* `models/registry/*/artifacts`,
+* `tmp`.
 
 ---
 
@@ -534,6 +634,8 @@ Powinien:
 * przesłać archiwum do `/opt/sudoku/releases/backend/`,
 * opcjonalnie uruchomić deploy BE.
 
+Workflow BE nie powinien zakładać, że może zregenerować albo nadpisać stan `shared/models` i `shared/trainings`; te katalogi są runtime state, nie częścią release'u aplikacji.
+
 ## Workflow ML
 
 Powinien:
@@ -543,6 +645,8 @@ Powinien:
 * dołączyć `requirements.txt`,
 * przesłać archiwum do `/opt/sudoku/releases/ml/`,
 * opcjonalnie uruchomić deploy ML.
+
+Jeśli workflow ML lub osobny workflow operacyjny realizuje bootstrap modelu seed, musi jawnie dostarczyć zarówno artefakty modelu, jak i `model.json`; sam plik modelu bez manifestu nie jest poprawnym wpisem rejestru.
 
 ## Rekomendacja
 
@@ -626,6 +730,10 @@ Asystent generujący workflow, skrypty lub konfigurację ma przyjmować następu
 9. **Użytkownik `cd` ma ograniczone sudo tylko do deployu i wybranych komend operacyjnych.**
 
 10. **Workflow powinny być per warstwa i niezależne.**
+
+11. **`models/registry` to trwały runtime state, a nie część zwykłego release'u BE/ML.**
+
+12. **`models/active/inference.json` jest wskaźnikiem na model aktywny, a nie kopią modelu.**
 
 ---
 
