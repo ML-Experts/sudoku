@@ -97,9 +97,9 @@ Uwaga: w zakresie pozostaje wyłącznie prosta bramka administracyjna oparta o j
 - **FR-22**: Typ wejściowy (`board` / `digit`) wpływa wyłącznie na ścieżkę wczytania i ekstrakcji próbek; końcowy artefakt biznesowy pozostaje jeden wspólny plik `.npz` dla całego żądania przygotowania datasetu.
 - **FR-23**: Dla wyboru `mix` system wykonuje automatyczny split do `train` / `val` / `test` zgodnie z polityką projektu; dla jawnego wyboru jednego lub wielu splitów zapisuje dane do wskazanych partycji bez dublowania tej samej próbki między splitami.
 - **FR-24**: System udostępnia listę przygotowanych zestawów `.npz` oraz listę wpisów rejestru modeli z capability do treningu i/lub inferencji, aby użytkownik mógł uruchomić trening i później wybrać aktywny model.
-- **FR-25**: System uruchamia trening na podstawie wybranego modelu z rejestru i wybranego zestawu `.npz`, utrzymuje dokładnie jeden aktywny run jednocześnie, pozwala anulować aktywny run, publikuje postęp przez kanał `WebSocket` po stronie Backendu zasilany zdarzeniami z `ML`, a po zakończeniu zapisuje model wynikowy jako nowy wpis rejestru oraz raport treningu.
+- **FR-25**: System uruchamia trening na podstawie wybranego modelu z rejestru i wybranego zestawu `.npz`, utrzymuje dokładnie jeden aktywny run jednocześnie, pozwala anulować aktywny run, publikuje postęp przez kanał `SignalR` po stronie Backendu zasilany zdarzeniami z `ML`, a po zakończeniu zapisuje model wynikowy jako nowy wpis rejestru oraz raport treningu. Brakujący albo uszkodzony raport nie unieważnia automatycznie modelu, jeśli artefakty inferencyjne są kompletne.
 - **FR-26**: Rejestr modeli jest utrzymywany jako katalog `models/registry`, gdzie każdy wpis modelu jest osobnym katalogiem `{modelName}` zawierającym obowiązkowy manifest `model.json` oraz katalog `artifacts/` z artefaktami technicznymi modelu.
-- **FR-27**: System obsługuje model bootstrap / seed dodany ręcznie do rejestru bez powiązanego `runName`; taki wpis nadal musi mieć pełny manifest `model.json` i może zostać użyty jako model bazowy do treningu albo jako aktywny model inferencyjny.
+- **FR-27**: System obsługuje model bootstrap dodany ręcznie do rejestru bez powiązanego `runName`; taki wpis nadal musi mieć pełny manifest `model.json` i może zostać użyty jako model bazowy do treningu albo jako aktywny model inferencyjny.
 - **FR-28**: System utrzymuje aktywny model inferencyjny przez lekki plik wskaźnikowy w `models/active` (np. `inference.json`) wskazujący wpis z `models/registry`, bez kopiowania całego katalogu modelu przy każdym przełączeniu.
 - **FR-29**: System zapisuje relację między runem treningowym, modelem wynikowym i raportami tak, aby można było odtworzyć pochodzenie modelu oraz porównać wyniki na wspólnym benchmarku.
 
@@ -167,7 +167,7 @@ Uwaga organizacyjna:
 - **INF-08**: Jako zespół chcemy mieć bootstrap rejestru modeli i opisany standard manifestów, aby można było bez bazy danych dodać pierwszy model bazowy, kolejne modele po treningu oraz bezpiecznie przełączać model aktywny.
   - **AC**:
     - Jest opisany wzór `models/registry/{modelName}/model.json` oraz minimalny layout `artifacts/` dla wpisu modelu.
-    - Jest opisana procedura dodania modelu bootstrap / seed bez powiązanego `runName`, z `sourceType = bootstrap`.
+    - Jest opisana procedura dodania modelu bootstrap bez powiązanego `runName`, z `sourceType = bootstrap`.
     - Jest opisane, które pliki tworzy `BE`, które `ML`, a które proces operacyjny / deploy.
     - Aktywny model inferencyjny jest wskazywany przez `models/active/inference.json`, a nie przez kopiowanie całego modelu do `models/active`.
     - Opisane są wyjątki: model bootstrap bez `trainings/*`, wpis archiwalny lub niekompatybilny z `canStartTraining = false` i/lub `canUseForInference = false`.
@@ -255,14 +255,22 @@ Uwaga organizacyjna:
 #### UC-06 — „Uruchom trening na przygotowanym zestawie `.npz`”
 - **FE**:
   - Widok uruchomienia treningu z wyborem wpisu modelu bazowego z rejestru oraz gotowego zestawu `.npz` z katalogu `data/processed`, z przyciskiem Start oraz możliwością przejścia do anulowania aktywnego runu.
-  - UI pokazuje logiczne metadane wpisu rejestru, np. `sourceType`, `trainingMode`, `inputProfile`, bez eksponowania ścieżek systemowych ani nazw technicznych plików artefaktów.
-  - Po starcie treningu `FE` otrzymuje `runName`, które jest identyfikatorem runu widocznym później w ścieżkach `GET /api/trainings/{runName}` oraz `/ws/trainings/{runName}`, i od razu przechodzi do monitoringu runu.
+  - Po wejściu na ekran system najpierw pozwala odzyskać monitoring już istniejącego aktywnego runu, bez zgadywania jego `runName`.
+  - UI pokazuje logiczne metadane wpisu rejestru, np. `sourceType`, `trainingMode`, `inputProfile`, bez eksponowania ścieżek systemowych ani nazw technicznych plików artefaktów; `trainingMode` na liście modeli opisuje istniejący wpis rejestru, a nie parametr nowego startu.
+  - Po starcie treningu `FE` otrzymuje `runName`, które jest identyfikatorem runu widocznym później w ścieżkach `GET /api/trainings/{runName}` oraz `/ws/trainings/{runName}`, i od razu przechodzi do monitoringu runu przez kanał `SignalR`.
+  - Zakres `UC-06` obejmuje także odzyskanie aktywnego runu, monitoring kanału postępu i kooperacyjne anulowanie; późniejszy `UC-07` rozwija widok postępu, ale nie zmienia kontraktów transportowych ani identyfikatorów.
 - **BE**:
   - Endpoint startujący trening (np. `POST /api/trainings`) i zwracający `runName`, czyli nazwę plikowego rekordu i katalogu runu, a nie sztuczne `training_id` z bazy danych.
-  - Endpoint anulowania aktywnego runu (np. `POST /api/trainings/{runName}/cancel`) oraz egzekwowanie zasady, że w systemie może istnieć tylko jeden aktywny run jednocześnie; kolejne starty nie tworzą kolejki.
+  - Endpoint lekkiego odczytu aktywnego runu (np. `GET /api/trainings/active`) zwracający bieżący run albo pusty wynik, tak aby `FE` mogło wejść z powrotem w monitoring po odświeżeniu strony albo po `409`.
+  - Endpoint anulowania aktywnego runu (np. `POST /api/trainings/{runName}/cancel`) jest kooperacyjny, idempotentny i dla uproszczenia zawsze zwraca `202 Accepted`; system nadal egzekwuje zasadę, że może istnieć tylko jeden aktywny run jednocześnie, a kolejne starty nie tworzą kolejki.
+  - Po końcowym `cancelled` Backend zachowuje `trainings/metadata/{runName}.json` ze statusem `cancelled`, ale czyści techniczne artefakty runtime runu z `trainings/runs`, `trainings/reports`, katalogu tymczasowego i częściowo utworzonego katalogu modelu wynikowego.
   - Endpointy listujące wpisy rejestru modeli i przygotowane zestawy `.npz` dostępne do treningu; źródłem listy modeli jest wyłącznie skan `models/registry/*/model.json`.
-  - Utworzenie plikowego rekordu treningu / eksperymentu (np. `trainings/metadata/{runName}.json`) i zapamiętanie pełnej konfiguracji (model bazowy, zestaw `.npz`, seed, profil treningu, commit/wersja), statusu, `producedModelName` oraz referencji do artefaktów potrzebnych UI.
-  - Wsparcie zarówno dla wpisów bootstrap/imported bez historii `trainings/*`, jak i dla modeli wcześniej wytrenowanych w systemie.
+  - Utworzenie plikowego rekordu treningu / eksperymentu (np. `trainings/metadata/{runName}.json`) i zapamiętanie pełnej konfiguracji (model bazowy, zestaw `.npz`, seed, profil treningu, profil augmentacji, `sourceRevision` / commit / wersja); w `MVP` pole `sourceRevision` istnieje, ale przyjmuje wartość `null`, a później może zostać podpięte pod wersję kodu lub konfiguracji. Rekord przechowuje także status, `producedModelName` oraz referencje do artefaktów potrzebnych UI.
+  - Wsparcie zarówno dla wpisów bootstrap bez historii `trainings/*`, jak i dla modeli wcześniej wytrenowanych w systemie.
+  - W `MVP` `BE` rozwiązuje konfigurację runu po swojej stronie; `FE` wysyła tylko `baseModelName` i `processedDatasetName`, a `trainingMode` jest przypisywane jako `fineTuning`.
+  - W `MVP` `trainingProfileName`, `augmentationProfileName`, `benchmarkName` i `seed` są rozwiązywane przez `BE` na podstawie własnej polityki i `appsettings.{environment}.json`; profile nie są dziedziczone z modelu bazowego i nie są jeszcze podawane przez użytkownika.
+  - Jeśli start do `ML` nie zostanie potwierdzony, zanim `BE` odpowie do `FE`, `BE` robi rollback prowizorycznego rekordu runu; przy synchronicznym błędzie walidacyjnym albo kontraktowym z `ML` przepuszcza ten sam kod i body, a dla niedostępności albo timeoutu zwraca `503` albo `504`.
+  - W MVP zgodność modelu bazowego z datasetem oznacza dokładną równość `inputProfile` wpisu rejestru i `preprocessingProfile` gotowego zestawu `.npz`; walidację wykonuje `BE` przed wywołaniem `ML`.
 - **ML**:
   - Job treningowy bazujący na jednym przygotowanym artefakcie `.npz`; preprocessing i split są wykonane wcześniej podczas przygotowania datasetu.
   - Trening wykorzystuje wpis modelu bazowego wskazany przez Backend przez jego manifest i główny artefakt oraz zapisuje końcowe artefakty modelu do docelowego katalogu `models/registry/{producedModelName}/artifacts`, a checkpointy oraz raport treningu do skonfigurowanych katalogów `trainings/*` i `tmp`.
@@ -271,25 +279,27 @@ Uwaga organizacyjna:
   - `ML` raportuje postęp, anulowanie i stan końcowy do `BE` przez wewnętrzny endpoint statusowy; `FE` nie łączy się z `ML` bezpośrednio.
   - **AC**:
     - Użytkownik może uruchomić trening przez wybór dokładnie jednego wpisu modelu bazowego z rejestru i jednego przygotowanego zestawu `.npz`.
-    - Model bootstrap/imported może zostać wybrany do treningu, jeśli jego manifest ma `canStartTraining = true`, mimo braku własnego `runName`.
+    - Model bootstrap może zostać wybrany do treningu, jeśli jego manifest ma `canStartTraining = true`, mimo braku własnego `runName`.
     - System dopuszcza tylko jeden aktywny run jednocześnie; drugi start nie tworzy kolejki.
+    - Jeśli drugi start trafi na już istniejący aktywny run, `FE` może odzyskać jego dane przez endpoint aktywnego runu i przejść do monitoringu.
     - Aktywny run może zostać anulowany i dopiero wtedy można uruchomić kolejny run.
-    - Trening tworzy wpis treningu widoczny w liście (UC-08) oraz docelowy wpis modelu wynikowego w rejestrze.
-    - Utrata połączenia `WebSocket` między `FE` i `BE` nie zatrzymuje runu.
-    - Jeśli raport końcowy jest uszkodzony, ale artefakty modelu są kompletne, model nadal może zostać użyty do inferencji przy czytelnym ostrzeżeniu o raporcie.
+    - Po anulowaniu system zachowuje `trainings/metadata/{runName}.json` ze statusem `cancelled`, ale usuwa techniczne artefakty runtime tego runu.
+    - Run tworzy wpis treningu widoczny w liście (UC-08), a run zakończony sukcesem tworzy dodatkowo docelowy wpis modelu wynikowego w rejestrze.
+    - Utrata połączenia `SignalR` między `FE` i `BE` nie zatrzymuje runu.
+    - Jeśli raport końcowy jest uszkodzony albo brakujący, ale artefakty modelu są kompletne, model nadal może zostać użyty do inferencji przy czytelnym ostrzeżeniu o raporcie.
     - Dla zakończonego treningu dostępna jest pełna konfiguracja eksperymentu i relacja `run -> producedModelName -> reports`, potrzebna do późniejszego porównania wyników.
 
 #### UC-07 — „Pokazuj postęp treningu i informuj o zakończeniu”
 - **FE**:
-  - Ekran postępu (np. procent/epoki/ETA) + status końcowy (sukces/porażka), aktualizowany w czasie rzeczywistym przez WebSocket, z opcją anulowania aktywnego runu.
+  - Ekran postępu (np. procent/epoki/ETA) + status końcowy (sukces/porażka), aktualizowany w czasie rzeczywistym przez `SignalR`, z opcją anulowania aktywnego runu.
 - **BE**:
-  - Kanał WebSocket do FE publikujący zdarzenia postępu treningu i status końcowy.
-  - Po zestawieniu połączenia kanał zwraca snapshot aktualnego stanu runu, a kolejne eventy pochodzą z eventów `ML` zapisanych wcześniej w rekordzie `BE`.
+  - Kanał `SignalR` do `FE` publikujący zdarzenia postępu treningu i status końcowy.
+  - Po zestawieniu połączenia kanał zwraca snapshot aktualnego stanu runu, a kolejne eventy pochodzą z eventów `ML` zapisanych wcześniej w rekordzie `BE`; `FE` renderuje najświeższy stan i może ignorować spóźnione eventy z niższym `sequence`, bez oczekiwania na kompletność numeracji.
 - **ML**:
   - Raportowanie postępu (np. logi/metryki per epoka), anulowania i stanu końcowego do `BE` w sposób możliwy do odczytu przez Backend.
   - **AC**:
-    - FE otrzymuje aktualizacje postępu i finalny status zakończenia przez WebSocket.
-    - Zerwanie połączenia WebSocket nie zatrzymuje runu; po reconnect `FE` może odtworzyć stan z kanału albo z endpointu szczegółów runu.
+    - FE otrzymuje aktualizacje postępu i finalny status zakończenia przez `SignalR`.
+    - Zerwanie połączenia `SignalR` nie zatrzymuje runu; po reconnect `FE` może odtworzyć stan z kanału albo z endpointu szczegółów runu.
 
 #### UC-08 — „Lista treningów i wytrenowanych modeli”
 - **FE**:
@@ -434,7 +444,7 @@ Uwaga organizacyjna:
   - `/var/log/sudoku/` — logi aplikacyjne (jeśli nie tylko `journald`).
 - Katalogi systemowe dla `data`, `examples`, `models`, `benchmark`, `trainings` i `tmp` są parametrami konfiguracyjnymi, a nie stałymi ścieżkami zaszytymi w kodzie.
 - Ścieżki do `data/processed`, `data/benchmark`, `models/registry`, `trainings/runs`, `trainings/reports`, `trainings/metadata` i `tmp/trainings` są utrzymywane jako dokładne, absolutne wartości środowiskowe, a nie jako składane w locie fragmenty ścieżek.
-- W `models/registry` każdy wpis modelu jest katalogiem `/{modelName}` z obowiązkowym `model.json` oraz katalogiem `artifacts/`; dotyczy to zarówno modeli bootstrap/imported, jak i modeli wytrenowanych w systemie.
+- W `models/registry` każdy wpis modelu jest katalogiem `/{modelName}` z obowiązkowym `model.json` oraz katalogiem `artifacts/`; dotyczy to zarówno modeli bootstrap, jak i modeli wytrenowanych w systemie.
 - W `models/active` trzymamy wyłącznie lekki plik wskaźnikowy (np. `inference.json`) odnoszący się do wpisu rejestru; przełączenie modelu aktywnego nie polega na kopiowaniu całych artefaktów.
 
 #### Kontrakty interfejsów (UI/API)
@@ -443,12 +453,13 @@ Uwaga organizacyjna:
 - **Frontend → Backend (C#)**: `POST /api/datasets/processed` — przygotowanie nazwanego zestawu `.npz` na podstawie wybranych źródeł i polityki splitu; endpoint chroniony tokenem i przypisany do `UC-12`.
 - **Frontend → Backend (C#)**: `GET /api/datasets/processed` — lista przygotowanych zestawów `.npz` możliwych do użycia w treningu; endpoint chroniony tokenem i przypisany do `UC-12` / później wykorzystywany także w `UC-06`.
 - **Frontend → Backend (C#)**: `GET /api/models/registry` — lista wpisów rejestru modeli z capability do treningu i inferencji; endpoint chroniony tokenem.
+- **Frontend → Backend (C#)**: `GET /api/trainings/active` — lekki odczyt bieżącego aktywnego runu treningowego; endpoint chroniony tokenem i używany do odzyskania monitoringu po odświeżeniu lub konflikcie `409`.
 - **Frontend → Backend (C#)**: `POST /api/trainings` — start asynchronicznego treningu na jednym przygotowanym `.npz`; endpoint chroniony tokenem i zwracający `runName`.
 - **Frontend → Backend (C#)**: `POST /api/trainings/{runName}/cancel` — kooperacyjne anulowanie aktywnego runu.
 - **Frontend → Backend (C#)**: `GET /api/trainings/{runName}` — szczegóły pojedynczego runu treningowego.
 - **Frontend → Backend (C#)**: `PUT /api/models/active` — ustawienie aktywnego modelu inferencyjnego przez aktualizację wskaźnika w `models/active`.
 - **Frontend → Backend (C#)**: `POST /api/solve-from-image` — przyjmuje obraz, zwraca JSON (kontrakt poniżej); endpoint publiczny dostępny także bez tokenu.
-- **Frontend ↔ Backend (C#)**: WebSocket dla zdarzeń treningu (np. `/ws/trainings/{runName}`) — postęp i status końcowy; kanał chroniony tym samym tokenem administracyjnym i zestawiany po `accessTokenFactory` lub równoważnym mechanizmie.
+- **Frontend ↔ Backend (C#)**: kanał `SignalR` dla zdarzeń treningu (np. `/ws/trainings/{runName}`) — postęp i status końcowy; kanał chroniony tym samym tokenem administracyjnym i zestawiany po `accessTokenFactory` lub równoważnym mechanizmie.
 - **Backend (C#) → Serwis ML (Python)**: orkiestracja preprocessingu datasetu przez istniejące ścieżki przetwarzania planszy i komórek (`board` / `cells`) lub ich batch wrapper — rozpoznaje format wejścia i zwraca kanoniczne próbki / metadane techniczne.
 - **Backend (C#) → Serwis ML (Python)**: endpoint batch preprocessingu pojedynczych komórek/cyfr — współdzielony przez przygotowanie datasetu.
 - **Backend (C#) → Serwis ML (Python)**: `POST /ml/trainings` — start runu treningowego na jednym `.npz` z przekazaniem resolved ścieżek wejścia i wyjścia.
@@ -553,26 +564,28 @@ Uwaga: nie ma wymogu trwałego zapisywania `recognized_grid`/`solved_grid` do pl
   - `examples/` służy głównie do demo i testów `end-to-end`; nie jest jedynym ani głównym benchmarkiem klasyfikatora cyfr.
 - **Trening**:
   - użytkownik wybiera jeden wpis modelu bazowego z katalogu rejestru modeli (np. produkcyjnie `/opt/sudoku/shared/models/registry`) oraz jeden przygotowany zestaw `.npz`,
+  - po wejściu na ekran administracyjny `FE` może odzyskać aktywny run przez dedykowany endpoint i wrócić do monitoringu zamiast zawsze pokazywać pusty formularz,
   - system dopuszcza dokładnie jeden aktywny run jednocześnie; kolejny start nie tworzy kolejki, ale aktywny run można anulować,
-  - Backend uruchamia trening, odbiera status z `ML` i publikuje postęp przez WebSocket,
-  - utrata połączenia WebSocket po stronie `FE` nie zatrzymuje runu,
+  - Backend uruchamia trening, odbiera status z `ML` i publikuje postęp przez `SignalR`,
+  - utrata połączenia `SignalR` po stronie `FE` nie zatrzymuje runu,
   - po zakończeniu zapisujemy wytrenowany model jako nowy wpis rejestru modeli oraz raport treningu w skonfigurowanych lokalizacjach systemowych.
 - **Rejestr modeli**:
   - wpis rejestru jest katalogiem `models/registry/{modelName}`,
   - minimalnie zawiera `model.json` oraz `artifacts/`,
   - `modelName` jest logicznym identyfikatorem wpisu; w MVP model wytrenowany w `UC-06` domyślnie dostaje `producedModelName = runName`, ale pojęcia te pozostają semantycznie rozdzielone,
-  - model bootstrap / seed ma `sourceType = bootstrap`, `sourceRunName = null` i nie musi mieć żadnych katalogów w `trainings/*`.
+  - model bootstrap ma `sourceType = bootstrap`, `sourceRunName = null` i nie musi mieć żadnych katalogów w `trainings/*`.
 - **Aktywny model inferencyjny**:
   - `models/active/inference.json` zawiera wskaźnik na wybrany wpis z `models/registry`,
   - przełączenie aktywnego modelu aktualizuje wskaźnik, a nie kopiuje całego modelu,
   - wskaźnik może odnosić się zarówno do modelu bootstrap, jak i do modelu wytrenowanego w systemie.
 - **Pliki tworzone w workflow treningu**:
-  - po starcie runu Backend zapisuje `trainings/metadata/{runName}.json` i rezerwuje `producedModelName`,
+  - po starcie runu Backend zapisuje `trainings/metadata/{runName}.json`, rezerwuje `producedModelName` i utrzymuje pełną konfigurację eksperymentu wraz z `sourceRevision`; w `MVP` temu polu przypisuje `null`, a docelowo może ono wskazywać wersję kodu albo konfiguracji użytej do treningu. Rekord zawiera też referencje do artefaktów raportu,
   - w trakcie runu `ML` zapisuje checkpointy i logi w `trainings/runs/{runName}` oraz raporty w `trainings/reports/{runName}`,
   - po sukcesie `ML` zapisuje artefakty modelu do `models/registry/{producedModelName}/artifacts`, a `BE` finalizuje `models/registry/{producedModelName}/model.json` i aktualizuje rekord runu,
-  - jeśli raport jest uszkodzony, ale artefakty modelu są kompletne, rekord runu powinien to odnotować jako ostrzeżenie bez automatycznego unieważniania modelu.
+  - po `cancelled` Backend zachowuje `trainings/metadata/{runName}.json` ze statusem końcowym `cancelled`, ale usuwa artefakty runtime runu z `trainings/runs`, `trainings/reports`, katalogu tymczasowego i częściowo utworzonego katalogu modelu wynikowego,
+  - jeśli raport jest uszkodzony albo brakujący, ale artefakty modelu są kompletne, rekord runu powinien to odnotować jako ostrzeżenie bez automatycznego unieważniania modelu.
 - **Wyjątki i stany graniczne**:
-  - wpisy bootstrap/imported nie mają `sourceRunName` ani własnego katalogu `trainings/*`,
+  - wpisy bootstrap nie mają `sourceRunName` ani własnego katalogu `trainings/*`,
   - wpisy archiwalne, uszkodzone lub niezgodne profilowo mogą pozostać w rejestrze z `canStartTraining = false` i/lub `canUseForInference = false`,
   - brak aktywnego modelu jest stanem technicznym dopuszczalnym wyłącznie podczas bootstrapu lub awarii i ma być raportowany czytelnym błędem administracyjnym.
 - **Metryki**:
