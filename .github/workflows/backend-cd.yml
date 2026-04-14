@@ -45,6 +45,8 @@ jobs:
       BE_ML_BASE_URL: ${{ vars.BE_ML_BASE_URL }}
       BE_ML_PING_PATH: ${{ vars.BE_ML_PING_PATH }}
       BE_ML_TIMEOUT_SECONDS: ${{ vars.BE_ML_TIMEOUT_SECONDS }}
+      BE_ADMIN_SHARED_PASSWORD: ${{ secrets.BE_ADMIN_SHARED_PASSWORD }}
+      BE_ADMIN_JWT_SIGNING_KEY: ${{ secrets.BE_ADMIN_JWT_SIGNING_KEY }}
 
     steps:
       - name: Checkout
@@ -83,6 +85,16 @@ jobs:
             exit 1
           fi
 
+          if [ -z "$BE_ADMIN_SHARED_PASSWORD" ]; then
+            echo "Missing BE_ADMIN_SHARED_PASSWORD secret for the selected GitHub environment."
+            exit 1
+          fi
+
+          if [ -z "$BE_ADMIN_JWT_SIGNING_KEY" ]; then
+            echo "Missing BE_ADMIN_JWT_SIGNING_KEY secret for the selected GitHub environment."
+            exit 1
+          fi
+
       - name: Setup .NET 10
         uses: actions/setup-dotnet@v5
         with:
@@ -116,10 +128,10 @@ jobs:
       - name: Publish backend
         run: dotnet publish "$BACKEND_PROJECT_PATH" --configuration Release --no-build --output "$PUBLISH_DIR"
 
-      - name: Generate production appsettings.json
+      - name: Prepare production appsettings.production.json
         shell: bash
         run: |
-          rm -f "$PUBLISH_DIR"/appsettings*.json
+          rm -f "$PUBLISH_DIR"/appsettings.local.json
 
           python - <<'PY'
           import json
@@ -127,11 +139,14 @@ jobs:
           from pathlib import Path
 
           publish_dir = Path(os.environ["PUBLISH_DIR"])
+          config_path = publish_dir / "appsettings.production.json"
           required_env_vars = [
               "BE_KESTREL_URL",
               "BE_ML_BASE_URL",
               "BE_ML_PING_PATH",
               "BE_ML_TIMEOUT_SECONDS",
+              "BE_ADMIN_SHARED_PASSWORD",
+              "BE_ADMIN_JWT_SIGNING_KEY",
           ]
           missing_env_vars = [name for name in required_env_vars if not os.environ.get(name)]
 
@@ -149,35 +164,31 @@ jobs:
                   "BE_ML_TIMEOUT_SECONDS must be a non-empty integer."
               ) from exc
 
-          config = {
-              "Logging": {
-                  "LogLevel": {
-                      "Default": "Information",
-                      "Microsoft.AspNetCore": "Warning",
-                  }
-              },
-              "AllowedHosts": "*",
-              "Kestrel": {
-                  "Endpoints": {
-                      "Http": {
-                          "Url": os.environ["BE_KESTREL_URL"],
-                      }
-                  }
-              },
-              "MlService": {
-                  "BaseUrl": os.environ["BE_ML_BASE_URL"],
-                  "PingPath": os.environ["BE_ML_PING_PATH"],
-                  "TimeoutSeconds": ml_timeout_seconds,
-              },
-              "ExamplesStorage": {
-                  "RootPath": "/opt/sudoku/shared/examples",
-                  "UploadsSubdirectory": "uploads",
-                  "MaxUploadSizeBytes": 10485760,
-              },
-          }
+          if not config_path.exists():
+              raise SystemExit(
+                  f"Missing production configuration overlay in publish output: {config_path}"
+              )
 
-          with (publish_dir / "appsettings.json").open("w", encoding="utf-8") as handle:
+          with config_path.open("r", encoding="utf-8") as handle:
+              config = json.load(handle)
+
+          kestrel = config.setdefault("Kestrel", {})
+          endpoints = kestrel.setdefault("Endpoints", {})
+          http = endpoints.setdefault("Http", {})
+          http["Url"] = os.environ["BE_KESTREL_URL"]
+
+          ml_service = config.setdefault("MlService", {})
+          ml_service["BaseUrl"] = os.environ["BE_ML_BASE_URL"]
+          ml_service["PingPath"] = os.environ["BE_ML_PING_PATH"]
+          ml_service["TimeoutSeconds"] = ml_timeout_seconds
+
+          admin_auth = config.setdefault("AdminAuth", {})
+          admin_auth["SharedPassword"] = os.environ["BE_ADMIN_SHARED_PASSWORD"]
+          admin_auth["JwtSigningKey"] = os.environ["BE_ADMIN_JWT_SIGNING_KEY"]
+
+          with config_path.open("w", encoding="utf-8") as handle:
               json.dump(config, handle, indent=2)
+              handle.write("\n")
           PY
 
       - name: Package backend release
