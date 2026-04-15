@@ -15,6 +15,15 @@ export type ImageApiResponse = {
   base64: string;
 };
 
+export type ImageApiEntry = {
+  mimeType: string;
+  base64: string;
+};
+
+export type CellsGridApiResponse = {
+  cells: ImageApiResponse[][];
+};
+
 export type ErrorApiResponse = {
   errorType: string;
   message: string;
