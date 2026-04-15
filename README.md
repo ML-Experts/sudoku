@@ -32,17 +32,20 @@ Skrótowo:
 | INF-05 (opc.) | Serwer Jupyter (JupyterLab) | <kto> | — | — | <kto> |
 | INF-06 (opc.) | CI na PR (lint/test/build) | <kto> | <kto> | <kto> | <kto> |
 | INF-07 (opc.) | CD: deploy na serwer po merge/akceptacji PR | <kto> | <kto> | <kto> | <kto> |
+| INF-08 | Bootstrap rejestru modeli + manifesty + aktywny model | <kto> | — | <kto> | <kto> |
 | UC-01 | Upload pliku sudoku do biblioteki przykładów (examples) | — | <kto> | <kto> | — |
 | UC-02 | Lista dostępnych przykładów sudoku | — | <kto> | <kto> | — |
 | UC-03 | Pobierz wybrany plik przykładowy | — | <kto> | <kto> | — |
 | UC-04 | Wybierz przykład do przetworzenia + wstępna obróbka | — | <kto> | <kto> | <kto> |
 | UC-05 | Rozwiąż wybrany plik przez system | — | <kto> | <kto> | <kto> |
-| UC-06 | Uruchom trening na dataset z data/raw | — | <kto> | <kto> | <kto> |
+| UC-06 | Uruchom trening na przygotowanym zestawie `.npz` | — | <kto> | <kto> | <kto> |
 | UC-07 | Postęp treningu + informacja o zakończeniu | — | <kto> | <kto> | <kto> |
 | UC-08 | Lista treningów i modeli | — | <kto> | <kto> | <kto> |
 | UC-09 | Szczegóły treningu + metryki | — | <kto> | <kto> | <kto> |
 | UC-10 | Wybór aktywnego modelu do inferencji | — | <kto> | <kto> | <kto> |
-| UC-11 | Dodaj własny dataset do uczenia | — | <kto> | <kto> | <kto> |
+| UC-11 | Wyświetl dostępne surowe datasety | — | <kto> | <kto> | — |
+| UC-12 | Zarządzaj przygotowaniem zestawu treningowego `.npz` | — | <kto> | <kto> | <kto> |
+| UC-13 | Prosta autoryzacja do operacji administracyjnych | — | <kto> | <kto> | — |
 
 ---
 
@@ -52,7 +55,32 @@ Program potrafi:
 - wykryć i zidentyfikować cyfry w polach (ML/CNN w Pythonie),
 - zbudować macierz 9×9 reprezentującą stan gry,
 - rozwiązać sudoku algorytmem backtrackingu,
-- wygenerować obraz wynikowy z naniesionymi cyframi na planszę.
+- wygenerować obraz wynikowy z naniesionymi cyframi na planszę,
+- przygotować nazwany zestaw `.npz` do uczenia przez wykrycie datasetów w `data/raw`, rozpoznanie formatu wejścia, oczyszczenie próbek i przypisanie ich do `train` / `val` / `test`,
+- utrzymywać rejestr modeli jako wpisy katalogowe z manifestami `model.json` i artefaktami w `models/registry`,
+- przełączać aktywny model inferencyjny przez lekki wskaźnik `models/active/inference.json`, bez kopiowania całego modelu,
+- chronić operacje administracyjne prostym logowaniem hasłowym z tokenem.
+
+---
+
+### Aktualny doprecyzowany scope
+- Zrealizowane lub rozpoczęte w kodzie: `UC-01`, `UC-02`, `UC-04`.
+- Najbliższy etap backlogu: `UC-11` (chronione pobranie i wyświetlenie listy surowych datasetów), `UC-12` (wybór splitów, zarządzanie przygotowaniem `.npz` i techniczne przetwarzanie próbek), `UC-13` (prosta autoryzacja), `UC-06`/`UC-07` (trening + postęp przez WebSocket).
+- Surowe datasety trafiają na serwer poza aplikacją webową, np. przez Jupyter, do katalogu `data/raw`.
+- Obsługiwane są dwa typy źródeł:
+  - `board` — archiwum `.zip` z parami `.jpg` + `.data`,
+  - `digit` — pary `*.idx3-ubyte` + `*.idx1-ubyte`.
+- `UC-11`: po zalogowaniu `FE` pobiera z chronionego `GET /api/datasets/raw-candidates` listę logicznych rekordów datasetów, np. `[{ "name": "Plansze", "type": "board" }, { "name": "t10k", "type": "digit" }]`.
+- `UC-12`: `FE` wykorzystuje kandydatów z `UC-11`, wybiera splity i wysyła do `BE` nazwę docelowego zestawu oraz listę źródeł z polami `name`, `type`, `splits`.
+- Niezależnie od tego, czy źródła są typu `board`, `digit`, czy mieszane, wynik całego żądania stanowi jeden plik `{name}.npz` zapisany w `data/processed`.
+- Rejestr modeli jest utrzymywany jako katalogi `models/registry/{modelName}` z obowiązkowym `model.json` i katalogiem `artifacts/`.
+- Model bootstrap / seed może istnieć w rejestrze bez własnego `runName`; nadal musi mieć poprawny manifest i może zostać wybrany do treningu lub inferencji.
+- Trening startuje przez wybór jednego wpisu modelu bazowego z rejestru i jednego gotowego zestawu `.npz`; po starcie `BE` tworzy rekord `trainings/metadata/{runName}.json`, a po sukcesie powstaje nowy wpis `models/registry/{producedModelName}`.
+- Aktywny model inferencyjny jest wskazywany przez `models/active/inference.json`; jego zmiana nie kopiuje całych artefaktów modelu.
+- Prosta autoryzacja na teraz oznacza:
+  - modal hasła po wejściu na stronę,
+  - Backend weryfikuje jedną współdzieloną wartość konfiguracyjną i zwraca token JSON,
+  - token chroni przygotowanie datasetu, start treningu i inne operacje zapisu.
 
 ---
 
@@ -62,8 +90,8 @@ Program potrafi:
 
 ---
 
-### Struktura repozytorium
-Wymagana struktura:
+### Struktura repozytorium i runtime danych
+Repo przechowuje kod i dokumentację, a artefakty danych / treningów / modeli mogą żyć poza repo w katalogach runtime. Logicznie system zakłada co najmniej następujące grupy katalogów:
 
 ```text
 sudoku/
@@ -71,23 +99,32 @@ sudoku/
 ├── data/
 │   ├── raw/
 │   ├── processed/
-│   ├── splits/
-│   ├── models/
-│   └── reports/
+│   └── benchmark/
+├── models/
+│   ├── registry/
+│   └── active/
+├── trainings/
+│   ├── runs/
+│   ├── reports/
+│   └── metadata/
 ├── README.md
-├── requirements.txt
-└── examples/  (opcjonalnie)
+└── examples/
 ```
 
-Główne katalogi (do uzupełnienia pod Waszą implementację):
+Główne katalogi (logiczny podział odpowiedzialności):
 - `src/` — kod aplikacji (vision / ml / solver / render / interface)
 - `data/` — robocze dane i artefakty ML (często większe; nie zawsze trzymane w repo)
-  - `data/raw/` — pobrany dataset (albo instrukcja jak pobrać)
-  - `data/processed/` — przetworzone wycinki/tenzory po pipeline (gotowe do treningu/ewaluacji)
-  - `data/splits/` — podziały train/val/test (np. listy plików, CSV)
-  - `data/models/` — zapisane modele/checkpointy
-  - `data/reports/` — metryki, confusion matrix, wykresy/raporty
+  - `data/raw/` — surowe pliki datasetów dostarczane poza aplikacją (np. Jupyter/SCP): archiwa `.zip` typu `board` oraz pary `*.idx3-ubyte` / `*.idx1-ubyte` typu `digit`
+  - `data/processed/` — gotowe zestawy `{name}.npz` po unifikacji i preprocessingu, gdzie jeden request przygotowania datasetu kończy się jednym plikiem wynikowym
+  - `data/benchmark/` — wspólny benchmark do porównań modeli
+- `models/registry/` — rejestr modeli; każdy wpis to katalog `models/registry/{modelName}` z `model.json` i `artifacts/`
+- `models/active/` — lekki wskaźnik aktywnego modelu inferencyjnego, np. `models/active/inference.json`
+- `trainings/runs/` — checkpointy, logi i artefakty techniczne pojedynczych runów
+- `trainings/reports/` — raporty ewaluacyjne, confusion matrix, metryki porównawcze
+- `trainings/metadata/` — rekordy `runName` będące systemowym source of truth dla statusów i relacji `run -> model`
 - `examples/` — przykładowe pliki do demo/szybkich testów end-to-end (wejścia i ewentualnie wyniki)
+
+Uwaga: dokładne ścieżki runtime są konfigurowalne przez `appsettings*.json`, `.env` i zmienne środowiskowe; powyższy układ opisuje semantykę, a nie wymuszoną lokalizację 1:1 w repo.
 
 ---
 
@@ -114,10 +151,30 @@ Docelowo: frontend web wysyła obraz do C# endpointu, a C# wywołuje serwis ML w
 ### Trening modelu
 (Uzupełnijcie, jeśli trenujecie model w repo. Jeśli korzystacie z gotowego modelu — opiszcie skąd i jak go pobrać.)
 
+Przed pierwszym treningiem system powinien mieć co najmniej jeden wpis bootstrap w rejestrze modeli:
+
+```text
+models/registry/{modelName}/
+├── model.json
+└── artifacts/
+    └── ...
+```
+
+Minimalna semantyka:
+- model bootstrap / seed ma `sourceType = bootstrap` i nie musi mieć żadnego `trainings/*`,
+- model wytrenowany w systemie ma powiązanie z `runName` i raportami,
+- aktywny model inferencyjny nie jest kopiowany do osobnego katalogu z artefaktami; wskazuje go `models/active/inference.json`.
+
+W workflow `UC-06` powinno się wydarzyć co najmniej:
+- `BE` zapisuje `trainings/metadata/{runName}.json`,
+- `ML` zapisuje checkpointy i logi do `trainings/runs/{runName}` oraz raporty do `trainings/reports/{runName}`,
+- `ML` zapisuje końcowe artefakty modelu do `models/registry/{producedModelName}/artifacts`,
+- `BE` finalizuje `models/registry/{producedModelName}/model.json`.
+
 Przykład:
 
 ```bash
-python -m src.ml.train --data-dir "data/..." --out-models "data/models/model.pt"
+python -m src.ml.train --dataset "data/processed/{name}.npz" --model-registry "models/registry" --model "cnn-baseline" --out-model "models/registry/{producedModelName}/artifacts/model.keras"
 ```
 
 ---
