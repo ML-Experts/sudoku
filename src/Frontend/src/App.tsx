@@ -5,9 +5,17 @@ import {
   ExampleUploadApiError,
   ExamplesApiError,
   getExamplesList,
+  getExampleImage,
   postExampleUpload,
+  putPreprocessBoard,
+  putPreprocessCells,
 } from "./api/examples";
-import type { ExampleFileApiResponse, ExamplesListApiResponse } from "./types/api";
+import type {
+  CellsGridApiResponse,
+  ExampleFileApiResponse,
+  ExamplesListApiResponse,
+  ImageApiResponse,
+} from "./types/api";
 
 type PingResponse = {
   backendStatus: string;
@@ -96,6 +104,66 @@ type ExamplesListState =
       errorType: string | null;
     };
 
+type ImageStageState =
+  | {
+      kind: "idle";
+      image: null;
+      error: null;
+      errorType: null;
+      httpStatus: null;
+    }
+  | {
+      kind: "loading";
+      image: null;
+      error: null;
+      errorType: null;
+      httpStatus: null;
+    }
+  | {
+      kind: "success";
+      image: ImageApiResponse;
+      error: null;
+      errorType: null;
+      httpStatus: number;
+    }
+  | {
+      kind: "error";
+      image: null;
+      error: string;
+      errorType: string | null;
+      httpStatus: number | null;
+    };
+
+type CellsStageState =
+  | {
+      kind: "idle";
+      cells: null;
+      error: null;
+      errorType: null;
+      httpStatus: null;
+    }
+  | {
+      kind: "loading";
+      cells: null;
+      error: null;
+      errorType: null;
+      httpStatus: null;
+    }
+  | {
+      kind: "success";
+      cells: CellsGridApiResponse;
+      error: null;
+      errorType: null;
+      httpStatus: number;
+    }
+  | {
+      kind: "error";
+      cells: null;
+      error: string;
+      errorType: string | null;
+      httpStatus: number | null;
+    };
+
 const defaultPingState: PingState = {
   kind: "idle",
   response: null,
@@ -115,6 +183,22 @@ const defaultExamplesListState: ExamplesListState = {
   error: null,
   httpStatus: null,
   errorType: null,
+};
+
+const defaultImageStageState: ImageStageState = {
+  kind: "idle",
+  image: null,
+  error: null,
+  errorType: null,
+  httpStatus: null,
+};
+
+const defaultCellsStageState: CellsStageState = {
+  kind: "idle",
+  cells: null,
+  error: null,
+  errorType: null,
+  httpStatus: null,
 };
 function normalizeBaseUrl(baseUrl: string | undefined): string {
   const trimmedBaseUrl = baseUrl?.trim();
@@ -154,6 +238,10 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function toImageDataUrl(image: ImageApiResponse): string {
+  return `data:${image.mimeType};base64,${image.base64}`;
+}
+
 export default function App() {
   const apiBaseUrl = normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL);
   const pingEndpoint = `${apiBaseUrl}/ping`;
@@ -174,6 +262,13 @@ export default function App() {
   const [selectedProcessName, setSelectedProcessName] = useState<string | null>(
     null
   );
+  const [previewStageState, setPreviewStageState] =
+    useState<ImageStageState>(defaultImageStageState);
+  const [boardStageState, setBoardStageState] =
+    useState<ImageStageState>(defaultImageStageState);
+  const [cellsStageState, setCellsStageState] =
+    useState<CellsStageState>(defaultCellsStageState);
+  const uc04AbortRef = useRef<AbortController | null>(null);
 
   const loadExamplesList = useCallback(async () => {
     setExamplesListState((previous) => ({
@@ -361,6 +456,160 @@ export default function App() {
       setDownloadingName(null);
     }
   }
+
+  const resetUc04Flow = useCallback(() => {
+    uc04AbortRef.current?.abort();
+    uc04AbortRef.current = null;
+    setPreviewStageState(defaultImageStageState);
+    setBoardStageState(defaultImageStageState);
+    setCellsStageState(defaultCellsStageState);
+  }, []);
+
+  const runUc04Flow = useCallback(
+    async (fileName: string) => {
+      uc04AbortRef.current?.abort();
+      const controller = new AbortController();
+      uc04AbortRef.current = controller;
+      let phase: "preview" | "board" | "cells" = "preview";
+
+      setPreviewStageState({
+        kind: "loading",
+        image: null,
+        error: null,
+        errorType: null,
+        httpStatus: null,
+      });
+      setBoardStageState(defaultImageStageState);
+      setCellsStageState(defaultCellsStageState);
+
+      try {
+        const preview = await getExampleImage(
+          apiBaseUrl,
+          fileName,
+          controller.signal
+        );
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        setPreviewStageState({
+          kind: "success",
+          image: preview,
+          error: null,
+          errorType: null,
+          httpStatus: 200,
+        });
+
+        setBoardStageState({
+          kind: "loading",
+          image: null,
+          error: null,
+          errorType: null,
+          httpStatus: null,
+        });
+        phase = "board";
+
+        const board = await putPreprocessBoard(apiBaseUrl, fileName, controller.signal);
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        setBoardStageState({
+          kind: "success",
+          image: board,
+          error: null,
+          errorType: null,
+          httpStatus: 200,
+        });
+
+        setCellsStageState({
+          kind: "loading",
+          cells: null,
+          error: null,
+          errorType: null,
+          httpStatus: null,
+        });
+        phase = "cells";
+
+        const cells = await putPreprocessCells(
+          apiBaseUrl,
+          {
+            mimeType: board.mimeType,
+            base64: board.base64,
+          },
+          controller.signal
+        );
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        setCellsStageState({
+          kind: "success",
+          cells,
+          error: null,
+          errorType: null,
+          httpStatus: 200,
+        });
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Nie udało się wykonać preprocessingu.";
+        const errorType = error instanceof ExamplesApiError ? error.errorType ?? null : null;
+        const httpStatus = error instanceof ExamplesApiError ? error.status : null;
+
+        if (phase === "preview") {
+          setPreviewStageState({
+            kind: "error",
+            image: null,
+            error: message,
+            errorType,
+            httpStatus,
+          });
+          return;
+        }
+
+        if (phase === "board") {
+          setBoardStageState({
+            kind: "error",
+            image: null,
+            error: message,
+            errorType,
+            httpStatus,
+          });
+          return;
+        }
+
+        setCellsStageState({
+          kind: "error",
+          cells: null,
+          error: message,
+          errorType,
+          httpStatus,
+        });
+      }
+    },
+    [apiBaseUrl]
+  );
+
+  useEffect(() => {
+    if (!selectedProcessName) {
+      resetUc04Flow();
+      return;
+    }
+
+    void runUc04Flow(selectedProcessName);
+  }, [resetUc04Flow, runUc04Flow, selectedProcessName]);
+
+  useEffect(() => {
+    return () => {
+      uc04AbortRef.current?.abort();
+    };
+  }, []);
   return (
     <main className="page-shell">
       <section className="hero-card">
@@ -530,21 +779,128 @@ export default function App() {
       </section>
 
       {selectedProcessName ? (
-        <section className="result-card uc04-placeholder" aria-live="polite">
-          <p className="eyebrow">UC-04 — Przetwarzanie (w przygotowaniu)</p>
-          <h2>Wybrany przykład</h2>
+        <section className="result-card uc04-flow-section" aria-live="polite">
+          <p className="eyebrow">UC-04 — Przetwarzanie przykładu</p>
+          <h2>Pipeline preprocessingu</h2>
           <p className="muted-copy">
-            <code>{selectedProcessName}</code> — tutaj powstanie flow preprocessingu
-            (podgląd obrazu, board, siatka komórek). Możesz wybrać inny wiersz
-            przyciskiem „Przetwórz” lub zamknąć wybór poniżej.
+            Wybrany plik: <code>{selectedProcessName}</code>
           </p>
-          <button
-            className="secondary-button"
-            type="button"
-            onClick={() => setSelectedProcessName(null)}
-          >
-            Wyczyść wybór
-          </button>
+
+          <div className="examples-row-actions">
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() => void runUc04Flow(selectedProcessName)}
+              disabled={
+                previewStageState.kind === "loading" ||
+                boardStageState.kind === "loading" ||
+                cellsStageState.kind === "loading"
+              }
+            >
+              Uruchom ponownie
+            </button>
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() => setSelectedProcessName(null)}
+            >
+              Wyczyść wybór
+            </button>
+          </div>
+
+          <div className="uc04-stage-grid">
+            <article className="uc04-stage-card">
+              <h3>Etap 0 — Podgląd wejścia</h3>
+              {previewStageState.kind === "loading" ? (
+                <p className="status-banner status-loading">
+                  Pobieranie obrazu wejściowego...
+                </p>
+              ) : null}
+              {previewStageState.kind === "error" ? (
+                <>
+                  <p className="status-banner status-error">{previewStageState.error}</p>
+                  {previewStageState.errorType ? (
+                    <p className="muted-copy">
+                      Typ błędu: {previewStageState.errorType}
+                    </p>
+                  ) : null}
+                  {previewStageState.httpStatus !== null ? (
+                    <p className="muted-copy">
+                      HTTP status: {previewStageState.httpStatus}
+                    </p>
+                  ) : null}
+                </>
+              ) : null}
+              {previewStageState.kind === "success" ? (
+                <img
+                  className="uc04-image-preview"
+                  src={toImageDataUrl(previewStageState.image)}
+                  alt={`Podgląd ${selectedProcessName}`}
+                />
+              ) : null}
+            </article>
+
+            <article className="uc04-stage-card">
+              <h3>Etap 1 — Preprocess board</h3>
+              {boardStageState.kind === "loading" ? (
+                <p className="status-banner status-loading">
+                  Przetwarzanie boarda...
+                </p>
+              ) : null}
+              {boardStageState.kind === "error" ? (
+                <>
+                  <p className="status-banner status-error">{boardStageState.error}</p>
+                  {boardStageState.errorType ? (
+                    <p className="muted-copy">Typ błędu: {boardStageState.errorType}</p>
+                  ) : null}
+                  {boardStageState.httpStatus !== null ? (
+                    <p className="muted-copy">HTTP status: {boardStageState.httpStatus}</p>
+                  ) : null}
+                </>
+              ) : null}
+              {boardStageState.kind === "success" ? (
+                <img
+                  className="uc04-image-preview"
+                  src={toImageDataUrl(boardStageState.image)}
+                  alt="Wynik etapu preprocess board"
+                />
+              ) : null}
+            </article>
+          </div>
+
+          <article className="uc04-stage-card">
+            <h3>Etap 2 — Siatka komórek 9x9</h3>
+            {cellsStageState.kind === "loading" ? (
+              <p className="status-banner status-loading">
+                Dzielenie boarda na komórki...
+              </p>
+            ) : null}
+            {cellsStageState.kind === "error" ? (
+              <>
+                <p className="status-banner status-error">{cellsStageState.error}</p>
+                {cellsStageState.errorType ? (
+                  <p className="muted-copy">Typ błędu: {cellsStageState.errorType}</p>
+                ) : null}
+                {cellsStageState.httpStatus !== null ? (
+                  <p className="muted-copy">HTTP status: {cellsStageState.httpStatus}</p>
+                ) : null}
+              </>
+            ) : null}
+            {cellsStageState.kind === "success" ? (
+              <div className="uc04-cells-grid">
+                {cellsStageState.cells.cells.map((row, rowIndex) =>
+                  row.map((cell, cellIndex) => (
+                    <img
+                      key={`${rowIndex}-${cellIndex}`}
+                      className="uc04-cell-image"
+                      src={toImageDataUrl(cell)}
+                      alt={`Komórka ${rowIndex + 1}-${cellIndex + 1}`}
+                    />
+                  ))
+                )}
+              </div>
+            ) : null}
+          </article>
         </section>
       ) : null}
       <section className="result-card" aria-live="polite">

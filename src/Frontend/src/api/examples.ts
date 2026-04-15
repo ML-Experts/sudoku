@@ -1,7 +1,9 @@
 import type {
+  CellsGridApiResponse,
   ErrorApiResponse,
   ExampleFileApiResponse,
   ExamplesListApiResponse,
+  ImageApiEntry,
   ImageApiResponse,
 } from "../types/api";
 
@@ -95,6 +97,25 @@ function isImageApiResponse(value: unknown): value is ImageApiResponse {
   );
 }
 
+function isCellsGridApiResponse(value: unknown): value is CellsGridApiResponse {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+  if (!Array.isArray(record.cells)) {
+    return false;
+  }
+
+  return record.cells.every((row) => {
+    if (!Array.isArray(row)) {
+      return false;
+    }
+
+    return row.every((cell) => isImageApiResponse(cell));
+  });
+}
+
 function base64ToUint8Array(base64: string): Uint8Array {
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
@@ -154,6 +175,31 @@ export async function downloadExampleAsFile(
   fileName: string,
   signal?: AbortSignal
 ): Promise<void> {
+  const image = await getExampleImage(apiBaseUrl, fileName, signal);
+
+  let bytes: Uint8Array;
+
+  try {
+    bytes = base64ToUint8Array(image.base64);
+  } catch {
+    throw new Error("Nie udało się zdekodować obrazu z odpowiedzi backendu.");
+  }
+
+  const blob = new Blob([bytes], { type: image.mimeType });
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = fileName;
+  anchor.rel = "noopener";
+  anchor.click();
+  URL.revokeObjectURL(objectUrl);
+}
+
+export async function getExampleImage(
+  apiBaseUrl: string,
+  fileName: string,
+  signal?: AbortSignal
+): Promise<ImageApiResponse> {
   const url = `${apiBaseUrl}/examples/${encodeURIComponent(fileName)}`;
 
   const response = await fetch(url, {
@@ -172,23 +218,93 @@ export async function downloadExampleAsFile(
       throw new Error("Backend zwrócił niepoprawny kształt ImageApiResponse.");
     }
 
-    let bytes: Uint8Array;
+    return parsed;
+  }
 
-    try {
-      bytes = base64ToUint8Array(parsed.base64);
-    } catch {
-      throw new Error("Nie udało się zdekodować obrazu z odpowiedzi backendu.");
+  if (isErrorApiResponse(parsed)) {
+    throw new ExamplesApiError(
+      parsed.message,
+      response.status,
+      parsed.errorType
+    );
+  }
+
+  throw new ExamplesApiError(
+    rawBody.trim()
+      ? `Backend zwrócił odpowiedź HTTP ${response.status}.`
+      : `Backend zwrócił odpowiedź HTTP ${response.status} bez treści.`,
+    response.status
+  );
+}
+
+export async function putPreprocessBoard(
+  apiBaseUrl: string,
+  fileName: string,
+  signal?: AbortSignal
+): Promise<ImageApiResponse> {
+  const url = `${apiBaseUrl}/examples/${encodeURIComponent(fileName)}/preprocess/board`;
+
+  const response = await fetch(url, {
+    method: "PUT",
+    headers: {
+      Accept: "application/json",
+    },
+    signal,
+  });
+
+  const rawBody = await response.text();
+  const parsed = tryParseJson(rawBody);
+
+  if (response.status === 200) {
+    if (!isImageApiResponse(parsed)) {
+      throw new Error("Backend zwrócił niepoprawny kształt ImageApiResponse.");
     }
 
-    const blob = new Blob([bytes], { type: parsed.mimeType });
-    const objectUrl = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = objectUrl;
-    anchor.download = fileName;
-    anchor.rel = "noopener";
-    anchor.click();
-    URL.revokeObjectURL(objectUrl);
-    return;
+    return parsed;
+  }
+
+  if (isErrorApiResponse(parsed)) {
+    throw new ExamplesApiError(
+      parsed.message,
+      response.status,
+      parsed.errorType
+    );
+  }
+
+  throw new ExamplesApiError(
+    rawBody.trim()
+      ? `Backend zwrócił odpowiedź HTTP ${response.status}.`
+      : `Backend zwrócił odpowiedź HTTP ${response.status} bez treści.`,
+    response.status
+  );
+}
+
+export async function putPreprocessCells(
+  apiBaseUrl: string,
+  entry: ImageApiEntry,
+  signal?: AbortSignal
+): Promise<CellsGridApiResponse> {
+  const url = `${apiBaseUrl}/examples/preprocess/cells`;
+
+  const response = await fetch(url, {
+    method: "PUT",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(entry),
+    signal,
+  });
+
+  const rawBody = await response.text();
+  const parsed = tryParseJson(rawBody);
+
+  if (response.status === 200) {
+    if (!isCellsGridApiResponse(parsed)) {
+      throw new Error("Backend zwrócił niepoprawny kształt CellsGridApiResponse.");
+    }
+
+    return parsed;
   }
 
   if (isErrorApiResponse(parsed)) {
