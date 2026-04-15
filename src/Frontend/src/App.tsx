@@ -116,7 +116,6 @@ const defaultExamplesListState: ExamplesListState = {
   httpStatus: null,
   errorType: null,
 };
-
 function normalizeBaseUrl(baseUrl: string | undefined): string {
   const trimmedBaseUrl = baseUrl?.trim();
 
@@ -143,25 +142,16 @@ function formatTimestamp(timestampUtc: string): string {
   }).format(parsedDate);
 }
 
-function formatBytes(sizeBytes: number): string {
-  if (!Number.isFinite(sizeBytes) || sizeBytes < 0) {
-    return String(sizeBytes);
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) {
+    return `${bytes} B`;
   }
 
-  if (sizeBytes < 1024) {
-    return `${sizeBytes} B`;
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
   }
 
-  const units = ["KiB", "MiB", "GiB"];
-  let value = sizeBytes / 1024;
-  let unitIndex = 0;
-
-  while (value >= 1024 && unitIndex < units.length - 1) {
-    value /= 1024;
-    unitIndex += 1;
-  }
-
-  return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[unitIndex]}`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 export default function App() {
@@ -371,7 +361,6 @@ export default function App() {
       setDownloadingName(null);
     }
   }
-
   return (
     <main className="page-shell">
       <section className="hero-card">
@@ -430,6 +419,20 @@ export default function App() {
             {isUploadBusy ? "Wysyłanie..." : "Wyślij plik"}
           </button>
         </div>
+
+        {sessionExamples.length > 0 ? (
+          <>
+            <h3 className="examples-session-heading">Dodane w tej sesji</h3>
+            <ul className="examples-list">
+              {sessionExamples.map((example) => (
+                <li key={`${example.name}-${example.storedAtUtc}`}>
+                  <code>{example.name}</code> - {formatBytes(example.sizeBytes)} -{" "}
+                  {example.contentType}
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : null}
       </section>
 
       <section className="hero-card examples-library-section">
@@ -544,9 +547,8 @@ export default function App() {
           </button>
         </section>
       ) : null}
-
       <section className="result-card" aria-live="polite">
-        <h2>Wynik (UC-00)</h2>
+        <h2>Wynik</h2>
 
         {pingState.kind === "idle" ? (
           <p className="muted-copy">
@@ -593,78 +595,6 @@ export default function App() {
               <dd>{pingState.response.message}</dd>
             </div>
           </dl>
-        ) : null}
-      </section>
-
-      <section className="result-card" aria-live="polite">
-        <h2>Wynik uploadu (UC-01)</h2>
-
-        {uploadState.kind === "idle" ? (
-          <p className="muted-copy">
-            Wybierz plik JPG lub PNG i wyślij go na backend.
-          </p>
-        ) : null}
-
-        {uploadState.kind === "loading" ? (
-          <p className="status-banner status-loading">Wysyłanie pliku...</p>
-        ) : null}
-
-        {uploadState.kind === "error" ? (
-          <>
-            <p className="status-banner status-error">{uploadState.error}</p>
-            {uploadState.errorType ? (
-              <p className="muted-copy">Typ błędu: {uploadState.errorType}</p>
-            ) : null}
-            {uploadState.httpStatus !== null ? (
-              <p className="muted-copy">HTTP status: {uploadState.httpStatus}</p>
-            ) : null}
-          </>
-        ) : null}
-
-        {uploadState.kind === "success" ? (
-          <>
-            <p className="status-banner status-success">
-              Plik zapisany w bibliotece przykładów (201 Created).
-            </p>
-            <p className="muted-copy">HTTP status: {uploadState.httpStatus}</p>
-            <dl className="result-grid">
-              <div>
-                <dt>Nazwa (BE)</dt>
-                <dd>{uploadState.response.name}</dd>
-              </div>
-              <div>
-                <dt>Typ zawartości</dt>
-                <dd>{uploadState.response.contentType}</dd>
-              </div>
-              <div>
-                <dt>Rozmiar</dt>
-                <dd>{formatBytes(uploadState.response.sizeBytes)}</dd>
-              </div>
-              <div>
-                <dt>Zapisano (UTC)</dt>
-                <dd>{formatTimestamp(uploadState.response.storedAtUtc)}</dd>
-              </div>
-            </dl>
-          </>
-        ) : null}
-
-        {sessionExamples.length > 0 ? (
-          <>
-            <h3 className="muted-copy examples-session-heading">
-              Przykłady dodane w tej sesji ({sessionExamples.length})
-            </h3>
-            <ul className="examples-list">
-              {sessionExamples.map((item) => (
-                <li key={`${item.name}-${item.storedAtUtc}`}>
-                  <code>{item.name}</code>
-                  {" · "}
-                  {formatBytes(item.sizeBytes)}
-                  {" · "}
-                  {item.contentType}
-                </li>
-              ))}
-            </ul>
-          </>
         ) : null}
       </section>
     </main>
