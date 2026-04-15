@@ -374,6 +374,123 @@ h2 {
   word-break: break-word;
 }
 
+.uc06-section {
+  display: grid;
+  gap: 1rem;
+}
+
+.uc06-layout {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  align-items: start;
+}
+
+.uc06-column {
+  display: grid;
+  gap: 1rem;
+}
+
+.uc06-panel {
+  padding: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.45);
+  display: grid;
+  gap: 0.75rem;
+}
+
+.uc06-panel h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #bfdbfe;
+}
+
+.uc06-sticky {
+  position: sticky;
+  top: 1rem;
+}
+
+.uc06-card-list {
+  display: grid;
+  gap: 0.6rem;
+  max-height: 320px;
+  overflow: auto;
+  padding-right: 0.2rem;
+}
+
+.uc06-select-card {
+  text-align: left;
+  padding: 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.62);
+  color: #e2e8f0;
+  cursor: pointer;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.uc06-select-card strong {
+  color: #e0f2fe;
+}
+
+.uc06-select-card:hover {
+  border-color: rgba(125, 211, 252, 0.55);
+}
+
+.uc06-select-card.is-selected {
+  border-color: rgba(56, 189, 248, 0.9);
+  background: rgba(14, 116, 144, 0.2);
+}
+
+.uc06-progress-grid {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  color: #dbeafe;
+}
+
+.uc06-timeline {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.uc06-timeline-step {
+  text-align: center;
+  font-size: 0.8rem;
+  padding: 0.35rem 0.2rem;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  color: #cbd5e1;
+}
+
+.uc06-timeline-step.is-active {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: rgba(125, 211, 252, 0.8);
+  color: #e0f2fe;
+}
+
+.uc06-events-feed {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.65rem;
+  max-height: 420px;
+  overflow: auto;
+}
+
+.uc06-events-feed li {
+  padding: 0.7rem 0.8rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.58);
+  color: #dbeafe;
+  font-size: 0.86rem;
+}
+
 @media (max-width: 640px) {
   .page-shell {
     width: min(100% - 1rem, 960px);
