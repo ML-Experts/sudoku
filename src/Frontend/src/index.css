@@ -374,6 +374,62 @@ h2 {
   word-break: break-word;
 }
 
+.uc11-section {
+  display: grid;
+  gap: 1rem;
+}
+
+.uc11-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.uc11-candidates-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.uc11-candidate-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.58);
+}
+
+.uc11-candidate-item strong {
+  color: #e0f2fe;
+}
+
+.uc11-type-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  padding: 0.2rem 0.55rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.01em;
+  color: #cbd5e1;
+  white-space: nowrap;
+}
+
+.uc11-type-badge.is-board {
+  border-color: rgba(125, 211, 252, 0.8);
+  color: #e0f2fe;
+  background: rgba(14, 116, 144, 0.22);
+}
+
+.uc11-type-badge.is-digit {
+  border-color: rgba(74, 222, 128, 0.8);
+  color: #dcfce7;
+  background: rgba(22, 101, 52, 0.22);
+}
 @media (max-width: 640px) {
   .page-shell {
     width: min(100% - 1rem, 960px);

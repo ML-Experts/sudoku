@@ -28,3 +28,8 @@ export type ErrorApiResponse = {
   errorType: string;
   message: string;
 };
+
+export type RawDatasetCandidateApiResponse = {
+  name: string;
+  type: string;
+};

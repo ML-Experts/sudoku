@@ -10,6 +10,7 @@ import {
   putPreprocessBoard,
   putPreprocessCells,
 } from "./api/examples";
+import { Uc11RawCandidatesSection } from "./components/Uc11RawCandidatesSection";
 import type {
   CellsGridApiResponse,
   ExampleFileApiResponse,
@@ -903,6 +904,7 @@ export default function App() {
           </article>
         </section>
       ) : null}
+      <Uc11RawCandidatesSection apiBaseUrl={apiBaseUrl} />
       <section className="result-card" aria-live="polite">
         <h2>Wynik</h2>
 
