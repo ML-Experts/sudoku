@@ -11,6 +11,7 @@ import {
   putPreprocessCells,
 } from "./api/examples";
 import { Uc11RawCandidatesSection } from "./components/Uc11RawCandidatesSection";
+import { Uc12DatasetPreparationSection } from "./components/Uc12DatasetPreparationSection";
 import type {
   CellsGridApiResponse,
   ExampleFileApiResponse,
@@ -905,6 +906,8 @@ export default function App() {
         </section>
       ) : null}
       <Uc11RawCandidatesSection apiBaseUrl={apiBaseUrl} />
+
+      <Uc12DatasetPreparationSection apiBaseUrl={apiBaseUrl} />
       <section className="result-card" aria-live="polite">
         <h2>Wynik</h2>
 
