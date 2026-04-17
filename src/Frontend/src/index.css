@@ -374,6 +374,100 @@ h2 {
   word-break: break-word;
 }
 
+.uc12-section {
+  display: grid;
+  gap: 1rem;
+}
+
+.uc12-panel {
+  padding: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.45);
+  display: grid;
+  gap: 0.75rem;
+}
+
+.uc12-panel h3,
+.uc12-panel h4 {
+  margin: 0;
+  color: #bfdbfe;
+}
+
+.uc12-field {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.uc12-field input {
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.65);
+  color: #e2e8f0;
+  padding: 0.55rem 0.7rem;
+}
+
+.uc12-candidates-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.uc12-candidate {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.58);
+}
+
+.uc12-candidate.is-selected {
+  border-color: rgba(56, 189, 248, 0.8);
+  background: rgba(14, 116, 144, 0.2);
+}
+
+.uc12-source-config-list {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.uc12-source-config {
+  padding: 0.65rem 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.58);
+}
+
+.uc12-source-config p {
+  margin: 0 0 0.45rem;
+}
+
+.uc12-splits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem 0.9rem;
+}
+
+.uc12-splits label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.uc12-warnings-list,
+.uc12-processed-list {
+  margin: 0;
+  padding-left: 1rem;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.uc12-processed-list li {
+  display: grid;
+  gap: 0.2rem;
+}
+
 @media (max-width: 640px) {
   .page-shell {
     width: min(100% - 1rem, 960px);
