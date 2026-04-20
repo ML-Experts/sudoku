@@ -19,6 +19,11 @@ jobs:
           echo "Base branch: ${{ github.base_ref }}"
           echo "Head branch: ${{ github.head_ref }}"
 
+          if [ "${{ github.base_ref }}" != "main" ]; then
+            echo "PR is not targeting main, skipping."
+            exit 0
+          fi
+
           if [ "${{ github.head_ref }}" != "dev" ]; then
             echo "Only pull requests from 'dev' to 'main' are allowed."
             exit 1
