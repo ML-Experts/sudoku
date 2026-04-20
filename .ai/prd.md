@@ -46,7 +46,7 @@ Uwaga: w zakresie pozostaje wyłącznie prosta bramka administracyjna oparta o j
 ### 5) Użytkownicy i persony
 - **P1: Student / prowadzący demo**: chce szybko pokazać działanie aplikacji na kilku zdjęciach.
 - **P2: Użytkownik web**: chce wrzucić zdjęcie sudoku i dostać rozwiązanie z czytelną wizualizacją.
-- **P3: Operator ML / członek zespołu**: chce zalogować się do prostego panelu administracyjnego, wybrać surowe pliki datasetu przygotowane wcześniej na serwerze, oczyścić dane, wykonać split i przygotować zestaw `.npz` do treningu.
+- **P3: Operator ML / członek zespołu**: chce zalogować się do prostego panelu administracyjnego, wybrać surowe datasety przygotowane wcześniej na serwerze, oczyścić dane, wykonać split i przygotować zestaw `.npz` do treningu.
 
 ### 6) Główne przepływy użytkownika (user journeys)
 #### J1: „Rozwiąż z obrazka”
@@ -65,10 +65,10 @@ Uwaga: w zakresie pozostaje wyłącznie prosta bramka administracyjna oparta o j
 
 #### J3: „Dodaj i przygotuj dataset do uczenia”
 1. Użytkownik loguje się przez prosty modal hasła.
-2. Surowe pliki datasetu są wcześniej umieszczane na serwerze poza aplikacją (np. przez Jupyter), w skonfigurowanym katalogu `data/raw`, z rozdzieleniem na podfoldery `boards` i `digits`.
-3. Backend skanuje katalog surowych danych, przegląda podfoldery `boards` i `digits`, automatycznie paruje pliki techniczne i pokazuje użytkownikowi listę logicznych rekordów datasetowych z polami `name` i `type` (`board` / `digit`), gdzie typ wynika z folderu źródłowego.
+2. Surowe datasety są wcześniej umieszczane na serwerze poza aplikacją (np. przez Jupyter), w skonfigurowanym katalogu `data/raw`, z rozdzieleniem na podfoldery `boards` i `digits`.
+3. Backend skanuje katalog surowych danych, przegląda podfoldery `boards` i `digits` i pokazuje użytkownikowi listę logicznych rekordów datasetowych z polami `name` i `type` (`board` / `digit`), gdzie typ wynika z folderu źródłowego. Dla `board` rekordem logicznym jest wybrany katalog bezpośrednio pod `boards`, już dostarczony w formie rozpakowanej; jego zawartość może zawierać dalsze podfoldery skanowane później rekurencyjnie. Dla `digit` rekord powstaje przez sparowanie plików `*.idx3-ubyte` i `*.idx1-ubyte` o wspólnym prefiksie.
 4. Użytkownik wybiera jeden lub wiele datasetów źródłowych, dla każdego wskazuje docelowe splity (`train`, `val`, `test`) albo wybiera tryb `mix`, a następnie nadaje nazwę wynikowemu zestawowi treningowemu.
-5. Dla datasetów typu `board` Backend zleca ML ekstrakcję planszy, podział na siatkę 9×9 i oczyszczenie komórek; dla `digit` wczytywane są pary IDX-UBYTE i uruchamiana jest normalizacja do tego samego wspólnego formatu próbek.
+5. Dla datasetów typu `board` Backend zleca ML rekurencyjne przeskanowanie wybranego, już rozpakowanego katalogu źródłowego, odczyt par `.jpg` + `.dat`, ekstrakcję planszy, podział na siatkę 9×9 i oczyszczenie komórek; dla `digit` wczytywane są pary IDX-UBYTE i uruchamiana jest normalizacja do tego samego wspólnego formatu próbek.
 6. Niezależnie od typu i liczby wybranych źródeł system scala wynik przetwarzania do jednego wspólnego zestawu, tworzy docelowe partycje `train` / `val` / `test`, zapisuje gotowy artefakt jako pojedynczy plik `{name}.npz` w katalogu `data/processed` i dołącza raport z przetwarzania.
 7. Przygotowany zestaw `.npz` staje się dostępny do późniejszego treningu i ewaluacji.
 
@@ -88,11 +88,11 @@ Uwaga: w zakresie pozostaje wyłącznie prosta bramka administracyjna oparta o j
 - **FR-13**: System udostępnia prosty mechanizm logowania administracyjnego: jedno hasło weryfikowane po stronie Backendu i token JSON zwracany do Frontendu.
 - **FR-14**: System chroni wybrane operacje zapisu i administracyjne (co najmniej pobranie listy surowych datasetów, przygotowanie zestawu `.npz` oraz uruchomienie treningu) przez wymóg poprawnego tokenu; bez tokenu użytkownik ma dostęp wyłącznie do ścieżki rozwiązywania sudoku.
 - **FR-15**: System skanuje skonfigurowany katalog surowych datasetów (np. produkcyjnie `/opt/sudoku/shared/data/raw`) oraz dwa skonfigurowane podfoldery `boards` i `digits`, i buduje listę logicznych kandydatów datasetowych widoczną w UI.
-- **FR-16**: System obsługuje dwa techniczne formaty wejściowe datasetu: `board` (archiwum `.zip` zawierające pary plików `.jpg` + `.data` o wspólnej nazwie, wykrywane w folderze `boards`) oraz `digit` (pary plików `*.idx3-ubyte` + `*.idx1-ubyte` o wspólnym prefiksie, wykrywane w folderze `digits`).
-- **FR-17**: System automatycznie paruje pliki techniczne należące do jednego datasetu i prezentuje użytkownikowi listę rekordów logicznych z polami `name` i `type`, bez konieczności ręcznego myślenia o rozszerzeniach; `type` wynika z folderu źródłowego, a nie z heurystyki zawartości pliku.
+- **FR-16**: System obsługuje dwa techniczne formaty wejściowe datasetu: `board` (już rozpakowany katalog będący bezpośrednim dzieckiem folderu `boards`, którego zawartość może zawierać dalsze podfoldery skanowane rekurencyjnie w poszukiwaniu par plików `.jpg` + `.dat` o wspólnej nazwie) oraz `digit` (pary plików `*.idx3-ubyte` + `*.idx1-ubyte` o wspólnym prefiksie, wykrywane w folderze `digits`).
+- **FR-17**: System automatycznie buduje rekordy logiczne datasetów na podstawie technicznej struktury wejścia i prezentuje użytkownikowi listę rekordów z polami `name` i `type`, bez konieczności ręcznego myślenia o rozszerzeniach; `type` wynika z folderu źródłowego, a nie z heurystyki zawartości pliku.
 - **FR-18**: Użytkownik może wskazać dla każdego wybranego datasetu jeden lub wiele jawnych splitów spośród `train`, `val`, `test` albo wybrać tryb `mix`; `mix` jest wyborem wykluczającym pozostałe opcje dla tego samego źródła.
 - **FR-19**: System pozwala nadać nazwę tworzonemu zestawowi treningowemu, przyjmuje listę wybranych źródeł datasetowych z ich `splits` i zapisuje wynik całego żądania jako jeden plik `{name}.npz` w skonfigurowanym katalogu danych przetworzonych (np. produkcyjnie `/opt/sudoku/shared/data/processed`).
-- **FR-20**: Dla datasetu typu `board` system parsuje etykiety planszy, dzieli obraz na siatkę 9×9 i oczyszcza każdą komórkę wspólnym pipeline'em ML obejmującym co najmniej binaryzację, wyostrzenie, konwersję do czarno-białego / grayscale, centrowanie i zmianę rozmiaru do 28×28.
+- **FR-20**: Dla datasetu typu `board` system rekurencyjnie skanuje wybrany, już rozpakowany katalog źródłowy, parsuje etykiety planszy z par `.jpg` + `.dat`, dzieli obraz na siatkę 9×9 i oczyszcza każdą komórkę wspólnym pipeline'em ML obejmującym co najmniej binaryzację, wyostrzenie, konwersję do czarno-białego / grayscale, centrowanie i zmianę rozmiaru do 28×28.
 - **FR-21**: Dla datasetu typu `digit` system wczytuje pary IDX-UBYTE i normalizuje próbki do tego samego kanonicznego formatu treningowego, który jest używany także dla komórek wyciętych z `board`.
 - **FR-22**: Typ wejściowy (`board` / `digit`) wpływa wyłącznie na ścieżkę wczytania i ekstrakcji próbek; końcowy artefakt biznesowy pozostaje jeden wspólny plik `.npz` dla całego żądania przygotowania datasetu.
 - **FR-23**: Dla wyboru `mix` system wykonuje automatyczny split do `train` / `val` / `test` zgodnie z polityką projektu; dla jawnego wyboru jednego lub wielu splitów zapisuje dane do wskazanych partycji bez dublowania tej samej próbki między splitami.
@@ -346,14 +346,15 @@ Uwaga organizacyjna:
 #### UC-11 — „Wyświetl dostępne surowe datasety”
 - **FE**:
   - Widok administracyjny pokazujący listę datasetów wykrytych w katalogu `data/raw`, bez ręcznego uploadu przez aplikację.
-  - Użytkownik widzi listę logicznych rekordów datasetów, np. `[{ "name": "Plansze", "type": "board" }, { "name": "t10k", "type": "digit" }]`, bez konieczności ręcznego myślenia o rozszerzeniach technicznych.
+  - Użytkownik widzi listę logicznych rekordów datasetów, np. `[{ "name": "v1_training", "type": "board" }, { "name": "t10k", "type": "digit" }]`, bez konieczności ręcznego myślenia o rozszerzeniach technicznych.
   - Widok listy datasetów jest dostępny tylko po uzyskaniu tokenu z prostego logowania (UC-13).
 - **BE**:
-  - Chroniony endpoint listujący surowe datasety (np. `GET /api/datasets/raw-candidates`) przez skan skonfigurowanego katalogu oraz automatyczne parowanie plików technicznych.
+  - Chroniony endpoint listujący surowe datasety (np. `GET /api/datasets/raw-candidates`) przez skan skonfigurowanego katalogu oraz automatyczne wykrycie kandydatów logicznych.
   - Skan katalogu `data/raw`, przegląd dwóch skonfigurowanych podfolderów `boards` i `digits`, rozpoznanie kandydatów typu `board` i `digit` na podstawie folderu źródłowego oraz budowa publicznej listy rekordów logicznych.
+  - Dla `board` kandydatem jest już rozpakowany katalog bezpośrednio pod `boards`; jego nazwa jest przekazywana do `FE`, a rekurencyjne przeglądanie plików wewnątrz tego katalogu, również w dalszych podfolderach, należy do etapu przygotowania danych w `UC-12`.
   - Weryfikacja tokenu administracyjnego dla odczytu listy kandydatów.
 - **ML**:
-  - — (`UC-11` nie angażuje usług ML; listowanie kandydatów i parowanie plików technicznych realizuje Backend.)
+  - — (`UC-11` nie angażuje usług ML; listowanie kandydatów realizuje Backend.)
   - **AC**:
     - Po zalogowaniu użytkownik może pobrać i zobaczyć listę datasetów wykrytych automatycznie w `data/raw`.
     - System rozpoznaje, czy źródło reprezentuje pełne plansze (`board`) czy pojedyncze cyfry (`digit`) na podstawie tego, czy rekord pochodzi z folderu `boards`, czy z folderu `digits`.
@@ -369,13 +370,13 @@ Uwaga organizacyjna:
   - Chroniony endpoint listujący gotowe zestawy (np. `GET /api/datasets/processed`) zwracający rekordy możliwe do użycia później w treningu.
   - Wewnętrzny workflow / endpoint uruchamiany po przyjęciu wyboru źródeł z UC-11, odpowiedzialny za techniczne przygotowanie jednego końcowego pliku `{name}.npz`.
   - Tłumaczenie publicznego wyboru `splits` na techniczną politykę splitu, w tym wymuszenie grupowania po całej planszy dla danych `board`.
-  - Wewnętrzny endpoint batch preprocessingu pojedynczych komórek/cyfr uruchamiany w ramach przygotowania zestawu `.npz`.
+  - Wewnętrzny endpoint `POST /ml/datasets/prepare` uruchamiany w ramach przygotowania zestawu `.npz`.
   - Zapis informacji o użytym profilu preprocessingu w rekordzie przygotowania datasetu i/lub treningu.
   - Zapis końcowego artefaktu `{name}.npz` i raportu przygotowania w skonfigurowanych katalogach danych.
 - **ML**:
   - Analiza techniczna wskazanych datasetów źródłowych i rozpoznanie formatu wejścia: `digit` albo `board`.
   - Dla `digit`: walidacja par IDX-UBYTE i uruchomienie preprocessingu pojedynczych komórek/cyfr.
-  - Dla `board`: rozpakowanie archiwum `.zip`, walidacja par `.jpg` + `.data`, odczyt etykiet planszy oraz wykorzystanie pipeline'u wykrycia planszy / podziału na komórki, a następnie uruchomienie tego samego preprocessingu komórek co dla `digit`.
+  - Dla `board`: rekurencyjne przeskanowanie wybranego, już rozpakowanego katalogu źródłowego, walidacja par `.jpg` + `.dat`, odczyt etykiet planszy oraz wykorzystanie pipeline'u wykrycia planszy / podziału na komórki, a następnie uruchomienie tego samego preprocessingu komórek co dla `digit`.
   - Batch preprocessing komórek/cyfr: binaryzacja, wyostrzenie, konwersja do skali szarości / czarno-białego formatu, centrowanie cyfry i normalizacja rozmiaru do 28×28 lub innego formatu wejściowego modelu.
   - Ten sam pipeline jest współdzielony przez dane pochodzące z datasetów `digit` i przez komórki wycięte z datasetów `board`.
   - Dla datasetu `board` podział na splity jest wykonywany na poziomie całych plansz przed ekstrakcją komórek, aby uniknąć przecieku danych między `train`, `val` i `test`.
@@ -416,7 +417,7 @@ Uwaga organizacyjna:
 ### 10) Założenia i ograniczenia
 - ML (trening + inferencja) jest w Pythonie.
 - Solver to klasyczny backtracking (wystarczające dla sudoku).
-- Dane treningowe: preferowane publiczne (np. Kaggle) + opcjonalnie MNIST/EMNIST jako baseline / pretraining; finalne porównania jakości odnosimy do benchmarku Sudoku.
+- Dane treningowe: preferowane publiczne (np. Kaggle) + opcjonalnie MNIST/EMNIST jako baseline / pretraining; dla źródeł `digit` etykiety `0..9` mogą być legalną częścią baseline'u / pretrainingu, natomiast finalna inferencja Sudoku pozostaje semantycznie rozpoznawaniem cyfr `1..9` oraz pustych pól. Finalne porównania jakości odnosimy do benchmarku Sudoku.
 - W UI dopuszczamy możliwość ręcznej korekty rozpoznanego gridu (zmniejsza ryzyko błędów CV/ML na demo).
 - Ścieżki do `data`, `examples`, `models`, `benchmark`, `tmp` oraz adresy integracyjne BE ↔ ML są konfigurowalne i nie powinny być hardcodowane w kodzie.
 
@@ -470,8 +471,7 @@ Uwaga organizacyjna:
 - **Frontend → Backend (C#)**: `PUT /api/models/active` — ustawienie aktywnego modelu inferencyjnego przez aktualizację wskaźnika w `models/active`.
 - **Frontend → Backend (C#)**: `POST /api/solve-from-image` — przyjmuje obraz, zwraca JSON (kontrakt poniżej); endpoint publiczny dostępny także bez tokenu.
 - **Frontend ↔ Backend (C#)**: kanał `SignalR` dla zdarzeń treningu (np. `/ws/trainings/{runName}`) — postęp i status końcowy; kanał chroniony tym samym tokenem administracyjnym i zestawiany po `accessTokenFactory` lub równoważnym mechanizmie.
-- **Backend (C#) → Serwis ML (Python)**: orkiestracja preprocessingu datasetu przez istniejące ścieżki przetwarzania planszy i komórek (`board` / `cells`) lub ich batch wrapper — rozpoznaje format wejścia i zwraca kanoniczne próbki / metadane techniczne.
-- **Backend (C#) → Serwis ML (Python)**: endpoint batch preprocessingu pojedynczych komórek/cyfr — współdzielony przez przygotowanie datasetu.
+- **Backend (C#) → Serwis ML (Python)**: `POST /ml/datasets/prepare` — przygotowanie jednego technicznego artefaktu `{name}.npz` na podstawie logicznych źródeł `name` + `type` oraz polityki splitu wyliczonej przez `BE`.
 - **Backend (C#) → Serwis ML (Python)**: `POST /ml/trainings` — start runu treningowego na jednym `.npz` z przekazaniem resolved ścieżek wejścia i wyjścia.
 - **Backend (C#) → Serwis ML (Python)**: `POST /ml/trainings/{runName}/cancel` — kooperacyjne anulowanie aktywnego runu.
 - **Serwis ML (Python) → Backend (C#)**: `POST /internal/ml/trainings/{runName}/events` — raportowanie postępu, anulowania, statusu końcowego i referencji do artefaktów.
@@ -483,7 +483,7 @@ Uwaga organizacyjna:
 ```json
 [
   {
-    "name": "Plansze",
+    "name": "v1_training",
     "type": "board"
   },
   {
@@ -501,7 +501,7 @@ Uwaga organizacyjna:
   "name": "nowyPlikNpz",
   "sources": [
     {
-      "name": "Plansze",
+      "name": "v1_training",
       "type": "board",
       "splits": ["train", "val"]
     },
@@ -516,41 +516,28 @@ Uwaga organizacyjna:
 
 Uwaga: `splits = ["mix"]` wyklucza jednoczesne podanie `train` / `val` / `test` dla tego samego źródła. Niezależnie od kombinacji źródeł i typów wejścia wynik całego requestu stanowi jeden plik `{name}.npz`.
 
-##### Kontrakt odpowiedzi (prosty, jeden obiekt)
-Backend i serwis ML zwracają jeden obiekt JSON:
-- `recognized_grid: int[9][9]` (0 = puste)
-- `solved_grid: int[9][9]` (0 jeśli brak/nie dotyczy)
-- `overlay_image_base64: string` (PNG/JPEG w base64; może być pusty jeśli błąd)
-- `warnings: string[]`
-- `errors: string[]`
-
-Uwaga: nie ma wymogu trwałego zapisywania `recognized_grid`/`solved_grid` do plików w `examples/`. Artefakty mogą być zapisywane opcjonalnie do debugowania/odtwarzania przypadków, ale oficjalnym kontraktem jest odpowiedź API.
-
-#### Formaty danych i artefakty wyjściowe
-- `recognized_grid: int[9][9]` (0 = puste)
-- `solved_grid: int[9][9]`
-- `overlay_image_base64: base64/png` (ew. alternatywnie URL do pliku)
-- `warnings/errors: string[]` (jeśli pipeline niepewny lub przerwał)
+Publiczny kontrakt odpowiedzi dla przygotowania datasetu `.npz` jest opisany w dokumentacji `UC-12` dla `FE`, `BE` i `ML` i zwraca metadane przygotowanego zestawu oraz raport przetwarzania, a nie payload ścieżki inferencyjnej Sudoku.
 
 ### 12) Dane, trening i ewaluacja
 - **Źródła danych**: publiczny dataset sudoku (np. z Kaggle) + ewentualnie MNIST/EMNIST jako baseline / pretraining. Jeśli dataset sudoku zawiera etykiety planszy (np. grid 9×9), wykorzystujemy je do budowy zbioru komórek/cyfr do treningu klasyfikatora.
 - **Źródła obrazów wejściowych (demo / benchmark end-to-end)**: dowolne zdjęcia użytkownika + zestaw przykładowy w `examples/` (np. własne zdjęcia/screeny) oraz/lub obrazy z datasetu (zgodnie z licencją).
 - **Fizyczne lokalizacje danych i artefaktów**: katalogi `data`, `examples`, `models`, `benchmark`, `trainings`, `tmp` są systemowymi lokalizacjami konfigurowalnymi; kod nie zakłada ich stałej lokalizacji.
-- **Dostarczanie surowych danych**: pliki datasetów trafiają na serwer poza aplikacją webową (np. przez JupyterLab, SCP lub inny kanał administracyjny) do skonfigurowanego katalogu `data/raw`; aplikacja nie realizuje uploadu datasetu przez HTTP.
+- **Dostarczanie surowych danych**: pliki i katalogi datasetów trafiają na serwer poza aplikacją webową (np. przez JupyterLab, SCP lub inny kanał administracyjny) do skonfigurowanego katalogu `data/raw`; aplikacja nie realizuje uploadu datasetu przez HTTP.
 - **Walidacja i dopasowanie datasetu**: dataset z Kaggle może być już „wyprostowany”/wycięty (albo mieć inne warunki niż zdjęcia z telefonu), więc przed treningiem sprawdzamy format, etykiety i jakość próbek, czyścimy błędne przypadki oraz dopasowujemy sposób generowania danych treningowych do tego, co model zobaczy później w inferencji.
 - **Obsługiwane formaty wejściowe datasetu**:
   - `digit` — para plików `*.idx3-ubyte` (obrazy) i `*.idx1-ubyte` (etykiety) o wspólnym prefiksie, np. `t10k`,
-  - `board` — archiwum `.zip` zawierające pary plików `.jpg` + `.data` o wspólnej nazwie; plik `.data` zawiera 2 linie metadanych i następnie etykiety planszy jako grid 9×9.
-- **Widok kandydatów datasetowych w UI**: użytkownik widzi listę rekordów logicznych ukrywających szczegóły techniczne plików, np. `[{ "name": "Plansze", "type": "board" }, { "name": "t10k", "type": "digit" }]`.
-- **Kanoniczny model próbki treningowej**: niezależnie od formatu wejściowego, po przygotowaniu pracujemy na wspólnym rekordzie próbki komórki / cyfry zawierającym co najmniej identyfikator zestawu, split (`train` / `val` / `test`), etykietę cyfry, obraz po preprocessingu, typ źródła (`digit` / `board-derived`) oraz metadane pochodzenia (`sourceBoardId`, `cellIndex`, flagi jakościowe), jeśli są dostępne.
+  - `board` — już rozpakowany katalog będący bezpośrednim dzieckiem `data/raw/boards`; podczas przygotowania datasetu jego zawartość, także w zagnieżdżonych podfolderach, jest skanowana rekurencyjnie w poszukiwaniu par plików `.jpg` + `.dat` o wspólnej nazwie; plik `.dat` zawiera 2 linie metadanych i następnie etykiety planszy jako grid 9×9.
+- **Widok kandydatów datasetowych w UI**: użytkownik widzi listę rekordów logicznych ukrywających szczegóły techniczne plików, np. `[{ "name": "v1_training", "type": "board" }, { "name": "t10k", "type": "digit" }]`.
+- **Kanoniczny model próbki treningowej**: niezależnie od formatu wejściowego, po przygotowaniu pracujemy na wspólnym rekordzie próbki komórki / cyfry zawierającym co najmniej identyfikator zestawu, split (`train` / `val` / `test`), etykietę cyfry, obraz po preprocessingu, typ źródła (`digit` / `boardDerived`) oraz metadane pochodzenia (`sourceBoardId`, `cellIndex`, flagi jakościowe), jeśli są dostępne.
 - **Przygotowanie i unifikacja datasetu**:
   - użytkownik wybiera jeden lub więcej datasetów źródłowych już dostępnych w `data/raw`, FE wysyła nazwę docelowego zestawu oraz listę źródeł z polami `name`, `type`, `splits`,
   - system najpierw wykrywa format wejścia, a dopiero potem uruchamia odpowiednią ścieżkę normalizacji,
   - dla `digit` używamy preprocessingu pojedynczej komórki / cyfry,
-  - dla `board` najpierw wycinamy komórki / cyfry z planszy, a następnie stosujemy ten sam preprocessing pojedynczej komórki / cyfry,
+  - dla `board` najpierw rekurencyjnie skanujemy wybrany, już rozpakowany katalog źródłowy, wykrywamy pary `.jpg` + `.dat`, wycinamy komórki / cyfry z planszy, a następnie stosujemy ten sam preprocessing pojedynczej komórki / cyfry,
+  - dla `digit` etykiety `0..9` pozostają prawidłowymi klasami nadzorowanymi, natomiast dla `board` wartość `0` w gridzie `.dat` oznacza pustą komórkę, więc taka próbka nie trafia do nadzorowanych tablic etykiet i jest jedynie raportowana w danych przygotowania,
   - obie ścieżki (`digit` i `board`) kończą się tym samym wspólnym modelem próbek; typ wejścia nie tworzy osobnych formatów wynikowych,
-  - wynikowym artefaktem dla całego requestu, niezależnie od liczby i typów źródeł, jest pojedynczy plik `{name}.npz` zawierający dane `train` / `val` / `test`, etykiety oraz podstawowe metadane przygotowania,
-  - zapis do docelowych katalogów wykonuje Backend według zadeklarowanej polityki splitu i konfiguracji środowiskowej.
+  - wynikowym artefaktem dla całego requestu, niezależnie od liczby i typów źródeł, jest pojedynczy plik `{name}.npz` zawierający dane `train` / `val` / `test` oraz etykiety; techniczną zawartość tego pliku składa `ML` na podstawie logicznych źródeł `name` + `type` przekazanych przez `BE`, natomiast metadane przygotowania datasetu są zwracane przez API i utrzymywane w rekordzie po stronie `BE`, a nie jako obowiązkowa część formatu `.npz`,
+  - techniczny split i złożenie zawartości `.npz` wykonuje `ML` według polityki splitu przygotowanej przez `BE`, natomiast zapis finalnego artefaktu do docelowego katalogu wykonuje `BE`.
 - **Preprocessing w ścieżce inferencji (`end-to-end`, runtime)**:
   - wykrycie planszy,
   - korekcja perspektywy,
@@ -569,7 +556,7 @@ Uwaga: nie ma wymogu trwałego zapisywania `recognized_grid`/`solved_grid` do pl
   - jeśli użytkownik wybierze `mix`, Backend tworzy docelowe partycje `train` / `val` / `test` według konfigurowalnej polityki splitu (np. domyślnie `80/10/10`),
   - jeśli użytkownik wybierze dokładnie jeden jawny split (`train`, `val` albo `test`), wszystkie poprawne próbki trafiają do wskazanej partycji,
   - jeśli użytkownik wybierze kilka jawnych splitów spośród `train` / `val` / `test`, system rozdziela próbki tylko pomiędzy zaznaczone partycje, bez ich duplikowania; w MVP stosujemy równy podział między wybrane partycje,
-  - jeśli dataset źródłowy dostarcza własny podział `train/test`, możemy go respektować jako wejście do przygotowania zestawu, ale wynik końcowy nadal zapisujemy w jednym artefakcie `.npz`,
+  - wybór splitu wynika z decyzji użytkownika przekazanej w polu `splits`; źródłowy techniczny podział datasetu nie nadpisuje tej decyzji,
   - porównania modeli wykonujemy na wspólnym, niezmiennym benchmarku / secie testowym Sudoku,
   - `examples/` służy głównie do demo i testów `end-to-end`; nie jest jedynym ani głównym benchmarkiem klasyfikatora cyfr.
 - **Trening**:
