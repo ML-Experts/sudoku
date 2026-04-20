@@ -36,3 +36,5 @@
 /src/Backend/Sudoku/Sudoku/examples/
 /.ai/SystemPlikowWSerwerze.md
 /.ai/AnalizaOdpowiedzialnosciBE-ML.md
+
+/node_modules/
