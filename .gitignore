@@ -38,3 +38,5 @@
 /.ai/AnalizaOdpowiedzialnosciBE-ML.md
 
 /node_modules/
+/data/raw/boards
+/data/raw/digits
