@@ -45,6 +45,8 @@ jobs:
       BE_ML_BASE_URL: ${{ vars.BE_ML_BASE_URL }}
       BE_ML_PING_PATH: ${{ vars.BE_ML_PING_PATH }}
       BE_ML_TIMEOUT_SECONDS: ${{ vars.BE_ML_TIMEOUT_SECONDS }}
+      BE_RAW_DATASETS_BOARDS_SUBDIRECTORY: ${{ vars.BE_RAW_DATASETS_BOARDS_SUBDIRECTORY }}
+      BE_RAW_DATASETS_DIGITS_SUBDIRECTORY: ${{ vars.BE_RAW_DATASETS_DIGITS_SUBDIRECTORY }}
       BE_ADMIN_SHARED_PASSWORD: ${{ secrets.BE_ADMIN_SHARED_PASSWORD }}
       BE_ADMIN_JWT_SIGNING_KEY: ${{ secrets.BE_ADMIN_JWT_SIGNING_KEY }}
 
@@ -82,6 +84,16 @@ jobs:
 
           if [ -z "$BE_ML_TIMEOUT_SECONDS" ]; then
             echo "Missing BE_ML_TIMEOUT_SECONDS variable for the selected GitHub environment."
+            exit 1
+          fi
+
+          if [ -z "$BE_RAW_DATASETS_BOARDS_SUBDIRECTORY" ]; then
+            echo "Missing BE_RAW_DATASETS_BOARDS_SUBDIRECTORY variable for the selected GitHub environment."
+            exit 1
+          fi
+
+          if [ -z "$BE_RAW_DATASETS_DIGITS_SUBDIRECTORY" ]; then
+            echo "Missing BE_RAW_DATASETS_DIGITS_SUBDIRECTORY variable for the selected GitHub environment."
             exit 1
           fi
 
@@ -145,6 +157,8 @@ jobs:
               "BE_ML_BASE_URL",
               "BE_ML_PING_PATH",
               "BE_ML_TIMEOUT_SECONDS",
+              "BE_RAW_DATASETS_BOARDS_SUBDIRECTORY",
+              "BE_RAW_DATASETS_DIGITS_SUBDIRECTORY",
               "BE_ADMIN_SHARED_PASSWORD",
               "BE_ADMIN_JWT_SIGNING_KEY",
           ]
@@ -181,6 +195,10 @@ jobs:
           ml_service["BaseUrl"] = os.environ["BE_ML_BASE_URL"]
           ml_service["PingPath"] = os.environ["BE_ML_PING_PATH"]
           ml_service["TimeoutSeconds"] = ml_timeout_seconds
+
+          raw_datasets_storage = config.setdefault("RawDatasetsStorage", {})
+          raw_datasets_storage["BoardsSubdirectory"] = os.environ["BE_RAW_DATASETS_BOARDS_SUBDIRECTORY"]
+          raw_datasets_storage["DigitsSubdirectory"] = os.environ["BE_RAW_DATASETS_DIGITS_SUBDIRECTORY"]
 
           admin_auth = config.setdefault("AdminAuth", {})
           admin_auth["SharedPassword"] = os.environ["BE_ADMIN_SHARED_PASSWORD"]
