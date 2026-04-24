@@ -18,6 +18,9 @@ public sealed class MlServiceOptions
     [Required]
     public string PreprocessCellsPath { get; init; } = "/ml/preprocess/cells";
 
-    [Range(1, 60)]
-    public int TimeoutSeconds { get; init; } = 10;
+    [Required]
+    public string PrepareDatasetPath { get; init; } = "/ml/datasets/prepare";
+
+    [Range(1, 600)]
+    public int TimeoutSeconds { get; init; } = 60;
 }

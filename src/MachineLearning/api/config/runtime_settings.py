@@ -38,3 +38,6 @@ class RuntimeSettings:
     service_version: str
     ping_response_message: str
     preprocessing_settings: PreprocessingSettings
+    boards_subdirectory: str
+    digits_subdirectory: str
+    temp_datasets_directory_path: str
