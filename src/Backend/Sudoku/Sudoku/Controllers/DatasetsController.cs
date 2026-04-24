@@ -2,6 +2,7 @@ using FluentValidation;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Text.Json;
 using Sudoku.Application.Datasets;
 using Sudoku.Application.Ml;
 using Sudoku.Application.Storage;
@@ -140,24 +141,40 @@ public sealed class DatasetsController : ControllerBase
     [HttpGet("processed")]
     [ProducesResponseType(typeof(ProcessedDatasetsListApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> ListProcessedAsync(CancellationToken cancellationToken)
     {
-        var result = await _sender.Send(new ListProcessedDatasetsQuery(), cancellationToken);
-        var items = result.Items
-            .Select(item => new ProcessedDatasetListItemApiResponse(
-                Name: item.Name,
-                FileName: item.FileName,
-                PreprocessingProfile: item.PreprocessingProfile,
-                CreatedAtUtc: item.CreatedAtUtc,
-                SampleCounts: new SplitSampleCountsApiResponse(
-                    Train: item.SampleCounts.Train,
-                    Val: item.SampleCounts.Val,
-                    Test: item.SampleCounts.Test)))
-            .ToArray();
+        try
+        {
+            var result = await _sender.Send(new ListProcessedDatasetsQuery(), cancellationToken);
+            var items = result.Items
+                .Select(item => new ProcessedDatasetListItemApiResponse(
+                    Name: item.Name,
+                    FileName: item.FileName,
+                    PreprocessingProfile: item.PreprocessingProfile,
+                    CreatedAtUtc: item.CreatedAtUtc,
+                    SampleCounts: new SplitSampleCountsApiResponse(
+                        Train: item.SampleCounts.Train,
+                        Val: item.SampleCounts.Val,
+                        Test: item.SampleCounts.Test)))
+                .ToArray();
 
-        return Ok(new ProcessedDatasetsListApiResponse(
-            Items: items,
-            TotalCount: result.TotalCount));
+            return Ok(new ProcessedDatasetsListApiResponse(
+                Items: items,
+                TotalCount: result.TotalCount));
+        }
+        catch (Exception exception) when (exception is IOException
+                                         or UnauthorizedAccessException
+                                         or InvalidDataException
+                                         or JsonException
+                                         or FileStorageItemNotFoundException)
+        {
+            return StatusCode(
+                StatusCodes.Status500InternalServerError,
+                new ErrorApiResponse(
+                    ErrorType: ListProcessedDatasetsErrorTypes.ReadFailed,
+                    Message: "Nie udało się odczytać listy przygotowanych datasetów."));
+        }
     }
 
     private static ProcessedDatasetApiResponse ToProcessedDatasetApiResponse(
