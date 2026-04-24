@@ -50,3 +50,6 @@
 /data/raw/boards/v2_train/
 /data/raw/boards/
 /data/raw/digits/
+/data/raw/boards/
+/data/processed/
+/data/models/
