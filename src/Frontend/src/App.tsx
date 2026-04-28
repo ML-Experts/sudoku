@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { AuthApiError, postAdminLogin } from "./api/auth";
 import {
   downloadExampleAsFile,
   ExampleUploadApiError,
@@ -12,6 +13,7 @@ import {
 } from "./api/examples";
 import { Uc11RawCandidatesSection } from "./components/Uc11RawCandidatesSection";
 import { Uc12DatasetPreparationSection } from "./components/Uc12DatasetPreparationSection";
+import { useAdminSession } from "./context/AdminSessionContext";
 import type {
   CellsGridApiResponse,
   ExampleFileApiResponse,
@@ -166,6 +168,26 @@ type CellsStageState =
       httpStatus: number | null;
     };
 
+type LoginState =
+  | {
+      kind: "idle";
+      error: null;
+      errorType: null;
+      httpStatus: null;
+    }
+  | {
+      kind: "loading";
+      error: null;
+      errorType: null;
+      httpStatus: null;
+    }
+  | {
+      kind: "error";
+      error: string;
+      errorType: string | null;
+      httpStatus: number | null;
+    };
+
 const defaultPingState: PingState = {
   kind: "idle",
   response: null,
@@ -198,6 +220,13 @@ const defaultImageStageState: ImageStageState = {
 const defaultCellsStageState: CellsStageState = {
   kind: "idle",
   cells: null,
+  error: null,
+  errorType: null,
+  httpStatus: null,
+};
+
+const defaultLoginState: LoginState = {
+  kind: "idle",
   error: null,
   errorType: null,
   httpStatus: null,
@@ -251,6 +280,17 @@ export default function App() {
   const apiBaseUrl = normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL);
   const pingEndpoint = `${apiBaseUrl}/ping`;
   const examplesUploadEndpoint = `${apiBaseUrl}/examples`;
+  const {
+    mode,
+    authToken,
+    loginModalOpen,
+    loginPromptMessage,
+    continueInDemoMode,
+    openLoginModal,
+    applyAdminSession,
+    clearAdminSessionAndRequireLogin,
+    logoutAdmin,
+  } = useAdminSession();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -277,9 +317,13 @@ export default function App() {
   const [cellsStageState, setCellsStageState] = useState<CellsStageState>(
     defaultCellsStageState,
   );
+  const [adminPassword, setAdminPassword] = useState("");
+  const [loginState, setLoginState] = useState<LoginState>(defaultLoginState);
   const [activeView, setActiveView] = useState<AppView>("health");
   const [datasetsStep, setDatasetsStep] = useState<DatasetsStep>("uc11");
   const uc04AbortRef = useRef<AbortController | null>(null);
+  const isAdminMode = mode === "admin";
+  const isDemoMode = mode === "demo";
   const activeViewLabel =
     activeView === "health"
       ? "Healthcheck"
@@ -339,6 +383,70 @@ export default function App() {
   useEffect(() => {
     void loadExamplesList();
   }, [loadExamplesList]);
+
+  async function handleAdminLoginSubmit() {
+    if (!adminPassword.trim()) {
+      setLoginState({
+        kind: "error",
+        error: "Podaj haslo administracyjne.",
+        errorType: null,
+        httpStatus: null,
+      });
+      return;
+    }
+
+    setLoginState({
+      kind: "loading",
+      error: null,
+      errorType: null,
+      httpStatus: null,
+    });
+
+    try {
+      const token = await postAdminLogin(apiBaseUrl, { password: adminPassword });
+      applyAdminSession(token);
+      setAdminPassword("");
+      setLoginState(defaultLoginState);
+    } catch (error) {
+      if (error instanceof AuthApiError) {
+        setLoginState({
+          kind: "error",
+          error: error.message,
+          errorType: error.errorType ?? null,
+          httpStatus: error.status,
+        });
+        return;
+      }
+
+      setLoginState({
+        kind: "error",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Nie udalo sie zalogowac do trybu administracyjnego.",
+        errorType: null,
+        httpStatus: null,
+      });
+    }
+  }
+
+  const handleAdminUnauthorized = useCallback(
+    (tokenErrorType?: string | null) => {
+      const isTokenError =
+        tokenErrorType === "admin_token_expired" ||
+        tokenErrorType === "admin_token_invalid" ||
+        tokenErrorType === "invalid_token";
+
+      clearAdminSessionAndRequireLogin(
+        isTokenError
+          ? "Sesja administracyjna wygasla lub token jest niepoprawny. Zaloguj sie ponownie."
+          : "Brak autoryzacji do operacji administracyjnej. Zaloguj sie ponownie."
+      );
+      setAdminPassword("");
+      setLoginState(defaultLoginState);
+    },
+    [clearAdminSessionAndRequireLogin]
+  );
 
   async function handlePingClick() {
     setPingState({
@@ -401,6 +509,10 @@ export default function App() {
     if (!selectedFile) {
       return;
     }
+    if (!authToken) {
+      openLoginModal();
+      return;
+    }
 
     setUploadState({
       kind: "loading",
@@ -409,7 +521,11 @@ export default function App() {
     });
 
     try {
-      const result = await postExampleUpload(apiBaseUrl, selectedFile);
+      const result = await postExampleUpload(
+        apiBaseUrl,
+        selectedFile,
+        authToken.accessToken
+      );
 
       setUploadState({
         kind: "success",
@@ -428,6 +544,10 @@ export default function App() {
       void loadExamplesList();
     } catch (error) {
       if (error instanceof ExampleUploadApiError) {
+        if (error.status === 401) {
+          handleAdminUnauthorized(error.errorType ?? null);
+        }
+
         setUploadState({
           kind: "error",
           error: error.message,
@@ -450,7 +570,7 @@ export default function App() {
   }
 
   const isUploadBusy = uploadState.kind === "loading";
-  const canSubmitUpload = Boolean(selectedFile) && !isUploadBusy;
+  const canSubmitUpload = Boolean(selectedFile) && !isUploadBusy && isAdminMode;
   const examplesListData =
     examplesListState.kind === "success"
       ? examplesListState.data
@@ -634,6 +754,14 @@ export default function App() {
       uc04AbortRef.current?.abort();
     };
   }, []);
+
+  useEffect(() => {
+    if (!loginModalOpen) {
+      return;
+    }
+
+    setLoginState(defaultLoginState);
+  }, [loginModalOpen]);
   return (
     <main className="app-root">
       <header className="hero-card app-header">
@@ -688,6 +816,43 @@ export default function App() {
         </aside>
 
         <div className="page-shell">
+          <section className="hero-card auth-session-card" aria-live="polite">
+            <p className="eyebrow">UC-13 — Autoryzacja administracyjna</p>
+            <h2>Tryb pracy</h2>
+            <p className="muted-copy">
+              {isAdminMode
+                ? "Tryb administracyjny jest aktywny."
+                : "Tryb demo aktywny. Operacje administracyjne sa zablokowane."}
+            </p>
+            {authToken ? (
+              <p className="muted-copy">
+                Sesja wygasa: {formatTimestamp(authToken.expiresAtUtc)}
+              </p>
+            ) : null}
+            <div className="examples-row-actions">
+              {isDemoMode ? (
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => {
+                    setAdminPassword("");
+                    openLoginModal();
+                  }}
+                >
+                  Zaloguj jako admin
+                </button>
+              ) : (
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={logoutAdmin}
+                >
+                  Wyloguj
+                </button>
+              )}
+            </div>
+          </section>
+
           {activeView === "health" ? (
             <>
               <section className="hero-card">
@@ -786,6 +951,12 @@ export default function App() {
                   <code>multipart/form-data</code>, pole <code>file</code>).
                   Kanoniczna nazwe pliku nadaje backend.
                 </p>
+                {!isAdminMode ? (
+                  <p className="status-banner status-loading">
+                    Upload jest dostepny tylko po zalogowaniu do trybu
+                    administracyjnego.
+                  </p>
+                ) : null}
 
                 <div className="upload-controls">
                   <input
@@ -793,7 +964,7 @@ export default function App() {
                     className="file-picker"
                     type="file"
                     accept="image/jpeg,image/png,.jpg,.jpeg,.png"
-                    disabled={isUploadBusy}
+                    disabled={isUploadBusy || !isAdminMode}
                     aria-busy={isUploadBusy}
                     onChange={(event) => {
                       const file = event.target.files?.[0] ?? null;
@@ -806,7 +977,11 @@ export default function App() {
                     disabled={!canSubmitUpload}
                     onClick={() => void handleUploadClick()}
                   >
-                    {isUploadBusy ? "Wysylanie..." : "Wyslij plik"}
+                    {isUploadBusy
+                      ? "Wysylanie..."
+                      : isAdminMode
+                        ? "Wyslij plik"
+                        : "Wymagane logowanie"}
                   </button>
                 </div>
 
@@ -1117,14 +1292,89 @@ export default function App() {
               </section>
 
               {datasetsStep === "uc11" ? (
-                <Uc11RawCandidatesSection apiBaseUrl={apiBaseUrl} />
+                <Uc11RawCandidatesSection
+                  apiBaseUrl={apiBaseUrl}
+                  accessToken={authToken?.accessToken ?? null}
+                  onUnauthorized={() => handleAdminUnauthorized("invalid_token")}
+                />
               ) : (
-                <Uc12DatasetPreparationSection apiBaseUrl={apiBaseUrl} />
+                <Uc12DatasetPreparationSection
+                  apiBaseUrl={apiBaseUrl}
+                  accessToken={authToken?.accessToken ?? null}
+                  onUnauthorized={() => handleAdminUnauthorized("invalid_token")}
+                />
               )}
             </>
           ) : null}
         </div>
       </div>
+      {loginModalOpen ? (
+        <div className="auth-modal-overlay" role="presentation">
+          <section
+            className="auth-modal-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="auth-modal-title"
+          >
+            <p className="eyebrow">UC-13 — Logowanie administracyjne</p>
+            <h2 id="auth-modal-title">Tryb admin lub demo</h2>
+            <p className="muted-copy">
+              Zaloguj sie haslem administracyjnym, aby odblokowac operacje
+              chronione. Mozesz tez kontynuowac w trybie demo bez hasla.
+            </p>
+            {loginPromptMessage ? (
+              <p className="status-banner status-error">{loginPromptMessage}</p>
+            ) : null}
+            {loginState.kind === "error" ? (
+              <>
+                <p className="status-banner status-error">{loginState.error}</p>
+                {loginState.errorType ? (
+                  <p className="muted-copy">Typ bledu: {loginState.errorType}</p>
+                ) : null}
+                {loginState.httpStatus !== null ? (
+                  <p className="muted-copy">
+                    HTTP status: {loginState.httpStatus}
+                  </p>
+                ) : null}
+              </>
+            ) : null}
+            <label className="auth-modal-field">
+              <span>Haslo administratora</span>
+              <input
+                type="password"
+                value={adminPassword}
+                autoFocus
+                onChange={(event) => setAdminPassword(event.target.value)}
+                placeholder="Wpisz haslo"
+                disabled={loginState.kind === "loading"}
+              />
+            </label>
+            <div className="examples-row-actions">
+              <button
+                className="primary-button"
+                type="button"
+                disabled={loginState.kind === "loading"}
+                onClick={() => void handleAdminLoginSubmit()}
+              >
+                {loginState.kind === "loading"
+                  ? "Logowanie..."
+                  : "Zaloguj do trybu admin"}
+              </button>
+              <button
+                className="secondary-button"
+                type="button"
+                disabled={loginState.kind === "loading"}
+                onClick={() => {
+                  setAdminPassword("");
+                  continueInDemoMode();
+                }}
+              >
+                Kontynuuj w trybie demo
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </main>
   );
 }

@@ -56,31 +56,17 @@ function resolveTypeLabel(type: string): string {
   return "Nieznany typ";
 }
 
-function clearAdminSession(): void {
-  const sessionKeys = [
-    "sudokuAdminAccessToken",
-    "sudokuAdminToken",
-    "adminAccessToken",
-    "accessToken",
-  ];
-
-  for (const key of sessionKeys) {
-    window.sessionStorage.removeItem(key);
-    window.localStorage.removeItem(key);
-  }
-}
-
 type Uc11RawCandidatesSectionProps = {
   apiBaseUrl: string;
+  accessToken?: string | null;
   onUnauthorized?: () => void;
 };
 
 export function Uc11RawCandidatesSection({
   apiBaseUrl,
+  accessToken,
   onUnauthorized,
 }: Uc11RawCandidatesSectionProps) {
-  const tokenFromEnv = import.meta.env.VITE_ADMIN_TOKEN?.trim() ?? "";
-  const adminToken = tokenFromEnv || null;
   const [state, setState] = useState<LoadableState>(defaultState);
 
   const loadCandidates = useCallback(async () => {
@@ -93,7 +79,7 @@ export function Uc11RawCandidatesSection({
     }));
 
     try {
-      const response = await getRawDatasetCandidates(apiBaseUrl, adminToken);
+      const response = await getRawDatasetCandidates(apiBaseUrl, accessToken);
       setState({
         kind: "success",
         data: response,
@@ -103,7 +89,6 @@ export function Uc11RawCandidatesSection({
       });
     } catch (error) {
       if (error instanceof RawDatasetCandidatesApiError && error.status === 401) {
-        clearAdminSession();
         onUnauthorized?.();
       }
 
@@ -122,7 +107,7 @@ export function Uc11RawCandidatesSection({
           error instanceof RawDatasetCandidatesApiError ? error.status : null,
       }));
     }
-  }, [adminToken, apiBaseUrl, onUnauthorized]);
+  }, [accessToken, apiBaseUrl, onUnauthorized]);
 
   useEffect(() => {
     void loadCandidates();
