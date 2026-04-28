@@ -24,6 +24,16 @@ export type CellsGridApiResponse = {
   cells: ImageApiResponse[][];
 };
 
+export type AdminLoginApiEntry = {
+  password: string;
+};
+
+export type AuthTokenApiResponse = {
+  accessToken: string;
+  tokenType: string;
+  expiresAtUtc: string;
+};
+
 export type ErrorApiResponse = {
   errorType: string;
   message: string;

@@ -43,6 +43,16 @@ function tryParseJson(raw: string): unknown {
   }
 }
 
+function buildAuthHeaders(accessToken?: string | null): HeadersInit {
+  if (!accessToken) {
+    return {};
+  }
+
+  return {
+    Authorization: `Bearer ${accessToken}`,
+  };
+}
+
 function isErrorApiResponse(value: unknown): value is ErrorApiResponse {
   if (!value || typeof value !== "object") {
     return false;
@@ -326,6 +336,7 @@ export async function putPreprocessCells(
 export async function postExampleUpload(
   apiBaseUrl: string,
   file: File,
+  accessToken?: string | null,
   signal?: AbortSignal
 ): Promise<ExampleFileApiResponse> {
   const url = `${apiBaseUrl}/examples`;
@@ -337,6 +348,7 @@ export async function postExampleUpload(
     body: formData,
     headers: {
       Accept: "application/json",
+      ...buildAuthHeaders(accessToken),
     },
     signal,
   });

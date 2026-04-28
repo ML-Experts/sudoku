@@ -38,3 +38,22 @@
 /.ai/AnalizaOdpowiedzialnosciBE-ML.md
 
 /node_modules/
+/data/raw/boards
+/data/raw/digits
+/data/raw/boards/
+/data/raw/digits/
+/data/raw/boards/mixed/
+/data/raw/boards/mixed 2/
+/data/raw/boards/v1_test/
+/data/raw/boards/v1_training/
+/data/raw/boards/v2_test/
+/data/raw/boards/v2_train/
+/data/raw/*
+!/data/raw/.gitkeep
+
+/data/processed/*
+!/data/processed/.gitkeep
+
+/tmp/datasets/
+/data/processed/
+/data/models/

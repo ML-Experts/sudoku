@@ -1,5 +1,6 @@
 using FluentValidation;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Sudoku.Application.Examples;
 using Sudoku.Application.Ml;
@@ -169,10 +170,12 @@ public sealed class ExamplesController : ControllerBase
         return Ok(response);
     }
 
+    [Authorize]
     [HttpPost]
     [Consumes("multipart/form-data")]
     [ProducesResponseType(typeof(ExampleFileApiResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status409Conflict)]
     [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status413PayloadTooLarge)]
     [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status415UnsupportedMediaType)]
