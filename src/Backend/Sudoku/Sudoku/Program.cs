@@ -1,5 +1,6 @@
 using Sudoku.Application;
 using Sudoku.Application.Auth;
+using Sudoku.Application.Datasets;
 using Sudoku.Application.Examples;
 using Sudoku.Configuration;
 using Sudoku.Infrastructure;
@@ -38,6 +39,46 @@ builder.Services
     .AddOptions<ExamplesPreprocessOptions>()
     .BindConfiguration(ExamplesPreprocessOptions.SectionName)
     .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+builder.Services
+    .AddOptions<RawDatasetsStorageOptions>()
+    .BindConfiguration(RawDatasetsStorageOptions.SectionName)
+    .ValidateDataAnnotations()
+    .Validate(
+        options => Path.IsPathRooted(options.BoardsSubdirectory),
+        $"{RawDatasetsStorageOptions.SectionName}:BoardsSubdirectory must be an absolute path.")
+    .Validate(
+        options => Path.IsPathRooted(options.DigitsSubdirectory),
+        $"{RawDatasetsStorageOptions.SectionName}:DigitsSubdirectory must be an absolute path.")
+    .ValidateOnStart();
+
+builder.Services
+    .AddOptions<DatasetsPreparationOptions>()
+    .BindConfiguration(DatasetsPreparationOptions.SectionName)
+    .ValidateDataAnnotations()
+    .Validate(
+        options => Path.IsPathRooted(options.BoardsSubdirectory),
+        $"{DatasetsPreparationOptions.SectionName}:BoardsSubdirectory must be an absolute path.")
+    .Validate(
+        options => Path.IsPathRooted(options.DigitsSubdirectory),
+        $"{DatasetsPreparationOptions.SectionName}:DigitsSubdirectory must be an absolute path.")
+    .Validate(
+        options => Path.IsPathRooted(options.ProcessedDatasetsDirectoryPath),
+        $"{DatasetsPreparationOptions.SectionName}:ProcessedDatasetsDirectoryPath must be an absolute path.")
+    .Validate(
+        options => Path.IsPathRooted(options.TemporaryArtifactsDirectoryPath),
+        $"{DatasetsPreparationOptions.SectionName}:TemporaryArtifactsDirectoryPath must be an absolute path.")
+    .Validate(
+        options => !string.IsNullOrWhiteSpace(options.DefaultPreprocessingProfile),
+        $"{DatasetsPreparationOptions.SectionName}:DefaultPreprocessingProfile is required.")
+    .Validate(
+        options => Math.Abs(
+            options.DefaultMixSplitRatios.Train
+            + options.DefaultMixSplitRatios.Val
+            + options.DefaultMixSplitRatios.Test
+            - 1d) <= 0.0001d,
+        $"{DatasetsPreparationOptions.SectionName}:DefaultMixSplitRatios must sum to 1.0.")
     .ValidateOnStart();
 
 builder.Services

@@ -44,7 +44,18 @@ jobs:
       BE_KESTREL_URL: ${{ vars.BE_KESTREL_URL }}
       BE_ML_BASE_URL: ${{ vars.BE_ML_BASE_URL }}
       BE_ML_PING_PATH: ${{ vars.BE_ML_PING_PATH }}
+      BE_ML_PREPARE_DATASET_PATH: ${{ vars.BE_ML_PREPARE_DATASET_PATH }}
       BE_ML_TIMEOUT_SECONDS: ${{ vars.BE_ML_TIMEOUT_SECONDS }}
+      BE_RAW_DATASETS_BOARDS_SUBDIRECTORY: ${{ vars.BE_RAW_DATASETS_BOARDS_SUBDIRECTORY }}
+      BE_RAW_DATASETS_DIGITS_SUBDIRECTORY: ${{ vars.BE_RAW_DATASETS_DIGITS_SUBDIRECTORY }}
+      BE_DATASETS_PREP_BOARDS_SUBDIRECTORY: ${{ vars.BE_DATASETS_PREP_BOARDS_SUBDIRECTORY }}
+      BE_DATASETS_PREP_DIGITS_SUBDIRECTORY: ${{ vars.BE_DATASETS_PREP_DIGITS_SUBDIRECTORY }}
+      BE_DATASETS_PREP_PROCESSED_DIRECTORY_PATH: ${{ vars.BE_DATASETS_PREP_PROCESSED_DIRECTORY_PATH }}
+      BE_DATASETS_PREP_TEMPORARY_ARTIFACTS_DIRECTORY_PATH: ${{ vars.BE_DATASETS_PREP_TEMPORARY_ARTIFACTS_DIRECTORY_PATH }}
+      BE_DATASETS_PREP_DEFAULT_PREPROCESSING_PROFILE: ${{ vars.BE_DATASETS_PREP_DEFAULT_PREPROCESSING_PROFILE }}
+      BE_DATASETS_PREP_DEFAULT_MIX_TRAIN_RATIO: ${{ vars.BE_DATASETS_PREP_DEFAULT_MIX_TRAIN_RATIO }}
+      BE_DATASETS_PREP_DEFAULT_MIX_VAL_RATIO: ${{ vars.BE_DATASETS_PREP_DEFAULT_MIX_VAL_RATIO }}
+      BE_DATASETS_PREP_DEFAULT_MIX_TEST_RATIO: ${{ vars.BE_DATASETS_PREP_DEFAULT_MIX_TEST_RATIO }}
       BE_ADMIN_SHARED_PASSWORD: ${{ secrets.BE_ADMIN_SHARED_PASSWORD }}
       BE_ADMIN_JWT_SIGNING_KEY: ${{ secrets.BE_ADMIN_JWT_SIGNING_KEY }}
 
@@ -80,8 +91,63 @@ jobs:
             exit 1
           fi
 
+          if [ -z "$BE_ML_PREPARE_DATASET_PATH" ]; then
+            echo "Missing BE_ML_PREPARE_DATASET_PATH variable for the selected GitHub environment."
+            exit 1
+          fi
+
           if [ -z "$BE_ML_TIMEOUT_SECONDS" ]; then
             echo "Missing BE_ML_TIMEOUT_SECONDS variable for the selected GitHub environment."
+            exit 1
+          fi
+
+          if [ -z "$BE_RAW_DATASETS_BOARDS_SUBDIRECTORY" ]; then
+            echo "Missing BE_RAW_DATASETS_BOARDS_SUBDIRECTORY variable for the selected GitHub environment."
+            exit 1
+          fi
+
+          if [ -z "$BE_RAW_DATASETS_DIGITS_SUBDIRECTORY" ]; then
+            echo "Missing BE_RAW_DATASETS_DIGITS_SUBDIRECTORY variable for the selected GitHub environment."
+            exit 1
+          fi
+
+          if [ -z "$BE_DATASETS_PREP_BOARDS_SUBDIRECTORY" ]; then
+            echo "Missing BE_DATASETS_PREP_BOARDS_SUBDIRECTORY variable for the selected GitHub environment."
+            exit 1
+          fi
+
+          if [ -z "$BE_DATASETS_PREP_DIGITS_SUBDIRECTORY" ]; then
+            echo "Missing BE_DATASETS_PREP_DIGITS_SUBDIRECTORY variable for the selected GitHub environment."
+            exit 1
+          fi
+
+          if [ -z "$BE_DATASETS_PREP_PROCESSED_DIRECTORY_PATH" ]; then
+            echo "Missing BE_DATASETS_PREP_PROCESSED_DIRECTORY_PATH variable for the selected GitHub environment."
+            exit 1
+          fi
+
+          if [ -z "$BE_DATASETS_PREP_TEMPORARY_ARTIFACTS_DIRECTORY_PATH" ]; then
+            echo "Missing BE_DATASETS_PREP_TEMPORARY_ARTIFACTS_DIRECTORY_PATH variable for the selected GitHub environment."
+            exit 1
+          fi
+
+          if [ -z "$BE_DATASETS_PREP_DEFAULT_PREPROCESSING_PROFILE" ]; then
+            echo "Missing BE_DATASETS_PREP_DEFAULT_PREPROCESSING_PROFILE variable for the selected GitHub environment."
+            exit 1
+          fi
+
+          if [ -z "$BE_DATASETS_PREP_DEFAULT_MIX_TRAIN_RATIO" ]; then
+            echo "Missing BE_DATASETS_PREP_DEFAULT_MIX_TRAIN_RATIO variable for the selected GitHub environment."
+            exit 1
+          fi
+
+          if [ -z "$BE_DATASETS_PREP_DEFAULT_MIX_VAL_RATIO" ]; then
+            echo "Missing BE_DATASETS_PREP_DEFAULT_MIX_VAL_RATIO variable for the selected GitHub environment."
+            exit 1
+          fi
+
+          if [ -z "$BE_DATASETS_PREP_DEFAULT_MIX_TEST_RATIO" ]; then
+            echo "Missing BE_DATASETS_PREP_DEFAULT_MIX_TEST_RATIO variable for the selected GitHub environment."
             exit 1
           fi
 
@@ -144,7 +210,18 @@ jobs:
               "BE_KESTREL_URL",
               "BE_ML_BASE_URL",
               "BE_ML_PING_PATH",
+              "BE_ML_PREPARE_DATASET_PATH",
               "BE_ML_TIMEOUT_SECONDS",
+              "BE_RAW_DATASETS_BOARDS_SUBDIRECTORY",
+              "BE_RAW_DATASETS_DIGITS_SUBDIRECTORY",
+              "BE_DATASETS_PREP_BOARDS_SUBDIRECTORY",
+              "BE_DATASETS_PREP_DIGITS_SUBDIRECTORY",
+              "BE_DATASETS_PREP_PROCESSED_DIRECTORY_PATH",
+              "BE_DATASETS_PREP_TEMPORARY_ARTIFACTS_DIRECTORY_PATH",
+              "BE_DATASETS_PREP_DEFAULT_PREPROCESSING_PROFILE",
+              "BE_DATASETS_PREP_DEFAULT_MIX_TRAIN_RATIO",
+              "BE_DATASETS_PREP_DEFAULT_MIX_VAL_RATIO",
+              "BE_DATASETS_PREP_DEFAULT_MIX_TEST_RATIO",
               "BE_ADMIN_SHARED_PASSWORD",
               "BE_ADMIN_JWT_SIGNING_KEY",
           ]
@@ -164,6 +241,15 @@ jobs:
                   "BE_ML_TIMEOUT_SECONDS must be a non-empty integer."
               ) from exc
 
+          try:
+              mix_train_ratio = float(os.environ["BE_DATASETS_PREP_DEFAULT_MIX_TRAIN_RATIO"])
+              mix_val_ratio = float(os.environ["BE_DATASETS_PREP_DEFAULT_MIX_VAL_RATIO"])
+              mix_test_ratio = float(os.environ["BE_DATASETS_PREP_DEFAULT_MIX_TEST_RATIO"])
+          except ValueError as exc:
+              raise SystemExit(
+                  "BE_DATASETS_PREP_DEFAULT_MIX_*_RATIO values must be numeric."
+              ) from exc
+
           if not config_path.exists():
               raise SystemExit(
                   f"Missing production configuration overlay in publish output: {config_path}"
@@ -180,7 +266,24 @@ jobs:
           ml_service = config.setdefault("MlService", {})
           ml_service["BaseUrl"] = os.environ["BE_ML_BASE_URL"]
           ml_service["PingPath"] = os.environ["BE_ML_PING_PATH"]
+          ml_service["PrepareDatasetPath"] = os.environ["BE_ML_PREPARE_DATASET_PATH"]
           ml_service["TimeoutSeconds"] = ml_timeout_seconds
+
+          raw_datasets_storage = config.setdefault("RawDatasetsStorage", {})
+          raw_datasets_storage["BoardsSubdirectory"] = os.environ["BE_RAW_DATASETS_BOARDS_SUBDIRECTORY"]
+          raw_datasets_storage["DigitsSubdirectory"] = os.environ["BE_RAW_DATASETS_DIGITS_SUBDIRECTORY"]
+
+          datasets_preparation = config.setdefault("DatasetsPreparation", {})
+          datasets_preparation["BoardsSubdirectory"] = os.environ["BE_DATASETS_PREP_BOARDS_SUBDIRECTORY"]
+          datasets_preparation["DigitsSubdirectory"] = os.environ["BE_DATASETS_PREP_DIGITS_SUBDIRECTORY"]
+          datasets_preparation["ProcessedDatasetsDirectoryPath"] = os.environ["BE_DATASETS_PREP_PROCESSED_DIRECTORY_PATH"]
+          datasets_preparation["TemporaryArtifactsDirectoryPath"] = os.environ["BE_DATASETS_PREP_TEMPORARY_ARTIFACTS_DIRECTORY_PATH"]
+          datasets_preparation["DefaultPreprocessingProfile"] = os.environ["BE_DATASETS_PREP_DEFAULT_PREPROCESSING_PROFILE"]
+
+          default_mix_split_ratios = datasets_preparation.setdefault("DefaultMixSplitRatios", {})
+          default_mix_split_ratios["Train"] = mix_train_ratio
+          default_mix_split_ratios["Val"] = mix_val_ratio
+          default_mix_split_ratios["Test"] = mix_test_ratio
 
           admin_auth = config.setdefault("AdminAuth", {})
           admin_auth["SharedPassword"] = os.environ["BE_ADMIN_SHARED_PASSWORD"]

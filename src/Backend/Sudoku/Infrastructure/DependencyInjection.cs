@@ -27,9 +27,11 @@ public static class DependencyInjection
             .ValidateOnStart();
 
         services.AddTransient<IFileStorageGateway, LocalFileStorageGateway>();
+        services.AddTransient<IProcessedDatasetsGateway, ProcessedDatasetsGateway>();
 
         services.AddHttpClient<IMlPingGateway, MlPingHttpClient>(ConfigureMlHttpClient);
         services.AddHttpClient<IMlImageProcessingGateway, MlImageProcessingHttpClient>(ConfigureMlHttpClient);
+        services.AddHttpClient<IMlDatasetsPreparationGateway, MlDatasetsPreparationHttpClient>(ConfigureMlHttpClient);
 
         return services;
     }

@@ -170,4 +170,13 @@ def get_runtime_settings() -> RuntimeSettings:
         service_version=get_env_value("ML_SERVICE_VERSION", "0.1.0"),
         ping_response_message=get_env_value("ML_PING_RESPONSE_MESSAGE", "pong"),
         preprocessing_settings=get_preprocessing_settings(),
+        boards_subdirectory=get_env_value(
+            "ML_BOARDS_SUBDIRECTORY", "./data/raw/boards"
+        ),
+        digits_subdirectory=get_env_value(
+            "ML_DIGITS_SUBDIRECTORY", "./data/raw/digits"
+        ),
+        temp_datasets_directory_path=get_env_value(
+            "ML_TEMP_DATASETS_DIRECTORY_PATH", "./tmp/datasets"
+        ),
     )
