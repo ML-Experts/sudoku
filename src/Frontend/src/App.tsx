@@ -1292,9 +1292,17 @@ export default function App() {
               </section>
 
               {datasetsStep === "uc11" ? (
-                <Uc11RawCandidatesSection apiBaseUrl={apiBaseUrl} />
+                <Uc11RawCandidatesSection
+                  apiBaseUrl={apiBaseUrl}
+                  accessToken={authToken?.accessToken ?? null}
+                  onUnauthorized={() => handleAdminUnauthorized("invalid_token")}
+                />
               ) : (
-                <Uc12DatasetPreparationSection apiBaseUrl={apiBaseUrl} />
+                <Uc12DatasetPreparationSection
+                  apiBaseUrl={apiBaseUrl}
+                  accessToken={authToken?.accessToken ?? null}
+                  onUnauthorized={() => handleAdminUnauthorized("invalid_token")}
+                />
               )}
             </>
           ) : null}

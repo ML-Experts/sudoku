@@ -79,6 +79,8 @@ type SelectedSource = {
 
 type Uc12DatasetPreparationSectionProps = {
   apiBaseUrl: string;
+  accessToken?: string | null;
+  onUnauthorized?: () => void;
 };
 
 const defaultCandidatesState: LoadableState<RawDatasetCandidateApiResponse[]> = {
@@ -121,20 +123,6 @@ function formatTimestamp(timestampUtc: string): string {
   }).format(parsedDate);
 }
 
-function clearAdminSession(): void {
-  const sessionKeys = [
-    "sudokuAdminAccessToken",
-    "sudokuAdminToken",
-    "adminAccessToken",
-    "accessToken",
-  ];
-
-  for (const key of sessionKeys) {
-    window.sessionStorage.removeItem(key);
-    window.localStorage.removeItem(key);
-  }
-}
-
 function normalizeSplitSelection(previousSplits: string[], split: string): string[] {
   if (split === "mix") {
     return previousSplits.includes("mix") ? [] : ["mix"];
@@ -168,10 +156,9 @@ function toStatusCopy(status: number | null): string | null {
 
 export function Uc12DatasetPreparationSection({
   apiBaseUrl,
+  accessToken,
+  onUnauthorized,
 }: Uc12DatasetPreparationSectionProps) {
-  const tokenFromEnv = import.meta.env.VITE_ADMIN_TOKEN?.trim() ?? "";
-  const adminToken = tokenFromEnv || null;
-
   const [datasetName, setDatasetName] = useState("");
   const [selectedSources, setSelectedSources] = useState<Record<string, SelectedSource>>(
     {}
@@ -193,7 +180,7 @@ export function Uc12DatasetPreparationSection({
     }));
 
     try {
-      const candidates = await getRawDatasetCandidates(apiBaseUrl, adminToken);
+      const candidates = await getRawDatasetCandidates(apiBaseUrl, accessToken);
       setCandidatesState({
         kind: "success",
         data: candidates,
@@ -203,7 +190,7 @@ export function Uc12DatasetPreparationSection({
       });
     } catch (error) {
       if (error instanceof DatasetsApiError && error.status === 401) {
-        clearAdminSession();
+        onUnauthorized?.();
       }
 
       setCandidatesState({
@@ -217,7 +204,7 @@ export function Uc12DatasetPreparationSection({
         httpStatus: error instanceof DatasetsApiError ? error.status : null,
       });
     }
-  }, [adminToken, apiBaseUrl]);
+  }, [accessToken, apiBaseUrl, onUnauthorized]);
 
   const loadProcessedDatasets = useCallback(async () => {
     setProcessedDatasetsState((previous) => ({
@@ -229,7 +216,7 @@ export function Uc12DatasetPreparationSection({
     }));
 
     try {
-      const response = await getProcessedDatasets(apiBaseUrl, adminToken);
+      const response = await getProcessedDatasets(apiBaseUrl, accessToken);
       setProcessedDatasetsState({
         kind: "success",
         data: response.items,
@@ -239,7 +226,7 @@ export function Uc12DatasetPreparationSection({
       });
     } catch (error) {
       if (error instanceof DatasetsApiError && error.status === 401) {
-        clearAdminSession();
+        onUnauthorized?.();
       }
 
       setProcessedDatasetsState({
@@ -253,7 +240,7 @@ export function Uc12DatasetPreparationSection({
         httpStatus: error instanceof DatasetsApiError ? error.status : null,
       });
     }
-  }, [adminToken, apiBaseUrl]);
+  }, [accessToken, apiBaseUrl, onUnauthorized]);
 
   useEffect(() => {
     void Promise.all([loadCandidates(), loadProcessedDatasets()]);
@@ -354,7 +341,7 @@ export function Uc12DatasetPreparationSection({
             splits: source.splits,
           })),
         },
-        adminToken
+        accessToken
       );
 
       setCreateState({
@@ -367,7 +354,7 @@ export function Uc12DatasetPreparationSection({
       await loadProcessedDatasets();
     } catch (error) {
       if (error instanceof DatasetsApiError && error.status === 401) {
-        clearAdminSession();
+        onUnauthorized?.();
       }
 
       setCreateState((previous) => ({
@@ -382,10 +369,11 @@ export function Uc12DatasetPreparationSection({
       }));
     }
   }, [
-    adminToken,
+    accessToken,
     apiBaseUrl,
     datasetName,
     loadProcessedDatasets,
+    onUnauthorized,
     selectedSourcesArray,
     validateForm,
   ]);
