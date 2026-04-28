@@ -142,9 +142,48 @@ pip install -r requirements.txt
 ---
 
 ### Uruchomienie (inferencja end-to-end)
-(Uzupełnijcie docelową komendę/entrypoint po implementacji.)
+Uruchom usługi w **3 osobnych terminalach**:
 
-Docelowo: frontend web wysyła obraz do C# endpointu, a C# wywołuje serwis ML w Pythonie. Uzupełnijcie tutaj komendy uruchomienia frontendu, backendu i serwisu ML oraz przykładowe requesty (np. przez Swagger).
+1. **Backend (ASP.NET Core, port `5000`)**
+
+```bash
+cd "src/Backend/Sudoku/Sudoku"
+dotnet run --launch-profile Sudoku
+```
+
+2. **MachineLearning (FastAPI, port `8000`)**
+
+```bash
+cd "src/MachineLearning"
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python main.py
+```
+
+3. **Frontend (Vite, port `5173`)**
+
+```bash
+cd "src/Frontend"
+npm install
+npm run dev
+```
+
+Następnie otwórz aplikację pod:
+
+- `http://localhost:5173`
+
+Szybka weryfikacja po starcie:
+
+```bash
+curl http://127.0.0.1:8000/ml/ping
+curl http://127.0.0.1:5000/api/ping
+```
+
+Oczekiwane:
+
+- `GET /ml/ping` zwraca `"pong"`,
+- `GET /api/ping` zwraca `backendStatus: "ok"` i `mlStatus: "ok"`.
 
 ---
 
