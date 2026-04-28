@@ -1,10 +1,17 @@
 using Sudoku.Application;
+using Sudoku.Application.Auth;
 using Sudoku.Application.Examples;
 using Sudoku.Configuration;
 using Sudoku.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddBackendConfiguration(args);
+
+builder.Services
+    .AddOptions<AdminAuthOptions>()
+    .BindConfiguration(AdminAuthOptions.SectionName)
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
 
 builder.Services
     .AddOptions<BackendRuntimeOptions>()
@@ -36,10 +43,15 @@ builder.Services
 builder.Services
     .AddApplication()
     .AddInfrastructure(builder.Configuration);
+builder.Services.AddAdminAuthentication(builder.Configuration);
 builder.Services.AddControllers();
 
 var app = builder.Build();
 
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+public partial class Program { }

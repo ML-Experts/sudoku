@@ -2,6 +2,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Sudoku.Application.Abstractions;
+using Sudoku.Application.Auth;
+using Sudoku.Infrastructure.Auth;
 using Sudoku.Infrastructure.Configuration;
 using Sudoku.Infrastructure.Ml;
 using Sudoku.Infrastructure.Storage;
@@ -13,6 +15,7 @@ public static class DependencyInjection
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddSingleton<TimeProvider>(TimeProvider.System);
+        services.AddSingleton<IAdminAccessTokenFactory, JwtAdminAccessTokenFactory>();
 
         services
             .AddOptions<MlServiceOptions>()
