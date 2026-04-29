@@ -85,6 +85,67 @@ public sealed class MlTrainingsHttpClient : IMlTrainingsGateway
         }
     }
 
+    public async Task<CancelMlTrainingResultDto> CancelTrainingAsync(
+        CancelMlTrainingRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var response = await _httpClient.PostAsJsonAsync(
+                BuildCancelTrainingPath(request.RunName),
+                request,
+                cancellationToken);
+
+            if (response.StatusCode is not HttpStatusCode.Accepted and not HttpStatusCode.OK)
+            {
+                await ThrowCancelMappedExceptionAsync(response, request.RunName, cancellationToken);
+            }
+
+            var responsePayload = await TryReadCancelPayloadAsync(response, request.RunName, cancellationToken);
+            return responsePayload ?? new CancelMlTrainingResultDto(
+                Accepted: true,
+                RunName: request.RunName,
+                Status: null,
+                Disposition: null);
+        }
+        catch (OperationCanceledException exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            _logger.LogError(
+                exception,
+                "Anulowanie treningu po stronie ML przekroczyło timeout dla runu {RunName}.",
+                request.RunName);
+            throw new MlServiceTimeoutException("Upłynął limit czasu potwierdzenia anulowania treningu przez serwis ML.");
+        }
+        catch (HttpRequestException exception)
+        {
+            _logger.LogError(
+                exception,
+                "Wywołanie anulowania treningu zakończyło się błędem sieci dla runu {RunName}.",
+                request.RunName);
+            throw new MlServiceUnavailableException("Serwis ML jest niedostępny.");
+        }
+        catch (JsonException exception)
+        {
+            _logger.LogError(
+                exception,
+                "Serwis ML zwrócił niepoprawny JSON przy anulowaniu runu {RunName}.",
+                request.RunName);
+            throw new MlOperationFailedException(
+                CancelTrainingRunErrorTypes.MlRejected,
+                "Serwis ML zwrócił nieprawidłowy payload JSON.");
+        }
+        catch (NotSupportedException exception)
+        {
+            _logger.LogError(
+                exception,
+                "Serwis ML zwrócił nieobsługiwany format odpowiedzi przy anulowaniu runu {RunName}.",
+                request.RunName);
+            throw new MlOperationFailedException(
+                CancelTrainingRunErrorTypes.MlRejected,
+                "Serwis ML zwrócił odpowiedź w nieobsługiwanym formacie.");
+        }
+    }
+
     private async Task ThrowMappedExceptionAsync(
         HttpResponseMessage response,
         string runName,
@@ -123,6 +184,44 @@ public sealed class MlTrainingsHttpClient : IMlTrainingsGateway
         throw new MlOperationFailedException(errorType, message);
     }
 
+    private async Task ThrowCancelMappedExceptionAsync(
+        HttpResponseMessage response,
+        string runName,
+        CancellationToken cancellationToken)
+    {
+        var statusCode = response.StatusCode;
+        var errorPayload = await TryReadErrorPayloadAsync(response, cancellationToken);
+        var message = string.IsNullOrWhiteSpace(errorPayload?.Message)
+            ? $"Serwis ML zwrócił status HTTP {(int)statusCode}."
+            : errorPayload.Message;
+
+        if (statusCode == HttpStatusCode.ServiceUnavailable)
+        {
+            throw new MlServiceUnavailableException(message);
+        }
+
+        if (statusCode is HttpStatusCode.RequestTimeout or HttpStatusCode.GatewayTimeout)
+        {
+            throw new MlServiceTimeoutException(message);
+        }
+
+        if ((int)statusCode >= 500)
+        {
+            throw new MlServiceUnavailableException(message);
+        }
+
+        _logger.LogWarning(
+            "Serwis ML odrzucił anulowanie runu {RunName} statusem HTTP {StatusCode}.",
+            runName,
+            (int)statusCode);
+
+        var errorType = string.IsNullOrWhiteSpace(errorPayload?.ErrorType)
+            ? CancelTrainingRunErrorTypes.MlRejected
+            : errorPayload.ErrorType;
+
+        throw new MlOperationFailedException(errorType, message);
+    }
+
     private static async Task<AcceptedTrainingApiResponseContract?> TryReadAcceptedPayloadAsync(
         HttpResponseMessage response,
         string runName,
@@ -151,6 +250,54 @@ public sealed class MlTrainingsHttpClient : IMlTrainingsGateway
         return payload;
     }
 
+    private static async Task<CancelMlTrainingResultDto?> TryReadCancelPayloadAsync(
+        HttpResponseMessage response,
+        string runName,
+        CancellationToken cancellationToken)
+    {
+        if (response.Content.Headers.ContentLength == 0)
+        {
+            return null;
+        }
+
+        var payload = await response.Content.ReadFromJsonAsync<CancelTrainingApiResponseContract>(
+            cancellationToken: cancellationToken);
+
+        if (payload is null)
+        {
+            return null;
+        }
+
+        if (payload.Accepted.HasValue && !payload.Accepted.Value)
+        {
+            throw new MlOperationFailedException(
+                CancelTrainingRunErrorTypes.MlRejected,
+                $"Serwis ML nie potwierdził przyjęcia anulowania runu {runName}.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(payload.RunName)
+            && !string.Equals(payload.RunName, runName, StringComparison.Ordinal))
+        {
+            throw new MlOperationFailedException(
+                CancelTrainingRunErrorTypes.MlRejected,
+                "Serwis ML zwrócił odpowiedź dla innego runu treningowego.");
+        }
+
+        return new CancelMlTrainingResultDto(
+            Accepted: payload.Accepted ?? true,
+            RunName: string.IsNullOrWhiteSpace(payload.RunName) ? runName : payload.RunName,
+            Status: payload.Status,
+            Disposition: payload.Disposition);
+    }
+
+    private string BuildCancelTrainingPath(string runName)
+    {
+        return _options.CancelTrainingPathTemplate.Replace(
+            "{runName}",
+            Uri.EscapeDataString(runName),
+            StringComparison.Ordinal);
+    }
+
     private static async Task<ErrorApiResponseContract?> TryReadErrorPayloadAsync(
         HttpResponseMessage response,
         CancellationToken cancellationToken)
@@ -173,6 +320,12 @@ public sealed class MlTrainingsHttpClient : IMlTrainingsGateway
         bool? Accepted,
         DateTimeOffset? AcceptedAtUtc,
         string? MlJobId);
+
+    private sealed record CancelTrainingApiResponseContract(
+        bool? Accepted,
+        string? RunName,
+        string? Status,
+        string? Disposition);
 
     private sealed record ErrorApiResponseContract(
         string? ErrorType,

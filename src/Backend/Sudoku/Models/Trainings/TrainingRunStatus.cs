@@ -16,4 +16,18 @@ public static class TrainingRunStatus
                || string.Equals(status, Failed, StringComparison.OrdinalIgnoreCase)
                || string.Equals(status, Cancelled, StringComparison.OrdinalIgnoreCase);
     }
+
+    public static bool IsActive(string status)
+    {
+        return string.Equals(status, Starting, StringComparison.OrdinalIgnoreCase)
+               || string.Equals(status, Queued, StringComparison.OrdinalIgnoreCase)
+               || string.Equals(status, Running, StringComparison.OrdinalIgnoreCase)
+               || string.Equals(status, Cancelling, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static bool CanRequestCancellation(string status)
+    {
+        return string.Equals(status, Queued, StringComparison.OrdinalIgnoreCase)
+               || string.Equals(status, Running, StringComparison.OrdinalIgnoreCase);
+    }
 }

@@ -41,7 +41,15 @@ public sealed class ModelsRegistryGateway : IModelsRegistryGateway
         foreach (var directory in directories.OrderBy(item => item.Name, StringComparer.Ordinal))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            manifests.Add(await ReadManifestAsync(directory, cancellationToken));
+
+            try
+            {
+                manifests.Add(await ReadManifestAsync(directory, cancellationToken));
+            }
+            catch (FileStorageItemNotFoundException)
+            {
+                continue;
+            }
         }
 
         return manifests;
@@ -51,9 +59,16 @@ public sealed class ModelsRegistryGateway : IModelsRegistryGateway
         string modelName,
         CancellationToken cancellationToken = default)
     {
-        var manifests = await ListAsync(cancellationToken);
-        return manifests.FirstOrDefault(
-            item => string.Equals(item.Name, modelName, StringComparison.Ordinal));
+        try
+        {
+            return await ReadManifestAsync(
+                new StoredDirectoryMetadataDto(modelName, default),
+                cancellationToken);
+        }
+        catch (FileStorageItemNotFoundException)
+        {
+            return null;
+        }
     }
 
     public async Task FinalizeTrainedModelAsync(

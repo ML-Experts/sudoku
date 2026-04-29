@@ -1,9 +1,8 @@
 ---
 description: Tech stack dla wariantu ambitnego (web + C# backend + Python ML w WSL/Unix)
-globs: **/PRD_Wariant_Ambitny_Web_CSharp_Python.md
+globs: prd.md
 alwaysApply: false
 ---
-
 # Tech stack — wariant ambitny (web + C# backend + Python ML)
 
 ## Środowisko (wymagane)

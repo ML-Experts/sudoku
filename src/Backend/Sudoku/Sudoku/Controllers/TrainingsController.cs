@@ -135,6 +135,82 @@ public sealed class TrainingsController : ControllerBase
     }
 
     [Authorize]
+    [HttpPost("{runName}/cancel")]
+    [ProducesResponseType(typeof(CancelTrainingRunApiResponse), StatusCodes.Status202Accepted)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status502BadGateway)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status503ServiceUnavailable)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status504GatewayTimeout)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> CancelAsync(
+        [FromRoute] string? runName,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _sender.Send(new CancelTrainingRunCommand(runName), cancellationToken);
+            return StatusCode(StatusCodes.Status202Accepted, new CancelTrainingRunApiResponse(
+                RunName: result.RunName,
+                Status: result.Status,
+                RequestDisposition: result.RequestDisposition,
+                Message: result.Message,
+                ProgressChannelUrl: result.ProgressChannelUrl));
+        }
+        catch (ValidationException exception)
+        {
+            return MapValidationError(exception, CancelTrainingRunErrorTypes.InvalidTrainingRunName);
+        }
+        catch (MlOperationFailedException exception)
+        {
+            return StatusCode(
+                StatusCodes.Status502BadGateway,
+                new ErrorApiResponse(
+                    ErrorType: string.IsNullOrWhiteSpace(exception.ErrorType)
+                        ? CancelTrainingRunErrorTypes.MlRejected
+                        : exception.ErrorType,
+                    Message: exception.Message));
+        }
+        catch (MlServiceUnavailableException exception)
+        {
+            return StatusCode(
+                StatusCodes.Status503ServiceUnavailable,
+                new ErrorApiResponse(
+                    ErrorType: CancelTrainingRunErrorTypes.MlUnavailable,
+                    Message: exception.Message));
+        }
+        catch (MlServiceTimeoutException exception)
+        {
+            return StatusCode(
+                StatusCodes.Status504GatewayTimeout,
+                new ErrorApiResponse(
+                    ErrorType: CancelTrainingRunErrorTypes.MlTimeout,
+                    Message: exception.Message));
+        }
+        catch (TrainingRunCancelPersistenceException)
+        {
+            return StatusCode(
+                StatusCodes.Status500InternalServerError,
+                new ErrorApiResponse(
+                    ErrorType: CancelTrainingRunErrorTypes.PersistenceFailed,
+                    Message: "Nie udało się zapisać metadanych anulowania runu treningowego."));
+        }
+        catch (Exception exception) when (exception is InvalidOperationException
+                                         or IOException
+                                         or UnauthorizedAccessException
+                                         or InvalidDataException
+                                         or JsonException
+                                         or FileStorageItemNotFoundException)
+        {
+            return StatusCode(
+                StatusCodes.Status500InternalServerError,
+                new ErrorApiResponse(
+                    ErrorType: CancelTrainingRunErrorTypes.InvariantViolation,
+                    Message: "Nie udało się anulować runu treningowego z powodu niespójnego stanu backendu."));
+        }
+    }
+
+    [Authorize]
     [HttpGet("active")]
     [ProducesResponseType(typeof(TrainingRunApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -203,10 +279,12 @@ public sealed class TrainingsController : ControllerBase
             ProgressChannelUrl: result.ProgressChannelUrl);
     }
 
-    private static IActionResult MapValidationError(ValidationException exception)
+    private static IActionResult MapValidationError(
+        ValidationException exception,
+        string defaultErrorType = CreateTrainingRunErrorTypes.InvalidRequest)
     {
         var failure = exception.Errors.FirstOrDefault();
-        var errorType = failure?.ErrorCode ?? CreateTrainingRunErrorTypes.InvalidRequest;
+        var errorType = failure?.ErrorCode ?? defaultErrorType;
         var message = failure?.ErrorMessage ?? "Nieprawidłowe dane wejściowe.";
 
         return new ObjectResult(new ErrorApiResponse(

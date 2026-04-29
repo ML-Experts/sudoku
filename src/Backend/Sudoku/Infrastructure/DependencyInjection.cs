@@ -28,6 +28,12 @@ public static class DependencyInjection
                 options => options.StartTrainingPath.StartsWith("/", StringComparison.Ordinal),
                 $"{MlServiceOptions.SectionName}:StartTrainingPath must start with '/'.")
             .Validate(
+                options => options.CancelTrainingPathTemplate.StartsWith("/", StringComparison.Ordinal),
+                $"{MlServiceOptions.SectionName}:CancelTrainingPathTemplate must start with '/'.")
+            .Validate(
+                options => options.CancelTrainingPathTemplate.Contains("{runName}", StringComparison.Ordinal),
+                $"{MlServiceOptions.SectionName}:CancelTrainingPathTemplate must contain '{{runName}}'.")
+            .Validate(
                 options => options.TrainingEventsPathTemplate.Contains("{runName}", StringComparison.Ordinal),
                 $"{MlServiceOptions.SectionName}:TrainingEventsPathTemplate must contain '{{runName}}'.")
             .ValidateOnStart();

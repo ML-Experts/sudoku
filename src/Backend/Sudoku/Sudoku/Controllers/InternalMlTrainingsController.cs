@@ -11,6 +11,8 @@ namespace Sudoku.Controllers;
 [Route("internal/ml/trainings")]
 public sealed class InternalMlTrainingsController : ControllerBase
 {
+    private static readonly TimeSpan EventProcessingTimeout = TimeSpan.FromSeconds(60);
+
     private readonly ISender _sender;
 
     public InternalMlTrainingsController(ISender sender)
@@ -24,11 +26,11 @@ public sealed class InternalMlTrainingsController : ControllerBase
     [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status409Conflict)]
     [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status504GatewayTimeout)]
     [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> RecordEventAsync(
         [FromRoute] string runName,
-        [FromBody] TrainingRunEventApiEntry? entry,
-        CancellationToken cancellationToken)
+        [FromBody] TrainingRunEventApiEntry? entry)
     {
         var command = new RecordTrainingRunEventCommand(
             RunName: runName,
@@ -43,13 +45,22 @@ public sealed class InternalMlTrainingsController : ControllerBase
 
         try
         {
-            var result = await _sender.Send(command, cancellationToken);
+            using var timeout = new CancellationTokenSource(EventProcessingTimeout);
+            var result = await _sender.Send(command, timeout.Token);
             return Ok(new TrainingRunEventAckApiResponse(
                 Accepted: result.Accepted,
                 RunName: result.RunName,
                 Status: result.Status,
                 LastAcceptedSequence: result.LastAcceptedSequence,
                 Disposition: result.Disposition));
+        }
+        catch (OperationCanceledException)
+        {
+            return StatusCode(
+                StatusCodes.Status504GatewayTimeout,
+                new ErrorApiResponse(
+                    ErrorType: RecordTrainingRunEventErrorTypes.TrainingRunEventPersistFailed,
+                    Message: "Przekroczono limit czasu obsługi eventu treningowego."));
         }
         catch (ValidationException exception)
         {

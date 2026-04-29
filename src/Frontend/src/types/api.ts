@@ -94,3 +94,73 @@ export type ProcessedDatasetsListApiResponse = {
   items: ProcessedDatasetListItemApiResponse[];
   totalCount: number;
 };
+
+export type CreateTrainingRunApiEntry = {
+  baseModelName: string;
+  processedDatasetName: string;
+};
+
+export type TrainingRunApiResponse = {
+  runName: string;
+  status: string;
+  createdAtUtc: string;
+  baseModelName: string;
+  producedModelName: string;
+  processedDatasetName: string;
+  trainingMode: string;
+  trainingProfileName: string;
+  augmentationProfileName: string;
+  benchmarkName: string;
+  seed: number;
+  progressChannelUrl: string;
+};
+
+export type CancelTrainingRunApiResponse = {
+  runName: string;
+  status: string | null;
+  requestDisposition: string;
+  message: string;
+  progressChannelUrl: string | null;
+};
+
+export type TrainingRunProgressApiResponse = {
+  percent: number | null;
+  epoch: number | null;
+  totalEpochs: number | null;
+  trainLoss: number | null;
+  validationLoss: number | null;
+  trainAccuracy: number | null;
+  validationAccuracy: number | null;
+};
+
+export type TrainingMetricsSummaryApiResponse = {
+  accuracy: number | null;
+  macroF1: number | null;
+};
+
+export type TrainingRunRealtimeApiResponse = {
+  messageKind: string;
+  runName: string;
+  status: string;
+  createdAtUtc: string;
+  updatedAtUtc: string | null;
+  startedAtUtc: string | null;
+  finishedAtUtc: string | null;
+  baseModelName: string;
+  producedModelName: string;
+  processedDatasetName: string;
+  trainingMode: string;
+  trainingProfileName: string;
+  augmentationProfileName: string;
+  benchmarkName: string;
+  seed: number;
+  lastAcceptedSequence: number | null;
+  lastEventType: string | null;
+  progress: TrainingRunProgressApiResponse | null;
+  metricsSummary: TrainingMetricsSummaryApiResponse | null;
+  reportStatus: string | null;
+  reportRelativePath: string | null;
+  warnings: string[];
+  cleanupWarnings: string[];
+  failureReason: string | null;
+};

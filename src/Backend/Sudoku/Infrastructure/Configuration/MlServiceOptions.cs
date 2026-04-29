@@ -25,6 +25,9 @@ public sealed class MlServiceOptions
     public string StartTrainingPath { get; init; } = "/ml/trainings";
 
     [Required]
+    public string CancelTrainingPathTemplate { get; init; } = "/ml/trainings/{runName}/cancel";
+
+    [Required]
     public string TrainingEventsPathTemplate { get; init; } = "/internal/ml/trainings/{runName}/events";
 
     [Range(1, 600)]
