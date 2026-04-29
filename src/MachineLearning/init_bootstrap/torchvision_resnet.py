@@ -39,7 +39,7 @@ def build_torchvision_resnet(manifest: dict[str, Any]) -> Any:
         weights = weights_class.DEFAULT
 
     try:
-        model = model_builder(weights=weights)
+        model = model_builder(weights=weights, progress=False)
     except Exception as error:
         raise BootstrapPretrainedWeightsUnavailableError(
             "Nie udalo sie pobrac albo odczytac oficjalnych wag "
