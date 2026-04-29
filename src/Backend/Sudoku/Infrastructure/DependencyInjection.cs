@@ -28,6 +28,7 @@ public static class DependencyInjection
 
         services.AddTransient<IFileStorageGateway, LocalFileStorageGateway>();
         services.AddTransient<IProcessedDatasetsGateway, ProcessedDatasetsGateway>();
+        services.AddTransient<IModelsRegistryGateway, ModelsRegistryGateway>();
         services.AddTransient<ITrainingRunsGateway, TrainingRunsGateway>();
 
         services.AddHttpClient<IMlPingGateway, MlPingHttpClient>(ConfigureMlHttpClient);

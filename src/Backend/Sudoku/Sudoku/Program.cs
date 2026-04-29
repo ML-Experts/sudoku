@@ -2,6 +2,8 @@ using Sudoku.Application;
 using Sudoku.Application.Auth;
 using Sudoku.Application.Datasets;
 using Sudoku.Application.Examples;
+using Sudoku.Application.ModelsRegistry;
+using Sudoku.Application.Trainings;
 using Sudoku.Configuration;
 using Sudoku.Infrastructure;
 
@@ -79,6 +81,33 @@ builder.Services
             + options.DefaultMixSplitRatios.Test
             - 1d) <= 0.0001d,
         $"{DatasetsPreparationOptions.SectionName}:DefaultMixSplitRatios must sum to 1.0.")
+    .ValidateOnStart();
+
+builder.Services
+    .AddOptions<TrainingsStorageOptions>()
+    .BindConfiguration(TrainingsStorageOptions.SectionName)
+    .ValidateDataAnnotations()
+    .Validate(
+        options => Path.IsPathRooted(options.RunsDirectoryPath),
+        $"{TrainingsStorageOptions.SectionName}:RunsDirectoryPath must be an absolute path.")
+    .Validate(
+        options => Path.IsPathRooted(options.ReportsDirectoryPath),
+        $"{TrainingsStorageOptions.SectionName}:ReportsDirectoryPath must be an absolute path.")
+    .Validate(
+        options => Path.IsPathRooted(options.MetadataDirectoryPath),
+        $"{TrainingsStorageOptions.SectionName}:MetadataDirectoryPath must be an absolute path.")
+    .Validate(
+        options => Path.IsPathRooted(options.WorkingDirectoryPath),
+        $"{TrainingsStorageOptions.SectionName}:WorkingDirectoryPath must be an absolute path.")
+    .ValidateOnStart();
+
+builder.Services
+    .AddOptions<ModelsRegistryStorageOptions>()
+    .BindConfiguration(ModelsRegistryStorageOptions.SectionName)
+    .ValidateDataAnnotations()
+    .Validate(
+        options => Path.IsPathRooted(options.RegistryDirectoryPath),
+        $"{ModelsRegistryStorageOptions.SectionName}:RegistryDirectoryPath must be an absolute path.")
     .ValidateOnStart();
 
 builder.Services

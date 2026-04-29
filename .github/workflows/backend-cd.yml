@@ -56,6 +56,11 @@ jobs:
       BE_DATASETS_PREP_DEFAULT_MIX_TRAIN_RATIO: ${{ vars.BE_DATASETS_PREP_DEFAULT_MIX_TRAIN_RATIO }}
       BE_DATASETS_PREP_DEFAULT_MIX_VAL_RATIO: ${{ vars.BE_DATASETS_PREP_DEFAULT_MIX_VAL_RATIO }}
       BE_DATASETS_PREP_DEFAULT_MIX_TEST_RATIO: ${{ vars.BE_DATASETS_PREP_DEFAULT_MIX_TEST_RATIO }}
+      BE_TRAININGS_RUNS_DIRECTORY_PATH: ${{ vars.BE_TRAININGS_RUNS_DIRECTORY_PATH }}
+      BE_TRAININGS_REPORTS_DIRECTORY_PATH: ${{ vars.BE_TRAININGS_REPORTS_DIRECTORY_PATH }}
+      BE_TRAININGS_METADATA_DIRECTORY_PATH: ${{ vars.BE_TRAININGS_METADATA_DIRECTORY_PATH }}
+      BE_TRAININGS_WORKING_DIRECTORY_PATH: ${{ vars.BE_TRAININGS_WORKING_DIRECTORY_PATH }}
+      BE_MODELS_REGISTRY_DIRECTORY_PATH: ${{ vars.BE_MODELS_REGISTRY_DIRECTORY_PATH }}
       BE_ADMIN_SHARED_PASSWORD: ${{ secrets.BE_ADMIN_SHARED_PASSWORD }}
       BE_ADMIN_JWT_SIGNING_KEY: ${{ secrets.BE_ADMIN_JWT_SIGNING_KEY }}
 
@@ -151,6 +156,31 @@ jobs:
             exit 1
           fi
 
+          if [ -z "$BE_TRAININGS_RUNS_DIRECTORY_PATH" ]; then
+            echo "Missing BE_TRAININGS_RUNS_DIRECTORY_PATH variable for the selected GitHub environment."
+            exit 1
+          fi
+
+          if [ -z "$BE_TRAININGS_REPORTS_DIRECTORY_PATH" ]; then
+            echo "Missing BE_TRAININGS_REPORTS_DIRECTORY_PATH variable for the selected GitHub environment."
+            exit 1
+          fi
+
+          if [ -z "$BE_TRAININGS_METADATA_DIRECTORY_PATH" ]; then
+            echo "Missing BE_TRAININGS_METADATA_DIRECTORY_PATH variable for the selected GitHub environment."
+            exit 1
+          fi
+
+          if [ -z "$BE_TRAININGS_WORKING_DIRECTORY_PATH" ]; then
+            echo "Missing BE_TRAININGS_WORKING_DIRECTORY_PATH variable for the selected GitHub environment."
+            exit 1
+          fi
+
+          if [ -z "$BE_MODELS_REGISTRY_DIRECTORY_PATH" ]; then
+            echo "Missing BE_MODELS_REGISTRY_DIRECTORY_PATH variable for the selected GitHub environment."
+            exit 1
+          fi
+
           if [ -z "$BE_ADMIN_SHARED_PASSWORD" ]; then
             echo "Missing BE_ADMIN_SHARED_PASSWORD secret for the selected GitHub environment."
             exit 1
@@ -222,6 +252,11 @@ jobs:
               "BE_DATASETS_PREP_DEFAULT_MIX_TRAIN_RATIO",
               "BE_DATASETS_PREP_DEFAULT_MIX_VAL_RATIO",
               "BE_DATASETS_PREP_DEFAULT_MIX_TEST_RATIO",
+              "BE_TRAININGS_RUNS_DIRECTORY_PATH",
+              "BE_TRAININGS_REPORTS_DIRECTORY_PATH",
+              "BE_TRAININGS_METADATA_DIRECTORY_PATH",
+              "BE_TRAININGS_WORKING_DIRECTORY_PATH",
+              "BE_MODELS_REGISTRY_DIRECTORY_PATH",
               "BE_ADMIN_SHARED_PASSWORD",
               "BE_ADMIN_JWT_SIGNING_KEY",
           ]
@@ -284,6 +319,15 @@ jobs:
           default_mix_split_ratios["Train"] = mix_train_ratio
           default_mix_split_ratios["Val"] = mix_val_ratio
           default_mix_split_ratios["Test"] = mix_test_ratio
+
+          trainings_storage = config.setdefault("TrainingsStorage", {})
+          trainings_storage["RunsDirectoryPath"] = os.environ["BE_TRAININGS_RUNS_DIRECTORY_PATH"]
+          trainings_storage["ReportsDirectoryPath"] = os.environ["BE_TRAININGS_REPORTS_DIRECTORY_PATH"]
+          trainings_storage["MetadataDirectoryPath"] = os.environ["BE_TRAININGS_METADATA_DIRECTORY_PATH"]
+          trainings_storage["WorkingDirectoryPath"] = os.environ["BE_TRAININGS_WORKING_DIRECTORY_PATH"]
+
+          models_registry_storage = config.setdefault("ModelsRegistryStorage", {})
+          models_registry_storage["RegistryDirectoryPath"] = os.environ["BE_MODELS_REGISTRY_DIRECTORY_PATH"]
 
           admin_auth = config.setdefault("AdminAuth", {})
           admin_auth["SharedPassword"] = os.environ["BE_ADMIN_SHARED_PASSWORD"]
