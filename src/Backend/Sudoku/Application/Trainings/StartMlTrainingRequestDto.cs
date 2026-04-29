@@ -3,35 +3,37 @@ namespace Sudoku.Application.Trainings;
 public sealed record StartMlTrainingRequestDto(
     string RunName,
     StartMlTrainingBaseModelDto BaseModel,
-    StartMlTrainingDatasetDto Dataset,
-    StartMlTrainingSettingsDto Training,
-    StartMlTrainingOutputDto Output,
-    StartMlTrainingCallbacksDto Callbacks);
+    StartMlTrainingProcessedDatasetDto ProcessedDataset,
+    ResolvedTrainingConfigurationDto ResolvedConfiguration,
+    OutputRegistryModelDto OutputModel,
+    TrainingOutputPathsDto OutputPaths);
 
 public sealed record StartMlTrainingBaseModelDto(
     string Name,
+    string DirectoryPath,
     string ManifestPath,
     string PrimaryArtifactPath,
-    string InputProfile);
+    string InputProfile,
+    string SourceType);
 
-public sealed record StartMlTrainingDatasetDto(
+public sealed record StartMlTrainingProcessedDatasetDto(
     string Name,
-    string ArtifactPath,
+    string FilePath,
     string PreprocessingProfile);
 
-public sealed record StartMlTrainingSettingsDto(
-    string Mode,
+public sealed record ResolvedTrainingConfigurationDto(
+    string TrainingMode,
     string TrainingProfileName,
     string AugmentationProfileName,
     string BenchmarkName,
     int Seed);
 
-public sealed record StartMlTrainingOutputDto(
-    string RunDirectoryPath,
-    string ReportsDirectoryPath,
-    string WorkingDirectoryPath,
-    string ProducedModelName,
-    string ProducedModelArtifactsDirectoryPath);
+public sealed record OutputRegistryModelDto(
+    string Name,
+    string DirectoryPath);
 
-public sealed record StartMlTrainingCallbacksDto(
-    string EventsPath);
+public sealed record TrainingOutputPathsDto(
+    string RunDirectoryPath,
+    string ReportDirectoryPath,
+    string BenchmarkDirectoryPath,
+    string TemporaryWorkingDirectoryPath);

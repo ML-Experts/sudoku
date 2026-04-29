@@ -3,7 +3,11 @@ from pathlib import Path
 
 from dotenv import dotenv_values
 
-from api.config.runtime_settings import PreprocessingSettings, RuntimeSettings
+from api.config.runtime_settings import (
+    PreprocessingSettings,
+    RuntimeSettings,
+    TrainingSettings,
+)
 
 API_DIR = Path(__file__).resolve().parents[1]
 DEFAULT_ENVIRONMENT = "local"
@@ -67,6 +71,18 @@ def get_env_optional_positive_int(
 def parse_csv_values(raw_values: str) -> tuple[str, ...]:
     items = [value.strip() for value in raw_values.split(",")]
     return tuple(item for item in items if item)
+
+
+def get_env_optional_int(name: str, default: int | None = None) -> int | None:
+    raw_value = os.getenv(name)
+    if raw_value is None:
+        return default
+
+    stripped_value = raw_value.strip()
+    if not stripped_value:
+        return None
+
+    return int(stripped_value)
 
 
 def parse_kernel_size(raw_size: str, default: tuple[int, int]) -> tuple[int, int]:
@@ -163,6 +179,44 @@ def get_preprocessing_settings() -> PreprocessingSettings:
     )
 
 
+def get_training_settings() -> TrainingSettings:
+    return TrainingSettings(
+        runner=get_env_value("ML_TRAINING_RUNNER", "mock"),
+        backend_base_url=get_env_value(
+            "ML_TRAINING_BACKEND_BASE_URL",
+            get_env_value(
+                "ML_TRAINING_MOCK_BACKEND_BASE_URL",
+                "http://127.0.0.1:5000",
+            ),
+        ),
+        event_timeout_seconds=get_env_float(
+            "ML_TRAINING_EVENT_TIMEOUT_SECONDS",
+            get_env_float("ML_TRAINING_MOCK_CALLBACK_TIMEOUT_SECONDS", 30.0),
+        ),
+        terminal_event_retry_delay_seconds=get_env_float(
+            "ML_TRAINING_TERMINAL_EVENT_RETRY_DELAY_SECONDS",
+            get_env_float("ML_TRAINING_MOCK_CALLBACK_RETRY_DELAY_SECONDS", 1.0),
+        ),
+        terminal_event_max_attempts=get_env_int(
+            "ML_TRAINING_TERMINAL_EVENT_MAX_ATTEMPTS",
+            get_env_int("ML_TRAINING_MOCK_CALLBACK_MAX_ATTEMPTS", 0),
+        ),
+        device=get_env_value("ML_TRAINING_DEVICE", "auto"),
+        max_epochs_override=get_env_optional_int(
+            "ML_TRAINING_MAX_EPOCHS_OVERRIDE"
+        ),
+        allowed_output_roots=parse_csv_values(
+            get_env_value("ML_TRAINING_ALLOWED_OUTPUT_ROOTS", "")
+        ),
+        mock_interval_seconds=get_env_float(
+            "ML_TRAINING_MOCK_INTERVAL_SECONDS", 0.75
+        ),
+        active_event_max_attempts=get_env_int(
+            "ML_TRAINING_ACTIVE_EVENT_MAX_ATTEMPTS", 1
+        ),
+    )
+
+
 def get_runtime_settings() -> RuntimeSettings:
     return RuntimeSettings(
         environment=get_env_value("ML_ENVIRONMENT", DEFAULT_ENVIRONMENT),
@@ -170,6 +224,7 @@ def get_runtime_settings() -> RuntimeSettings:
         service_version=get_env_value("ML_SERVICE_VERSION", "0.1.0"),
         ping_response_message=get_env_value("ML_PING_RESPONSE_MESSAGE", "pong"),
         preprocessing_settings=get_preprocessing_settings(),
+        training_settings=get_training_settings(),
         boards_subdirectory=get_env_value(
             "ML_BOARDS_SUBDIRECTORY", "./data/raw/boards"
         ),

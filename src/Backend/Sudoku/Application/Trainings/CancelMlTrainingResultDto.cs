@@ -4,4 +4,5 @@ public sealed record CancelMlTrainingResultDto(
     bool Accepted,
     string RunName,
     string? Status,
-    string? Disposition);
+    string? Disposition,
+    DateTimeOffset? CancellationRequestedAtUtc = null);

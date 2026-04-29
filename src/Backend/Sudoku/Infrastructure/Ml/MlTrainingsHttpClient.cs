@@ -45,7 +45,8 @@ public sealed class MlTrainingsHttpClient : IMlTrainingsGateway
             var responsePayload = await TryReadAcceptedPayloadAsync(response, request.RunName, cancellationToken);
             return new StartMlTrainingResultDto(
                 AcceptedAtUtc: responsePayload?.AcceptedAtUtc,
-                MlJobId: responsePayload?.MlJobId);
+                MlJobId: responsePayload?.MlJobId,
+                Status: responsePayload?.Status);
         }
         catch (OperationCanceledException exception) when (!cancellationToken.IsCancellationRequested)
         {
@@ -106,7 +107,8 @@ public sealed class MlTrainingsHttpClient : IMlTrainingsGateway
                 Accepted: true,
                 RunName: request.RunName,
                 Status: null,
-                Disposition: null);
+                Disposition: null,
+                CancellationRequestedAtUtc: null);
         }
         catch (OperationCanceledException exception) when (!cancellationToken.IsCancellationRequested)
         {
@@ -287,7 +289,8 @@ public sealed class MlTrainingsHttpClient : IMlTrainingsGateway
             Accepted: payload.Accepted ?? true,
             RunName: string.IsNullOrWhiteSpace(payload.RunName) ? runName : payload.RunName,
             Status: payload.Status,
-            Disposition: payload.Disposition);
+            Disposition: payload.Disposition ?? payload.RequestDisposition,
+            CancellationRequestedAtUtc: payload.CancellationRequestedAtUtc);
     }
 
     private string BuildCancelTrainingPath(string runName)
@@ -318,14 +321,19 @@ public sealed class MlTrainingsHttpClient : IMlTrainingsGateway
 
     private sealed record AcceptedTrainingApiResponseContract(
         bool? Accepted,
+        string? RunName,
+        string? Status,
         DateTimeOffset? AcceptedAtUtc,
-        string? MlJobId);
+        string? MlJobId,
+        IReadOnlyList<string>? Warnings);
 
     private sealed record CancelTrainingApiResponseContract(
         bool? Accepted,
         string? RunName,
         string? Status,
-        string? Disposition);
+        string? Disposition,
+        string? RequestDisposition,
+        DateTimeOffset? CancellationRequestedAtUtc);
 
     private sealed record ErrorApiResponseContract(
         string? ErrorType,

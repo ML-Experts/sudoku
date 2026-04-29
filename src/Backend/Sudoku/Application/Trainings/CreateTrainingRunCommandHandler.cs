@@ -250,39 +250,42 @@ public sealed class CreateTrainingRunCommandHandler
             RunName: metadata.RunName,
             BaseModel: new StartMlTrainingBaseModelDto(
                 Name: baseModel.Name,
+                DirectoryPath: modelDirectoryPath,
                 ManifestPath: Path.GetFullPath(Path.Combine(modelDirectoryPath, "model.json")),
                 PrimaryArtifactPath: Path.GetFullPath(Path.Combine(
                     modelDirectoryPath,
                     baseModel.PrimaryArtifactRelativePath!)),
-                InputProfile: baseModel.InputProfile),
-            Dataset: new StartMlTrainingDatasetDto(
+                InputProfile: baseModel.InputProfile,
+                SourceType: baseModel.SourceType),
+            ProcessedDataset: new StartMlTrainingProcessedDatasetDto(
                 Name: processedDataset.Name,
-                ArtifactPath: Path.GetFullPath(Path.Combine(
+                FilePath: Path.GetFullPath(Path.Combine(
                     _datasetsPreparationOptions.ProcessedDatasetsDirectoryPath,
                     processedDataset.FileName)),
                 PreprocessingProfile: processedDataset.PreprocessingProfile),
-            Training: new StartMlTrainingSettingsDto(
-                Mode: metadata.TrainingMode,
+            ResolvedConfiguration: new ResolvedTrainingConfigurationDto(
+                TrainingMode: metadata.TrainingMode,
                 TrainingProfileName: metadata.TrainingProfileName,
                 AugmentationProfileName: metadata.AugmentationProfileName,
                 BenchmarkName: metadata.BenchmarkName,
                 Seed: metadata.Seed),
-            Output: new StartMlTrainingOutputDto(
+            OutputModel: new OutputRegistryModelDto(
+                Name: metadata.ProducedModelName,
+                DirectoryPath: producedModelDirectoryPath),
+            OutputPaths: new TrainingOutputPathsDto(
                 RunDirectoryPath: Path.GetFullPath(Path.Combine(
                     _trainingsStorageOptions.RunsDirectoryPath,
                     metadata.RunName)),
-                ReportsDirectoryPath: Path.GetFullPath(Path.Combine(
+                ReportDirectoryPath: Path.GetFullPath(Path.Combine(
                     _trainingsStorageOptions.ReportsDirectoryPath,
                     metadata.RunName)),
-                WorkingDirectoryPath: Path.GetFullPath(Path.Combine(
+                BenchmarkDirectoryPath: Path.GetFullPath(Path.Combine(
+                    _datasetsPreparationOptions.ProcessedDatasetsDirectoryPath,
+                    "..",
+                    "benchmark")),
+                TemporaryWorkingDirectoryPath: Path.GetFullPath(Path.Combine(
                     _trainingsStorageOptions.WorkingDirectoryPath,
-                    metadata.RunName)),
-                ProducedModelName: metadata.ProducedModelName,
-                ProducedModelArtifactsDirectoryPath: Path.GetFullPath(Path.Combine(
-                    producedModelDirectoryPath,
-                    ArtifactsDirectoryName))),
-            Callbacks: new StartMlTrainingCallbacksDto(
-                EventsPath: _trainingEventsPathProvider.GetEventsPath(metadata.RunName)));
+                    metadata.RunName))));
     }
 
     private async Task RollbackReservationAsync(
