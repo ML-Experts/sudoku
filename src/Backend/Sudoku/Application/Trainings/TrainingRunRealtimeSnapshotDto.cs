@@ -1,0 +1,26 @@
+namespace Sudoku.Application.Trainings;
+
+public sealed record TrainingRunRealtimeSnapshotDto(
+    string RunName,
+    string Status,
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset? UpdatedAtUtc,
+    DateTimeOffset? StartedAtUtc,
+    DateTimeOffset? FinishedAtUtc,
+    string BaseModelName,
+    string ProducedModelName,
+    string ProcessedDatasetName,
+    string TrainingMode,
+    string TrainingProfileName,
+    string AugmentationProfileName,
+    string BenchmarkName,
+    int Seed,
+    long? LastAcceptedSequence,
+    string? LastEventType,
+    TrainingRunProgressDto? Progress,
+    TrainingMetricsSummaryDto? MetricsSummary,
+    string? ReportStatus,
+    string? ReportRelativePath,
+    IReadOnlyList<string> Warnings,
+    IReadOnlyList<string> CleanupWarnings,
+    string? FailureReason);

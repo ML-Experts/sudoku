@@ -40,6 +40,89 @@ public sealed class LocalFileStorageGateway : IFileStorageGateway
         }
     }
 
+    public async Task ReplaceAsync(
+        string directoryPath,
+        string fileName,
+        Stream content,
+        CancellationToken cancellationToken = default)
+    {
+        var fullDirectoryPath = Path.GetFullPath(directoryPath);
+        Directory.CreateDirectory(fullDirectoryPath);
+
+        var targetPath = Path.GetFullPath(Path.Combine(fullDirectoryPath, fileName));
+        EnsurePathIsWithinDirectory(fullDirectoryPath, targetPath);
+
+        if (content.CanSeek)
+        {
+            content.Seek(0, SeekOrigin.Begin);
+        }
+
+        var temporaryFileName = $".{fileName}.{Guid.NewGuid():N}.tmp";
+        var temporaryPath = Path.GetFullPath(Path.Combine(fullDirectoryPath, temporaryFileName));
+        EnsurePathIsWithinDirectory(fullDirectoryPath, temporaryPath);
+
+        try
+        {
+            await using (var targetStream = new FileStream(
+                             temporaryPath,
+                             FileMode.CreateNew,
+                             FileAccess.Write,
+                             FileShare.None,
+                             bufferSize: 81920,
+                             useAsync: true))
+            {
+                await content.CopyToAsync(targetStream, cancellationToken);
+            }
+
+            File.Move(temporaryPath, targetPath, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath))
+            {
+                File.Delete(temporaryPath);
+            }
+        }
+    }
+
+    public Task DeleteAsync(
+        string directoryPath,
+        string fileName,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var fullDirectoryPath = Path.GetFullPath(directoryPath);
+        var targetPath = Path.GetFullPath(Path.Combine(fullDirectoryPath, fileName));
+        EnsurePathIsWithinDirectory(fullDirectoryPath, targetPath);
+
+        if (File.Exists(targetPath))
+        {
+            File.Delete(targetPath);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteDirectoryAsync(
+        string directoryPath,
+        string directoryName,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var fullDirectoryPath = Path.GetFullPath(directoryPath);
+        var targetPath = Path.GetFullPath(Path.Combine(fullDirectoryPath, directoryName));
+        EnsurePathIsWithinDirectory(fullDirectoryPath, targetPath);
+
+        if (Directory.Exists(targetPath))
+        {
+            Directory.Delete(targetPath, recursive: true);
+        }
+
+        return Task.CompletedTask;
+    }
+
     public Task<Stream> OpenReadAsync(
         string directoryPath,
         string fileName,
@@ -71,6 +154,20 @@ public sealed class LocalFileStorageGateway : IFileStorageGateway
         {
             throw new FileStorageItemNotFoundException("Wskazany plik nie istnieje.");
         }
+    }
+
+    public Task<bool> FileExistsAsync(
+        string directoryPath,
+        string fileName,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var fullDirectoryPath = Path.GetFullPath(directoryPath);
+        var targetPath = Path.GetFullPath(Path.Combine(fullDirectoryPath, fileName));
+        EnsurePathIsWithinDirectory(fullDirectoryPath, targetPath);
+
+        return Task.FromResult(File.Exists(targetPath));
     }
 
     public Task<IReadOnlyList<StoredFileMetadataDto>> ListFilesAsync(

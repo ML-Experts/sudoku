@@ -10,4 +10,8 @@ public interface IModelsRegistryGateway
     Task<RegistryModelManifestDto?> GetByNameAsync(
         string modelName,
         CancellationToken cancellationToken = default);
+
+    Task FinalizeTrainedModelAsync(
+        FinalizeTrainedModelManifestDto manifest,
+        CancellationToken cancellationToken = default);
 }

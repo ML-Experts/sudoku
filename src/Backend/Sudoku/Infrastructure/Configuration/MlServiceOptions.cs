@@ -21,6 +21,12 @@ public sealed class MlServiceOptions
     [Required]
     public string PrepareDatasetPath { get; init; } = "/ml/datasets/prepare";
 
+    [Required]
+    public string StartTrainingPath { get; init; } = "/ml/trainings";
+
+    [Required]
+    public string TrainingEventsPathTemplate { get; init; } = "/internal/ml/trainings/{runName}/events";
+
     [Range(1, 600)]
     public int TimeoutSeconds { get; init; } = 60;
 }

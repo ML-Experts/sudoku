@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text;
 using Microsoft.Extensions.Options;
 using Sudoku.Application.Abstractions;
 using Sudoku.Application.ModelsRegistry;
@@ -8,6 +9,11 @@ namespace Sudoku.Infrastructure.Storage;
 
 public sealed class ModelsRegistryGateway : IModelsRegistryGateway
 {
+    private static readonly JsonSerializerOptions JsonSerializerOptions = new(JsonSerializerDefaults.Web)
+    {
+        WriteIndented = true
+    };
+
     private const string ManifestFileName = "model.json";
     private const string ArtifactsDirectoryName = "artifacts";
     private const string ArtifactMissingWarning = "model_artifacts_missing";
@@ -48,6 +54,67 @@ public sealed class ModelsRegistryGateway : IModelsRegistryGateway
         var manifests = await ListAsync(cancellationToken);
         return manifests.FirstOrDefault(
             item => string.Equals(item.Name, modelName, StringComparison.Ordinal));
+    }
+
+    public async Task FinalizeTrainedModelAsync(
+        FinalizeTrainedModelManifestDto manifest,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureRelativePath(manifest.PrimaryArtifactRelativePath, "artifacts.primaryArtifactRelativePath");
+
+        var entryDirectoryPath = Path.GetFullPath(Path.Combine(
+            _modelsRegistryStorageOptions.RegistryDirectoryPath,
+            manifest.Name));
+
+        var artifactExists = await _fileStorageGateway.FileExistsAsync(
+            entryDirectoryPath,
+            manifest.PrimaryArtifactRelativePath,
+            cancellationToken);
+
+        if (!artifactExists)
+        {
+            throw new FileStorageItemNotFoundException("Główny artefakt modelu wynikowego nie jest jeszcze dostępny.");
+        }
+
+        var payload = new
+        {
+            name = manifest.Name,
+            displayName = manifest.DisplayName,
+            sourceType = "training",
+            sourceRunName = manifest.SourceRunName,
+            parentModelName = manifest.ParentModelName,
+            trainingMode = manifest.TrainingMode,
+            architecture = new
+            {
+                inputProfile = manifest.InputProfile
+            },
+            training = new
+            {
+                defaultTrainingProfileName = manifest.TrainingProfileName,
+                defaultAugmentationProfileName = manifest.AugmentationProfileName
+            },
+            artifacts = new
+            {
+                primaryArtifactRelativePath = manifest.PrimaryArtifactRelativePath
+            },
+            capabilities = new
+            {
+                canStartTraining = true,
+                canUseForInference = true
+            },
+            metadata = new
+            {
+                createdAtUtc = manifest.CreatedAtUtc
+            }
+        };
+
+        var json = JsonSerializer.Serialize(payload, JsonSerializerOptions);
+        await using var content = new MemoryStream(Encoding.UTF8.GetBytes(json));
+        await _fileStorageGateway.ReplaceAsync(
+            entryDirectoryPath,
+            ManifestFileName,
+            content,
+            cancellationToken);
     }
 
     private async Task<RegistryModelManifestDto> ReadManifestAsync(
