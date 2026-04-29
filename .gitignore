@@ -38,6 +38,10 @@
 /.ai/AnalizaOdpowiedzialnosciBE-ML.md
 
 /node_modules/
+/data/processed
+/data/raw
+/data
+/tmp/datasets
 /data/raw/boards
 /data/raw/digits
 /data/raw/boards/
