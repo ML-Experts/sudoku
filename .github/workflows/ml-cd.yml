@@ -21,6 +21,7 @@ env:
   ML_SOURCE_DIR: src/MachineLearning
   ML_RELEASE_DIR: artifacts/ml/release
   ML_ENVIRONMENT: production
+  ML_ACTIVE_DIR: /opt/sudoku/ml
   
   ML_RELEASES_DIR: /opt/sudoku/releases/ml
   ML_DEPLOY_COMMAND: sudo /opt/sudoku/scripts/deploy_ml.sh
@@ -101,8 +102,11 @@ jobs:
               source_dir / "main.py",
               source_dir / "api" / "main.py",
               source_dir / "api" / ".env",
+              source_dir / "init_bootstrap" / ".env",
+              source_dir / "init_bootstrap" / ".env.production",
               source_dir / "application",
               source_dir / "infrastructure",
+              source_dir / "init_bootstrap",
               source_dir / "models",
           ]
 
@@ -169,6 +173,51 @@ jobs:
           )
           PY
 
+      - name: Prepare init bootstrap environment files
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          release_bootstrap_dir = Path(os.environ["ML_RELEASE_DIR"]) / "init_bootstrap"
+          target_environment = os.environ["ML_ENVIRONMENT"].strip()
+
+          if not target_environment:
+              raise SystemExit("ML_ENVIRONMENT cannot be empty.")
+
+          base_env_path = release_bootstrap_dir / ".env"
+          overlay_env_path = release_bootstrap_dir / f".env.{target_environment}"
+
+          if not base_env_path.exists():
+              raise SystemExit(f"Missing bootstrap base environment file: {base_env_path}")
+
+          if not overlay_env_path.exists():
+              raise SystemExit(
+                  f"Missing bootstrap environment overlay file for '{target_environment}': {overlay_env_path}"
+              )
+
+          base_lines = base_env_path.read_text(encoding="utf-8").splitlines()
+          updated_lines: list[str] = []
+          replaced_environment = False
+
+          for line in base_lines:
+              if line.startswith("ML_ENVIRONMENT="):
+                  updated_lines.append(f"ML_ENVIRONMENT={target_environment}")
+                  replaced_environment = True
+                  continue
+
+              updated_lines.append(line)
+
+          if not replaced_environment:
+              updated_lines.append(f"ML_ENVIRONMENT={target_environment}")
+
+          base_env_path.write_text("\n".join(updated_lines) + "\n", encoding="utf-8")
+          print(
+              f"Prepared init_bootstrap/.env to load init_bootstrap/.env.{target_environment}."
+          )
+          PY
+
       - name: Validate ML release layout
         shell: bash
         run: |
@@ -185,8 +234,11 @@ jobs:
               release_dir / "api" / "main.py",
               release_dir / "api" / ".env",
               release_dir / "api" / f".env.{target_environment}",
+              release_dir / "init_bootstrap" / ".env",
+              release_dir / "init_bootstrap" / f".env.{target_environment}",
               release_dir / "application",
               release_dir / "infrastructure",
+              release_dir / "init_bootstrap",
               release_dir / "models",
           ]
 
@@ -265,3 +317,13 @@ jobs:
           CD_SSH_PORT: ${{ secrets.CD_SSH_PORT }}
           CD_SSH_USER: ${{ secrets.CD_SSH_USER }}
         run: ssh -o BatchMode=yes -o IdentitiesOnly=yes -p "$CD_SSH_PORT" "$CD_SSH_USER@$CD_SSH_HOST" "$ML_DEPLOY_COMMAND"
+
+      - name: Bootstrap ML model registry on server
+        shell: bash
+        env:
+          CD_SSH_HOST: ${{ secrets.CD_SSH_HOST }}
+          CD_SSH_PORT: ${{ secrets.CD_SSH_PORT }}
+          CD_SSH_USER: ${{ secrets.CD_SSH_USER }}
+        run: |
+          ssh -o BatchMode=yes -o IdentitiesOnly=yes -p "$CD_SSH_PORT" "$CD_SSH_USER@$CD_SSH_HOST" \
+            "set -e; cd '$ML_ACTIVE_DIR'; ML_ENVIRONMENT=production .venv/bin/python -m init_bootstrap"
