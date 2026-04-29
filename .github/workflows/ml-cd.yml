@@ -21,8 +21,6 @@ env:
   ML_SOURCE_DIR: src/MachineLearning
   ML_RELEASE_DIR: artifacts/ml/release
   ML_ENVIRONMENT: production
-  ML_ACTIVE_DIR: /opt/sudoku/ml
-  
   ML_RELEASES_DIR: /opt/sudoku/releases/ml
   ML_DEPLOY_COMMAND: sudo /opt/sudoku/scripts/deploy_ml.sh
 jobs:
@@ -317,13 +315,3 @@ jobs:
           CD_SSH_PORT: ${{ secrets.CD_SSH_PORT }}
           CD_SSH_USER: ${{ secrets.CD_SSH_USER }}
         run: ssh -o BatchMode=yes -o IdentitiesOnly=yes -p "$CD_SSH_PORT" "$CD_SSH_USER@$CD_SSH_HOST" "$ML_DEPLOY_COMMAND"
-
-      - name: Bootstrap ML model registry on server
-        shell: bash
-        env:
-          CD_SSH_HOST: ${{ secrets.CD_SSH_HOST }}
-          CD_SSH_PORT: ${{ secrets.CD_SSH_PORT }}
-          CD_SSH_USER: ${{ secrets.CD_SSH_USER }}
-        run: |
-          ssh -o BatchMode=yes -o IdentitiesOnly=yes -p "$CD_SSH_PORT" "$CD_SSH_USER@$CD_SSH_HOST" \
-            "set -e; cd '$ML_ACTIVE_DIR'; ML_ENVIRONMENT=production .venv/bin/python -m init_bootstrap"
