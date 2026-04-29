@@ -5,4 +5,6 @@ opencv-python-headless
 pydantic
 python-dotenv
 python-slugify
+torch
+torchvision
 uvicorn
