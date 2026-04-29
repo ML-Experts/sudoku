@@ -13,6 +13,9 @@ from application.features.preprocessing.commands.extract_cells.extract_cells_com
 from application.features.datasets.commands.prepare_dataset_artifact.prepare_dataset_artifact_command_handler import (
     PrepareDatasetArtifactCommandHandler,
 )
+from application.features.inference.commands.test_digit_inference.test_digit_inference_command_handler import (
+    TestDigitInferenceCommandHandler,
+)
 from application.features.preprocessing.commands.preprocess_board.preprocess_board_command_handler import (
     PreprocessBoardCommandHandler,
 )
@@ -49,6 +52,12 @@ from infrastructure.datasets.board_dataset_scanner import BoardDatasetScanner
 from infrastructure.datasets.idx_dataset_loader import IdxDatasetLoader
 from infrastructure.datasets.sample_split_assigner import SampleSplitAssigner
 from infrastructure.datasets.source_resolver import DatasetSourceResolver
+from infrastructure.inference.active_model_resolver import (
+    FilesystemActiveModelResolver,
+)
+from infrastructure.inference.filesystem_test_image_repository import (
+    FilesystemTestImageRepository,
+)
 from infrastructure.reporting.preparation_report_builder import (
     PreparationReportBuilder,
 )
@@ -69,6 +78,13 @@ from infrastructure.training.cancellation.cancellation_registry import (
 from infrastructure.training.model.model_manifest_reader import (
     ModelManifestReader,
 )
+from infrastructure.training.data.input_transform_factory import (
+    InputTransformFactory,
+)
+from infrastructure.training.model.model_artifact_loader import (
+    ModelArtifactLoader,
+)
+from infrastructure.training.model.model_factory import ModelFactory
 from infrastructure.training.runners.training_runner_factory import (
     TrainingRunnerFactory,
 )
@@ -323,4 +339,27 @@ def get_prepare_dataset_artifact_command_handler(
             ),
             output_cell_size_px=preprocessing_settings.cells_output_cell_size,
         ),
+    )
+
+
+def get_test_digit_inference_command_handler(
+    runtime_settings: RuntimeSettings = Depends(get_runtime_settings),
+    training_settings: TrainingSettings = Depends(get_training_settings),
+) -> TestDigitInferenceCommandHandler:
+    return TestDigitInferenceCommandHandler(
+        image_repository=FilesystemTestImageRepository(
+            directory_path=runtime_settings.examples_uploads_directory_path
+        ),
+        active_model_resolver=FilesystemActiveModelResolver(
+            active_model_directory_path=(
+                runtime_settings.models_active_directory_path
+            ),
+            registry_directory_path=runtime_settings.models_registry_directory_path,
+        ),
+        manifest_reader=ModelManifestReader(),
+        model_factory=ModelFactory(),
+        artifact_loader=ModelArtifactLoader(),
+        input_transform_factory=InputTransformFactory(),
+        cell_preprocessing_pipeline=CellPreprocessingPipeline(output_size=28),
+        device_setting=training_settings.device,
     )

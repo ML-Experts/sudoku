@@ -234,4 +234,13 @@ def get_runtime_settings() -> RuntimeSettings:
         temp_datasets_directory_path=get_env_value(
             "ML_TEMP_DATASETS_DIRECTORY_PATH", "./tmp/datasets"
         ),
+        examples_uploads_directory_path=get_env_value(
+            "ML_EXAMPLES_UPLOADS_DIR", "./examples/uploads"
+        ),
+        models_active_directory_path=get_env_value(
+            "ML_MODELS_ACTIVE_DIR", "./models/active"
+        ),
+        models_registry_directory_path=get_env_value(
+            "ML_MODELS_REGISTRY_DIR", "./models/registry"
+        ),
     )

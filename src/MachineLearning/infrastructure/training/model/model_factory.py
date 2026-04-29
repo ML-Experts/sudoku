@@ -13,7 +13,8 @@ class ModelFactory:
         architecture_type = manifest.architecture.type
         if architecture_type == "custom-cnn-v1":
             return CustomDigitCnnV1(
-                num_classes=manifest.architecture.num_classes
+                num_classes=manifest.architecture.num_classes,
+                input_channels=manifest.architecture.input_channels,
             )
         if architecture_type == "resnet18":
             model = torchvision_models.resnet18(weights=None)

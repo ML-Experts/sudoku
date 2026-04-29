@@ -56,3 +56,6 @@ class RuntimeSettings:
     boards_subdirectory: str
     digits_subdirectory: str
     temp_datasets_directory_path: str
+    examples_uploads_directory_path: str
+    models_active_directory_path: str
+    models_registry_directory_path: str
