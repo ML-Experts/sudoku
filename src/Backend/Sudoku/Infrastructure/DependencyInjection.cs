@@ -24,15 +24,31 @@ public static class DependencyInjection
             .Validate(
                 options => Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out _),
                 $"{MlServiceOptions.SectionName}:BaseUrl must be an absolute URL.")
+            .Validate(
+                options => options.StartTrainingPath.StartsWith("/", StringComparison.Ordinal),
+                $"{MlServiceOptions.SectionName}:StartTrainingPath must start with '/'.")
+            .Validate(
+                options => options.CancelTrainingPathTemplate.StartsWith("/", StringComparison.Ordinal),
+                $"{MlServiceOptions.SectionName}:CancelTrainingPathTemplate must start with '/'.")
+            .Validate(
+                options => options.CancelTrainingPathTemplate.Contains("{runName}", StringComparison.Ordinal),
+                $"{MlServiceOptions.SectionName}:CancelTrainingPathTemplate must contain '{{runName}}'.")
+            .Validate(
+                options => options.TrainingEventsPathTemplate.Contains("{runName}", StringComparison.Ordinal),
+                $"{MlServiceOptions.SectionName}:TrainingEventsPathTemplate must contain '{{runName}}'.")
             .ValidateOnStart();
 
         services.AddTransient<IFileStorageGateway, LocalFileStorageGateway>();
         services.AddTransient<IProcessedDatasetsGateway, ProcessedDatasetsGateway>();
+        services.AddTransient<IModelsRegistryGateway, ModelsRegistryGateway>();
         services.AddTransient<ITrainingRunsGateway, TrainingRunsGateway>();
+        services.AddTransient<ITrainingArtifactsCleanupGateway, TrainingArtifactsCleanupGateway>();
+        services.AddTransient<ITrainingEventsPathProvider, MlTrainingEventsPathProvider>();
 
         services.AddHttpClient<IMlPingGateway, MlPingHttpClient>(ConfigureMlHttpClient);
         services.AddHttpClient<IMlImageProcessingGateway, MlImageProcessingHttpClient>(ConfigureMlHttpClient);
         services.AddHttpClient<IMlDatasetsPreparationGateway, MlDatasetsPreparationHttpClient>(ConfigureMlHttpClient);
+        services.AddHttpClient<IMlTrainingsGateway, MlTrainingsHttpClient>(ConfigureMlHttpClient);
 
         return services;
     }

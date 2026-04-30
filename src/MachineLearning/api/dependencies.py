@@ -5,6 +5,7 @@ from fastapi import Depends, Request
 from api.config.runtime_settings import (
     PreprocessingSettings,
     RuntimeSettings,
+    TrainingSettings,
 )
 from application.features.preprocessing.commands.extract_cells.extract_cells_command_handler import (
     ExtractCellsCommandHandler,
@@ -12,11 +13,20 @@ from application.features.preprocessing.commands.extract_cells.extract_cells_com
 from application.features.datasets.commands.prepare_dataset_artifact.prepare_dataset_artifact_command_handler import (
     PrepareDatasetArtifactCommandHandler,
 )
+from application.features.inference.commands.test_digit_inference.test_digit_inference_command_handler import (
+    TestDigitInferenceCommandHandler,
+)
 from application.features.preprocessing.commands.preprocess_board.preprocess_board_command_handler import (
     PreprocessBoardCommandHandler,
 )
 from application.features.runtime_status.queries.get_runtime_status.get_runtime_status_query_handler import (
     GetRuntimeStatusQueryHandler,
+)
+from application.features.trainings.commands.cancel_training_run.cancel_training_run_command_handler import (
+    CancelTrainingRunCommandHandler,
+)
+from application.features.trainings.commands.start_training_run.start_training_run_command_handler import (
+    StartTrainingRunCommandHandler,
 )
 from infrastructure.vision.opencv_adaptive_threshold_binarizer import (
     OpenCvAdaptiveThresholdBinarizer,
@@ -42,6 +52,12 @@ from infrastructure.datasets.board_dataset_scanner import BoardDatasetScanner
 from infrastructure.datasets.idx_dataset_loader import IdxDatasetLoader
 from infrastructure.datasets.sample_split_assigner import SampleSplitAssigner
 from infrastructure.datasets.source_resolver import DatasetSourceResolver
+from infrastructure.inference.active_model_resolver import (
+    FilesystemActiveModelResolver,
+)
+from infrastructure.inference.filesystem_test_image_repository import (
+    FilesystemTestImageRepository,
+)
 from infrastructure.reporting.preparation_report_builder import (
     PreparationReportBuilder,
 )
@@ -51,8 +67,27 @@ from infrastructure.storage.npz_dataset_artifact_writer import (
 from infrastructure.storage.temp_dataset_path_provider import (
     TempDatasetPathProvider,
 )
+from infrastructure.storage.filesystem_path_validator import (
+    FilesystemPathValidator,
+)
 from infrastructure.text.slugify_service import PythonSlugifyService
 from infrastructure.time.system_utc_clock import SystemUtcClock
+from infrastructure.training.cancellation.cancellation_registry import (
+    CancellationRegistry,
+)
+from infrastructure.training.model.model_manifest_reader import (
+    ModelManifestReader,
+)
+from infrastructure.training.data.input_transform_factory import (
+    InputTransformFactory,
+)
+from infrastructure.training.model.model_artifact_loader import (
+    ModelArtifactLoader,
+)
+from infrastructure.training.model.model_factory import ModelFactory
+from infrastructure.training.runners.training_runner_factory import (
+    TrainingRunnerFactory,
+)
 from infrastructure.vision.cell_preprocessing_pipeline import (
     CellPreprocessingPipeline,
 )
@@ -68,6 +103,12 @@ def get_preprocessing_settings(
     return runtime_settings.preprocessing_settings
 
 
+def get_training_settings(
+    runtime_settings: RuntimeSettings = Depends(get_runtime_settings),
+) -> TrainingSettings:
+    return runtime_settings.training_settings
+
+
 @lru_cache
 def get_runtime_status_query_handler() -> GetRuntimeStatusQueryHandler:
     return GetRuntimeStatusQueryHandler(
@@ -75,6 +116,11 @@ def get_runtime_status_query_handler() -> GetRuntimeStatusQueryHandler:
         slugify_service=PythonSlugifyService(),
         utc_clock=SystemUtcClock(),
     )
+
+
+@lru_cache
+def get_cancellation_registry() -> CancellationRegistry:
+    return CancellationRegistry()
 
 
 def get_preprocess_board_command_handler(
@@ -141,6 +187,39 @@ def get_preprocess_board_command_handler(
         board_refinement_passes=(
             preprocessing_settings.board_refinement_passes
         ),
+    )
+
+
+def get_start_training_run_command_handler(
+    training_settings: TrainingSettings = Depends(get_training_settings),
+    cancellation_registry: CancellationRegistry = Depends(
+        get_cancellation_registry
+    ),
+) -> StartTrainingRunCommandHandler:
+    utc_clock = SystemUtcClock()
+    training_runner = TrainingRunnerFactory(
+        settings=training_settings,
+        cancellation_registry=cancellation_registry,
+        utc_clock=utc_clock,
+    ).create()
+    return StartTrainingRunCommandHandler(
+        manifest_reader=ModelManifestReader(),
+        path_validator=FilesystemPathValidator(
+            allowed_output_roots=training_settings.allowed_output_roots
+        ),
+        active_run_guard=cancellation_registry,
+        training_runner=training_runner,
+        utc_clock=utc_clock,
+    )
+
+
+def get_cancel_training_run_command_handler(
+    cancellation_registry: CancellationRegistry = Depends(
+        get_cancellation_registry
+    ),
+) -> CancelTrainingRunCommandHandler:
+    return CancelTrainingRunCommandHandler(
+        cancellation_registry=cancellation_registry,
     )
 
 
@@ -260,4 +339,27 @@ def get_prepare_dataset_artifact_command_handler(
             ),
             output_cell_size_px=preprocessing_settings.cells_output_cell_size,
         ),
+    )
+
+
+def get_test_digit_inference_command_handler(
+    runtime_settings: RuntimeSettings = Depends(get_runtime_settings),
+    training_settings: TrainingSettings = Depends(get_training_settings),
+) -> TestDigitInferenceCommandHandler:
+    return TestDigitInferenceCommandHandler(
+        image_repository=FilesystemTestImageRepository(
+            directory_path=runtime_settings.examples_uploads_directory_path
+        ),
+        active_model_resolver=FilesystemActiveModelResolver(
+            active_model_directory_path=(
+                runtime_settings.models_active_directory_path
+            ),
+            registry_directory_path=runtime_settings.models_registry_directory_path,
+        ),
+        manifest_reader=ModelManifestReader(),
+        model_factory=ModelFactory(),
+        artifact_loader=ModelArtifactLoader(),
+        input_transform_factory=InputTransformFactory(),
+        cell_preprocessing_pipeline=CellPreprocessingPipeline(output_size=28),
+        device_setting=training_settings.device,
     )

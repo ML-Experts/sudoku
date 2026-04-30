@@ -8,6 +8,8 @@ from api.controllers.datasets_controller import datasets_controller
 from api.controllers.runtime_status_controller import (
     runtime_status_controller,
 )
+from api.controllers.test_inference_controller import test_inference_controller
+from api.controllers.trainings_controller import trainings_controller
 
 
 def create_app() -> FastAPI:
@@ -24,6 +26,8 @@ def create_app() -> FastAPI:
     app.include_router(runtime_status_controller)
     app.include_router(preprocessing_controller)
     app.include_router(datasets_controller)
+    app.include_router(trainings_controller)
+    app.include_router(test_inference_controller)
     return app
 
 

@@ -1,9 +1,15 @@
+using System.Text.Json;
 using Sudoku.Application;
+using Sudoku.Application.Abstractions;
 using Sudoku.Application.Auth;
 using Sudoku.Application.Datasets;
 using Sudoku.Application.Examples;
+using Sudoku.Application.ModelsRegistry;
+using Sudoku.Application.Trainings;
 using Sudoku.Configuration;
+using Sudoku.Hubs;
 using Sudoku.Infrastructure;
+using Sudoku.Realtime;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddBackendConfiguration(args);
@@ -82,16 +88,72 @@ builder.Services
     .ValidateOnStart();
 
 builder.Services
+    .AddOptions<TrainingsStorageOptions>()
+    .BindConfiguration(TrainingsStorageOptions.SectionName)
+    .ValidateDataAnnotations()
+    .Validate(
+        options => Path.IsPathRooted(options.RunsDirectoryPath),
+        $"{TrainingsStorageOptions.SectionName}:RunsDirectoryPath must be an absolute path.")
+    .Validate(
+        options => Path.IsPathRooted(options.ReportsDirectoryPath),
+        $"{TrainingsStorageOptions.SectionName}:ReportsDirectoryPath must be an absolute path.")
+    .Validate(
+        options => Path.IsPathRooted(options.MetadataDirectoryPath),
+        $"{TrainingsStorageOptions.SectionName}:MetadataDirectoryPath must be an absolute path.")
+    .Validate(
+        options => Path.IsPathRooted(options.WorkingDirectoryPath),
+        $"{TrainingsStorageOptions.SectionName}:WorkingDirectoryPath must be an absolute path.")
+    .ValidateOnStart();
+
+builder.Services
+    .AddOptions<ModelsRegistryStorageOptions>()
+    .BindConfiguration(ModelsRegistryStorageOptions.SectionName)
+    .ValidateDataAnnotations()
+    .Validate(
+        options => Path.IsPathRooted(options.RegistryDirectoryPath),
+        $"{ModelsRegistryStorageOptions.SectionName}:RegistryDirectoryPath must be an absolute path.")
+    .ValidateOnStart();
+
+builder.Services
+    .AddOptions<TrainingDefaultsOptions>()
+    .BindConfiguration(TrainingDefaultsOptions.SectionName)
+    .ValidateDataAnnotations()
+    .Validate(
+        options => !string.IsNullOrWhiteSpace(options.RunNamePrefix),
+        $"{TrainingDefaultsOptions.SectionName}:RunNamePrefix is required.")
+    .Validate(
+        options => !string.IsNullOrWhiteSpace(options.TrainingMode),
+        $"{TrainingDefaultsOptions.SectionName}:TrainingMode is required.")
+    .Validate(
+        options => !string.IsNullOrWhiteSpace(options.TrainingProfileName),
+        $"{TrainingDefaultsOptions.SectionName}:TrainingProfileName is required.")
+    .Validate(
+        options => !string.IsNullOrWhiteSpace(options.AugmentationProfileName),
+        $"{TrainingDefaultsOptions.SectionName}:AugmentationProfileName is required.")
+    .Validate(
+        options => !string.IsNullOrWhiteSpace(options.BenchmarkName),
+        $"{TrainingDefaultsOptions.SectionName}:BenchmarkName is required.")
+    .ValidateOnStart();
+
+builder.Services
     .AddApplication()
     .AddInfrastructure(builder.Configuration);
+builder.Services.AddSingleton<ITrainingRunEventPublisher, SignalRTrainingRunEventPublisher>();
 builder.Services.AddAdminAuthentication(builder.Configuration);
 builder.Services.AddControllers();
+builder.Services
+    .AddSignalR()
+    .AddJsonProtocol(options =>
+    {
+        options.PayloadSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+    });
 
 var app = builder.Build();
 
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<TrainingRunHub>("/ws/trainings/{runName}");
 
 app.Run();
 

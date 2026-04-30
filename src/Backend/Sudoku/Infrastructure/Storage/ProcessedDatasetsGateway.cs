@@ -109,6 +109,52 @@ public sealed class ProcessedDatasetsGateway : IProcessedDatasetsGateway
         return results;
     }
 
+    public async Task<ProcessedDatasetMetadataDto?> GetByNameAsync(
+        string datasetName,
+        CancellationToken cancellationToken = default)
+    {
+        var metadataFileName = BuildMetadataFileName(datasetName);
+        var files = await _fileStorageGateway.ListFilesAsync(
+            _datasetsPreparationOptions.ProcessedDatasetsDirectoryPath,
+            cancellationToken);
+
+        if (!files.Any(file => string.Equals(file.Name, metadataFileName, StringComparison.OrdinalIgnoreCase)))
+        {
+            return null;
+        }
+
+        await using var stream = await _fileStorageGateway.OpenReadAsync(
+            _datasetsPreparationOptions.ProcessedDatasetsDirectoryPath,
+            metadataFileName,
+            cancellationToken);
+
+        var metadata = await JsonSerializer.DeserializeAsync<ProcessedDatasetMetadataDto>(
+            stream,
+            JsonSerializerOptions,
+            cancellationToken);
+
+        if (metadata is null)
+        {
+            throw new InvalidDataException($"Plik metadanych {metadataFileName} ma nieprawidłową zawartość.");
+        }
+
+        if (!string.Equals(metadata.Name, datasetName, StringComparison.Ordinal))
+        {
+            throw new InvalidDataException(
+                $"Nazwa datasetu {metadata.Name} w metadanych nie odpowiada żądanemu datasetowi {datasetName}.");
+        }
+
+        var fileName = string.IsNullOrWhiteSpace(metadata.FileName)
+            ? $"{datasetName}.npz"
+            : metadata.FileName;
+        if (!files.Any(file => string.Equals(file.Name, fileName, StringComparison.OrdinalIgnoreCase)))
+        {
+            return null;
+        }
+
+        return metadata;
+    }
+
     private static string BuildMetadataFileName(string datasetName)
     {
         return $"{datasetName}{MetadataSuffix}";

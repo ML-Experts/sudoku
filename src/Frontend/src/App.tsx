@@ -11,6 +11,7 @@ import {
   putPreprocessBoard,
   putPreprocessCells,
 } from "./api/examples";
+import { Uc06TrainingSection } from "./components/Uc06TrainingSection";
 import { Uc11RawCandidatesSection } from "./components/Uc11RawCandidatesSection";
 import { Uc12DatasetPreparationSection } from "./components/Uc12DatasetPreparationSection";
 import { useAdminSession } from "./context/AdminSessionContext";
@@ -274,7 +275,7 @@ function toImageDataUrl(image: ImageApiResponse): string {
 }
 
 type AppView = "health" | "examples" | "datasets";
-type DatasetsStep = "uc11" | "uc12";
+type DatasetsStep = "uc11" | "uc12" | "uc06";
 
 export default function App() {
   const apiBaseUrl = normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL);
@@ -330,7 +331,8 @@ export default function App() {
       : activeView === "examples"
         ? "Przyklady"
         : "Datasety";
-  const datasetsStepLabel = datasetsStep === "uc11" ? "UC-11" : "UC-12";
+  const datasetsStepLabel =
+    datasetsStep === "uc11" ? "UC-11" : datasetsStep === "uc12" ? "UC-12" : "UC-06";
 
   const loadExamplesList = useCallback(async () => {
     setExamplesListState((previous) => ({
@@ -1260,10 +1262,10 @@ export default function App() {
             <>
               <section className="hero-card datasets-module-header">
                 <p className="eyebrow">Workflow datasetowy</p>
-                <h2>UC-11 -&gt; UC-12</h2>
+                <h2>UC-11 -&gt; UC-12 -&gt; UC-06</h2>
                 <p className="hero-copy">
                   Nawiguj krokami: najpierw kandydaci raw, potem budowa datasetu
-                  processed.
+                  processed, a na koncu testowy start treningu i SignalR.
                 </p>
                 <div
                   className="datasets-stepper"
@@ -1288,6 +1290,15 @@ export default function App() {
                   >
                     2. UC-12
                   </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={datasetsStep === "uc06"}
+                    className={`datasets-step ${datasetsStep === "uc06" ? "is-active" : ""}`}
+                    onClick={() => setDatasetsStep("uc06")}
+                  >
+                    3. UC-06
+                  </button>
                 </div>
               </section>
 
@@ -1297,8 +1308,14 @@ export default function App() {
                   accessToken={authToken?.accessToken ?? null}
                   onUnauthorized={() => handleAdminUnauthorized("invalid_token")}
                 />
-              ) : (
+              ) : datasetsStep === "uc12" ? (
                 <Uc12DatasetPreparationSection
+                  apiBaseUrl={apiBaseUrl}
+                  accessToken={authToken?.accessToken ?? null}
+                  onUnauthorized={() => handleAdminUnauthorized("invalid_token")}
+                />
+              ) : (
+                <Uc06TrainingSection
                   apiBaseUrl={apiBaseUrl}
                   accessToken={authToken?.accessToken ?? null}
                   onUnauthorized={() => handleAdminUnauthorized("invalid_token")}
