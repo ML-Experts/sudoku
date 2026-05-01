@@ -187,6 +187,10 @@ Uwaga organizacyjna:
     - W przypadku błędu system zwraca czytelną informację diagnostyczną, czy problem dotyczy FE, BE czy ML.
     - Historyjka może służyć jako smoke test po wdrożeniu na serwer lub po zmianach integracyjnych.
 
+#### EXP-04 — „Testowa inferencja pojedynczej cyfry”
+- Poza zakresem produktu dodano eksperymentalny endpoint ML `GET /ml/test/inteference/{name}`, który ładuje obrazek z katalogu przykładów, wykonuje preprocessing komórki do `28x28`, używa aktywnego modelu z `models/active/inference.json` i zwraca rozpoznaną cyfrę jako `int`.
+- Eksperyment jest udokumentowany w `.ai/feature/exp/exp_plan_implementation_test_inference.md` i służy wyłącznie do lokalnej diagnostyki modelu po treningu.
+
 #### UC-01 — „Dodaj plik sudoku do przykładów (examples)”
 - **FE**:
   - Formularz uploadu pliku (jpg/png) do biblioteki przykładów.
@@ -240,17 +244,19 @@ Uwaga organizacyjna:
     - System zwraca obraz po korekcji perspektywy albo czytelny błąd.
     - System zwraca planszę podzieloną na siatkę 9×9 komórek albo czytelny błąd.
 
-#### UC-05 — „Rozwiąż wybrany plik przez system”
-- **FE**:
-  - Akcja „Rozwiąż” + prezentacja wyniku: rozpoznany grid, rozwiązany grid, overlay.
-- **BE**:
-  - Endpoint rozwiązania dla przykładu (np. `POST /api/examples/{name}/solve`) albo reuse jednego endpointu solve z parametrami.
-  - Przekazanie żądania do serwisu ML i zwrot odpowiedzi do FE.
-- **ML**:
-  - End-to-end: preprocess → rozpoznanie cyfr → grid → solver → overlay.
-  - Zwracany kontrakt: `recognized_grid`, `solved_grid`, `overlay_image_base64` + `warnings/errors`.
-  - **AC**:
-    - Dla przykładowych obrazów system znajduje rozwiązanie lub zwraca czytelny błąd.
+#### UC-05 — „Rozpoznaj cyfry, rozwiąż sudoku i zaprezentuj wynik”
+- **UC-05A — Inferencja pojedynczej cyfry / komórki**:
+  - System przyjmuje obraz komórki jako `ImageApiEntry` (`mimeType` + `base64`) i zwraca minimalną odpowiedź `{ "digit": 1..9 | null }`, gdzie `null` oznacza brak rozpoznanej cyfry / pustą komórkę.
+  - Eksperymentalny endpoint z `EXP-04` jest tylko źródłem wniosków technicznych; docelowe API produktu przechodzi przez Backend.
+- **UC-05B — Backtracking dla rozpoznanego gridu**:
+  - System przyjmuje grid 9×9 z cyframi i pustymi polami, waliduje poprawność wejścia i zwraca rozwiązany grid albo czytelny błąd `invalid` / `unsolvable`.
+- **UC-05C — Przypisanie cyfr do komórek w UI**:
+  - System prezentuje rozpoznane i rozwiązane cyfry w siatce 9×9; wariant podstawowy może umieszczać cyfry jako tekst w komórkach.
+- **UC-05D — Graficzne naniesienie cyfr na obraz**:
+  - System docelowo generuje obraz wynikowy z naniesionymi cyframi; wariant podstawowy dotyczy obrazu po korekcji perspektywy, a wariant ambitny oryginalnego zdjęcia wejściowego.
+- **AC**:
+  - Użytkownik może przejść od obrazu komórek lub planszy do rozpoznanego gridu, rozwiązania i czytelnej prezentacji wyniku.
+  - Brak aktywnego modelu, błąd inferencji, niepoprawny grid albo brak rozwiązania zwracają czytelny błąd zamiast niepełnego wyniku.
 
 #### UC-06 — „Uruchom trening na przygotowanym zestawie `.npz`”
 - **FE**:
@@ -273,6 +279,7 @@ Uwaga organizacyjna:
   - W `MVP` system wspiera dokładnie jeden preset treningowy i jeden preset augmentacji po stronie `BE`; `FE` nie pobiera katalogu presetów i nie przekazuje żadnych identyfikatorów presetów w `POST /api/trainings`.
   - Jeśli start do `ML` nie zostanie potwierdzony, zanim `BE` odpowie do `FE`, `BE` robi rollback prowizorycznego rekordu runu; przy synchronicznym błędzie walidacyjnym albo kontraktowym z `ML` przepuszcza ten sam kod i body, a dla niedostępności albo timeoutu zwraca `503` albo `504`.
   - W MVP zgodność modelu bazowego z datasetem oznacza dokładną równość `inputProfile` wpisu rejestru i `preprocessingProfile` gotowego zestawu `.npz`; walidację wykonuje `BE` przed wywołaniem `ML`.
+  - Po sukcesie runu `BE` finalizuje kompletny wpis modelu wynikowego w `models/registry`, gotowy do późniejszego wyboru jako aktywny model inferencyjny w `UC-10`; `UC-06` nie przełącza aktywnego modelu automatycznie.
   - Po zestawieniu albo odtworzeniu kanału `SignalR` Backend wysyła `snapshot` będący aktualnym publicznym stanem runu znanym przez `BE`; jeśli run zdążył się już zakończyć, `snapshot` może być terminalny i po jego dostarczeniu kanał nie musi pozostawać otwarty.
 - **ML**:
   - Job treningowy bazujący na jednym przygotowanym artefakcie `.npz`; preprocessing i split są wykonane wcześniej podczas przygotowania datasetu.
@@ -302,6 +309,7 @@ Uwaga organizacyjna:
 #### UC-07 — „Pokazuj postęp treningu i informuj o zakończeniu”
 - **FE**:
   - Ekran postępu (np. procent/epoki/ETA) + status końcowy (sukces/porażka), aktualizowany w czasie rzeczywistym przez `SignalR`, z opcją anulowania aktywnego runu.
+  - Historyjka rozwija prezentację i ergonomię monitoringu z `UC-06`, ale nie zmienia identyfikatorów runu ani nie przełącza aktywnego modelu.
 - **BE**:
   - Kanał `SignalR` do `FE` publikujący zdarzenia postępu treningu i status końcowy.
   - Po zestawieniu połączenia kanał zwraca snapshot aktualnego stanu runu, a kolejne eventy pochodzą z eventów `ML` zapisanych wcześniej w rekordzie `BE`; `FE` renderuje najświeższy stan i może ignorować spóźnione eventy z niższym `sequence`, bez oczekiwania na kompletność numeracji.
@@ -316,6 +324,7 @@ Uwaga organizacyjna:
   - Widok listy treningów (status, data, krótki opis: model / dataset / tryb treningu) oraz powiązanych modeli, w tym wpisów bootstrap i modeli wytrenowanych w systemie.
 - **BE**:
   - Endpoint listujący treningi i modele (np. `GET /api/trainings`, `GET /api/models/registry`) na podstawie rekordów systemowych utrzymywanych przez Backend oraz manifestów modeli w rejestrze.
+  - Jeśli część endpointów listujących powstała wcześniej w `UC-06`, `UC-08` rozwija przede wszystkim widok katalogowy, powiązania `run -> model` i czytelne statusy modeli oraz treningów.
 - **ML**:
   - Dostarczenie skróconych danych technicznych lub referencji do artefaktów potrzebnych do aktualizacji rekordów widocznych w Backendzie.
   - **AC**:
@@ -327,6 +336,7 @@ Uwaga organizacyjna:
   - Widok szczegółów treningu (parametry, datasety źródłowe, profil preprocessingu/augmentacji, wykresy/metryki, confusion matrix) wraz z referencją do modelu wynikowego i modelu bazowego.
 - **BE**:
   - Endpoint szczegółów (np. `GET /api/trainings/{runName}`) zwracający konfigurację treningu, status, metryki, `producedModelName`, `baseModelName`, `parentModelName` / `sourceRunName` jeśli istnieją, oraz referencje do artefaktów raportu.
+  - Jeśli podstawowy odczyt runu istnieje już po `UC-06`, `UC-09` rozwija go o raport, benchmark, metryki i dane potrzebne do porównania modeli.
 - **ML**:
   - Generowanie i zapis metryk/raportu ewaluacyjnego (artefakty do pobrania) oraz danych potrzebnych do porównania treningów na wspólnym benchmarku.
   - **AC**:
