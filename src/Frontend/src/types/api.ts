@@ -100,6 +100,27 @@ export type CreateTrainingRunApiEntry = {
   processedDatasetName: string;
 };
 
+export type RegistryModelListItemApiResponse = {
+  name: string;
+  displayName: string;
+  sourceType: string;
+  sourceRunName: string | null;
+  parentModelName: string | null;
+  trainingMode: string;
+  inputProfile: string;
+  trainingProfileName: string;
+  augmentationProfileName: string;
+  createdAtUtc: string;
+  canStartTraining: boolean;
+  canUseForInference: boolean;
+  warnings: string[];
+};
+
+export type RegistryModelsListApiResponse = {
+  items: RegistryModelListItemApiResponse[];
+  totalCount: number;
+};
+
 export type TrainingRunApiResponse = {
   runName: string;
   status: string;
@@ -119,48 +140,42 @@ export type CancelTrainingRunApiResponse = {
   runName: string;
   status: string | null;
   requestDisposition: string;
-  message: string;
-  progressChannelUrl: string | null;
+  cancellationRequestedAtUtc: string | null;
 };
 
 export type TrainingRunProgressApiResponse = {
   percent: number | null;
-  epoch: number | null;
-  totalEpochs: number | null;
-  trainLoss: number | null;
-  validationLoss: number | null;
-  trainAccuracy: number | null;
-  validationAccuracy: number | null;
+  epochCurrent: number | null;
+  epochTotal: number | null;
+  etaSeconds: number | null;
 };
 
-export type TrainingMetricsSummaryApiResponse = {
-  accuracy: number | null;
-  macroF1: number | null;
+export type TrainingRunResultApiResponse = {
+  producedModelName: string;
+  reportStatus: string;
+  canUseProducedModelForInference: boolean;
+  primaryArtifactRelativePath: string;
+  summaryRelativePath: string | null;
+  metricsRelativePath: string | null;
+  confusionMatrixRelativePath: string | null;
 };
 
-export type TrainingRunRealtimeApiResponse = {
-  messageKind: string;
+export type TrainingRunFailureApiResponse = {
+  errorType: string;
+  message: string;
+  canUseProducedModelForInference: boolean;
+};
+
+export type TrainingRunSocketEventApiResponse = {
+  eventType: string;
+  sequence: number;
   runName: string;
   status: string;
-  createdAtUtc: string;
-  updatedAtUtc: string | null;
-  startedAtUtc: string | null;
-  finishedAtUtc: string | null;
-  baseModelName: string;
-  producedModelName: string;
-  processedDatasetName: string;
-  trainingMode: string;
-  trainingProfileName: string;
-  augmentationProfileName: string;
-  benchmarkName: string;
-  seed: number;
-  lastAcceptedSequence: number | null;
-  lastEventType: string | null;
+  stage: string;
+  occurredAtUtc: string;
+  message: string | null;
   progress: TrainingRunProgressApiResponse | null;
-  metricsSummary: TrainingMetricsSummaryApiResponse | null;
-  reportStatus: string | null;
-  reportRelativePath: string | null;
   warnings: string[];
-  cleanupWarnings: string[];
-  failureReason: string | null;
+  result: TrainingRunResultApiResponse | null;
+  failure: TrainingRunFailureApiResponse | null;
 };
