@@ -2,6 +2,8 @@ import type {
   CancelTrainingRunApiResponse,
   CreateTrainingRunApiEntry,
   ErrorApiResponse,
+  RegistryModelListItemApiResponse,
+  RegistryModelsListApiResponse,
   TrainingRunApiResponse,
 } from "../types/api";
 
@@ -74,6 +76,47 @@ function isTrainingRunApiResponse(
   );
 }
 
+function isRegistryModelListItemApiResponse(
+  value: unknown,
+): value is RegistryModelListItemApiResponse {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+  return (
+    typeof record.name === "string" &&
+    typeof record.displayName === "string" &&
+    typeof record.sourceType === "string" &&
+    (typeof record.sourceRunName === "string" || record.sourceRunName === null) &&
+    (typeof record.parentModelName === "string" || record.parentModelName === null) &&
+    typeof record.trainingMode === "string" &&
+    typeof record.inputProfile === "string" &&
+    typeof record.trainingProfileName === "string" &&
+    typeof record.augmentationProfileName === "string" &&
+    typeof record.createdAtUtc === "string" &&
+    typeof record.canStartTraining === "boolean" &&
+    typeof record.canUseForInference === "boolean" &&
+    Array.isArray(record.warnings) &&
+    record.warnings.every((warning) => typeof warning === "string")
+  );
+}
+
+function isRegistryModelsListApiResponse(
+  value: unknown,
+): value is RegistryModelsListApiResponse {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+  return (
+    Array.isArray(record.items) &&
+    record.items.every((item) => isRegistryModelListItemApiResponse(item)) &&
+    typeof record.totalCount === "number"
+  );
+}
+
 function isCancelTrainingRunApiResponse(
   value: unknown,
 ): value is CancelTrainingRunApiResponse {
@@ -86,9 +129,27 @@ function isCancelTrainingRunApiResponse(
     typeof record.runName === "string" &&
     (typeof record.status === "string" || record.status === null) &&
     typeof record.requestDisposition === "string" &&
-    typeof record.message === "string" &&
-    (typeof record.progressChannelUrl === "string" ||
-      record.progressChannelUrl === null)
+    (typeof record.cancellationRequestedAtUtc === "string" ||
+      record.cancellationRequestedAtUtc === null)
+  );
+}
+
+function isLegacyCancelTrainingRunApiResponse(
+  value: unknown,
+): value is {
+  runName: string;
+  status: string | null;
+  requestDisposition: string;
+} {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+  return (
+    typeof record.runName === "string" &&
+    (typeof record.status === "string" || record.status === null) &&
+    typeof record.requestDisposition === "string"
   );
 }
 
@@ -140,6 +201,70 @@ export async function postCreateTrainingRun(
   throw buildErrorFromResponse(rawBody, response.status);
 }
 
+export async function getActiveTrainingRun(
+  apiBaseUrl: string,
+  accessToken?: string | null,
+  signal?: AbortSignal,
+): Promise<TrainingRunApiResponse | null> {
+  const response = await fetch(`${apiBaseUrl}/trainings/active`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      ...buildAuthHeaders(accessToken),
+    },
+    signal,
+  });
+
+  if (response.status === 204) {
+    return null;
+  }
+
+  const rawBody = await response.text();
+  const parsed = tryParseJson(rawBody);
+
+  if (response.status === 200) {
+    if (!isTrainingRunApiResponse(parsed)) {
+      throw new Error(
+        "Backend zwrocil niepoprawny ksztalt TrainingRunApiResponse.",
+      );
+    }
+
+    return parsed;
+  }
+
+  throw buildErrorFromResponse(rawBody, response.status);
+}
+
+export async function getRegistryModels(
+  apiBaseUrl: string,
+  accessToken?: string | null,
+  signal?: AbortSignal,
+): Promise<RegistryModelsListApiResponse> {
+  const response = await fetch(`${apiBaseUrl}/models/registry`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      ...buildAuthHeaders(accessToken),
+    },
+    signal,
+  });
+
+  const rawBody = await response.text();
+  const parsed = tryParseJson(rawBody);
+
+  if (response.status === 200) {
+    if (!isRegistryModelsListApiResponse(parsed)) {
+      throw new Error(
+        "Backend zwrocil niepoprawny ksztalt RegistryModelsListApiResponse.",
+      );
+    }
+
+    return parsed;
+  }
+
+  throw buildErrorFromResponse(rawBody, response.status);
+}
+
 export async function postCancelTrainingRun(
   apiBaseUrl: string,
   runName: string,
@@ -163,6 +288,15 @@ export async function postCancelTrainingRun(
 
   if (response.status === 202) {
     if (!isCancelTrainingRunApiResponse(parsed)) {
+      if (isLegacyCancelTrainingRunApiResponse(parsed)) {
+        return {
+          runName: parsed.runName,
+          status: parsed.status,
+          requestDisposition: parsed.requestDisposition,
+          cancellationRequestedAtUtc: null,
+        };
+      }
+
       throw new Error(
         "Backend zwrocil niepoprawny ksztalt CancelTrainingRunApiResponse.",
       );

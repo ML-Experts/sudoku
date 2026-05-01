@@ -612,6 +612,14 @@ h2 {
   padding: 0.55rem 0.7rem;
 }
 
+.uc12-field select {
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.65);
+  color: #e2e8f0;
+  padding: 0.55rem 0.7rem;
+}
+
 .uc12-candidates-list {
   display: grid;
   gap: 0.5rem;
