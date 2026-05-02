@@ -99,8 +99,15 @@ public sealed class ModelsRegistryGateway : IModelsRegistryGateway
             sourceRunName = manifest.SourceRunName,
             parentModelName = manifest.ParentModelName,
             trainingMode = manifest.TrainingMode,
+            framework = manifest.Framework,
             architecture = new
             {
+                type = manifest.ArchitectureType,
+                family = manifest.ArchitectureFamily,
+                numClasses = manifest.ArchitectureNumClasses,
+                inputChannels = manifest.ArchitectureInputChannels,
+                inputHeight = manifest.ArchitectureInputHeight,
+                inputWidth = manifest.ArchitectureInputWidth,
                 inputProfile = manifest.InputProfile
             },
             training = new
@@ -110,12 +117,13 @@ public sealed class ModelsRegistryGateway : IModelsRegistryGateway
             },
             artifacts = new
             {
-                primaryArtifactRelativePath = manifest.PrimaryArtifactRelativePath
+                primaryArtifactRelativePath = manifest.PrimaryArtifactRelativePath,
+                format = manifest.ArtifactFormat
             },
             capabilities = new
             {
                 canStartTraining = true,
-                canUseForInference = true
+                canUseForInference = manifest.CanUseForInference
             },
             metadata = new
             {
@@ -180,6 +188,13 @@ public sealed class ModelsRegistryGateway : IModelsRegistryGateway
             SourceRunName: sourceRunName,
             ParentModelName: GetNullableString(root, "parentModelName"),
             TrainingMode: GetNullableString(root, "trainingMode") ?? ResolveDefaultTrainingMode(sourceType),
+            Framework: GetNullableString(root, "framework"),
+            ArchitectureType: GetNullableString(root, "architecture", "type"),
+            ArchitectureFamily: GetNullableString(root, "architecture", "family"),
+            ArchitectureNumClasses: GetNullableInt(root, "architecture", "numClasses"),
+            ArchitectureInputChannels: GetNullableInt(root, "architecture", "inputChannels"),
+            ArchitectureInputHeight: GetNullableInt(root, "architecture", "inputHeight"),
+            ArchitectureInputWidth: GetNullableInt(root, "architecture", "inputWidth"),
             InputProfile: GetRequiredString(root, "architecture", "inputProfile"),
             TrainingProfileName: GetNullableString(root, "training", "defaultTrainingProfileName")
                 ?? GetNullableString(root, "trainingProfileName"),
@@ -190,6 +205,7 @@ public sealed class ModelsRegistryGateway : IModelsRegistryGateway
             CanStartTraining: canStartTraining,
             CanUseForInference: canUseForInference,
             PrimaryArtifactRelativePath: primaryArtifactRelativePath,
+            ArtifactFormat: GetNullableString(root, "artifacts", "format"),
             Warnings: warnings);
     }
 
@@ -275,6 +291,21 @@ public sealed class ModelsRegistryGateway : IModelsRegistryGateway
         }
 
         return property.GetBoolean();
+    }
+
+    private static int? GetNullableInt(JsonElement root, params string[] path)
+    {
+        if (!TryGetProperty(root, out var property, path) || property.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        if (property.ValueKind != JsonValueKind.Number || !property.TryGetInt32(out var value))
+        {
+            throw new InvalidDataException($"Pole {string.Join('.', path)} musi być liczbą całkowitą albo null.");
+        }
+
+        return value;
     }
 
     private static DateTimeOffset? GetNullableDateTimeOffset(JsonElement root, params string[] path)

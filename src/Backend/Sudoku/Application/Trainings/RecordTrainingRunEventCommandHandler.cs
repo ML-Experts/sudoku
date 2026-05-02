@@ -146,6 +146,9 @@ public sealed class RecordTrainingRunEventCommandHandler
         }
 
         var reportStatus = ResolveReportStatus(result.ReportStatus);
+        var canUseProducedModelForInference = result.CanUseProducedModelForInference
+                                             ?? throw new TrainingRunEventInvalidTransitionException(
+                                                 "Event completed wymaga canUseProducedModelForInference.");
         var baseModel = await _modelsRegistryGateway.GetByNameAsync(metadata.BaseModelName, cancellationToken)
                         ?? throw new TrainingRunEventInvalidTransitionException(
                             "Nie znaleziono modelu bazowego powiązanego z runem.");
@@ -159,10 +162,27 @@ public sealed class RecordTrainingRunEventCommandHandler
                     SourceRunName: metadata.RunName,
                     ParentModelName: metadata.BaseModelName,
                     TrainingMode: metadata.TrainingMode,
+                    Framework: RequireTechnicalModelField(baseModel.Framework, "framework"),
+                    ArchitectureType: RequireTechnicalModelField(baseModel.ArchitectureType, "architecture.type"),
+                    ArchitectureFamily: RequireTechnicalModelField(baseModel.ArchitectureFamily, "architecture.family"),
+                    ArchitectureNumClasses: RequireTechnicalModelField(
+                        baseModel.ArchitectureNumClasses,
+                        "architecture.numClasses"),
+                    ArchitectureInputChannels: RequireTechnicalModelField(
+                        baseModel.ArchitectureInputChannels,
+                        "architecture.inputChannels"),
+                    ArchitectureInputHeight: RequireTechnicalModelField(
+                        baseModel.ArchitectureInputHeight,
+                        "architecture.inputHeight"),
+                    ArchitectureInputWidth: RequireTechnicalModelField(
+                        baseModel.ArchitectureInputWidth,
+                        "architecture.inputWidth"),
                     InputProfile: baseModel.InputProfile,
                     TrainingProfileName: metadata.TrainingProfileName,
                     AugmentationProfileName: metadata.AugmentationProfileName,
                     PrimaryArtifactRelativePath: result.PrimaryArtifactRelativePath.Trim(),
+                    ArtifactFormat: RequireTechnicalModelField(baseModel.ArtifactFormat, "artifacts.format"),
+                    CanUseForInference: canUseProducedModelForInference,
                     CreatedAtUtc: request.OccurredAtUtc),
                 cancellationToken);
         }
@@ -289,6 +309,21 @@ public sealed class RecordTrainingRunEventCommandHandler
         }
 
         throw new TrainingRunEventInvalidTransitionException("Event completed zawiera niedozwolony reportStatus.");
+    }
+
+    private static string RequireTechnicalModelField(string? value, string fieldName)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? throw new TrainingRunEventInvalidTransitionException(
+                $"Model bazowy nie zawiera wymaganego pola technicznego {fieldName}.")
+            : value.Trim();
+    }
+
+    private static int RequireTechnicalModelField(int? value, string fieldName)
+    {
+        return value
+               ?? throw new TrainingRunEventInvalidTransitionException(
+                   $"Model bazowy nie zawiera wymaganego pola technicznego {fieldName}.");
     }
 
     private static IReadOnlyList<string> MergeWarnings(
