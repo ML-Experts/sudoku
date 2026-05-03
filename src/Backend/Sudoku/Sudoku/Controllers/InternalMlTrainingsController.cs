@@ -135,6 +135,7 @@ public sealed class InternalMlTrainingsController : ControllerBase
                 PrimaryArtifactRelativePath: entry.PrimaryArtifactRelativePath,
                 ReportStatus: entry.ReportStatus,
                 ReportRelativePath: entry.ReportRelativePath,
+                CanUseProducedModelForInference: entry.CanUseProducedModelForInference,
                 MetricsSummary: ToMetricsSummaryDto(entry.MetricsSummary));
     }
 

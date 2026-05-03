@@ -5,4 +5,5 @@ public sealed record TrainingRunEventResultApiEntry(
     string? PrimaryArtifactRelativePath,
     string? ReportStatus,
     string? ReportRelativePath,
+    bool? CanUseProducedModelForInference,
     TrainingMetricsSummaryApiEntry? MetricsSummary);
