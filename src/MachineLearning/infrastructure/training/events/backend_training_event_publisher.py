@@ -1,10 +1,15 @@
 import asyncio
+import logging
+from datetime import datetime
 
 import httpx
 
 from application.features.trainings.dto.training_run_event_dto import (
     TrainingRunEventDto,
 )
+
+LOGGER = logging.getLogger(__name__)
+TERMINAL_EVENT_TYPES = {"completed", "failed", "cancelled"}
 
 
 class BackendTrainingEventPublisher:
@@ -30,11 +35,19 @@ class BackendTrainingEventPublisher:
         *,
         terminal: bool = False,
     ) -> None:
+        is_terminal = terminal or event.event_type in TERMINAL_EVENT_TYPES
         max_attempts = (
             self._terminal_event_max_attempts
-            if terminal
+            if is_terminal
             else self._active_event_max_attempts
         )
+        payload = self._to_payload(event)
+        if is_terminal:
+            LOGGER.info(
+                "Publishing terminal training event.",
+                extra=self._event_log_context(event),
+            )
+
         attempt = 0
         while True:
             attempt += 1
@@ -47,15 +60,48 @@ class BackendTrainingEventPublisher:
                             f"{self._backend_base_url}/internal/ml/trainings/"
                             f"{event.run_name}/events"
                         ),
-                        json=self._to_payload(event),
+                        json=payload,
                     )
                 if 200 <= response.status_code < 300:
+                    if is_terminal:
+                        LOGGER.info(
+                            "Terminal training event delivered.",
+                            extra=self._event_log_context(event),
+                        )
                     return
-            except httpx.HTTPError:
-                pass
+                LOGGER.warning(
+                    "Training event delivery returned non-success status.",
+                    extra={
+                        **self._event_log_context(event),
+                        "http_status_code": response.status_code,
+                        "attempt": attempt,
+                    },
+                )
+            except httpx.HTTPError as error:
+                LOGGER.warning(
+                    "Training event delivery failed.",
+                    extra={
+                        **self._event_log_context(event),
+                        "attempt": attempt,
+                        "error_type": type(error).__name__,
+                    },
+                )
 
-            if not terminal or (max_attempts > 0 and attempt >= max_attempts):
+            if max_attempts > 0 and attempt >= max_attempts:
+                if is_terminal:
+                    LOGGER.error(
+                        "Terminal training event delivery exhausted.",
+                        extra=self._event_log_context(event),
+                    )
                 return
+            if is_terminal:
+                LOGGER.warning(
+                    "Retrying terminal training event delivery.",
+                    extra={
+                        **self._event_log_context(event),
+                        "next_attempt": attempt + 1,
+                    },
+                )
             await asyncio.sleep(self._terminal_event_retry_delay_seconds)
 
     def _to_payload(self, event: TrainingRunEventDto) -> dict:
@@ -65,7 +111,7 @@ class BackendTrainingEventPublisher:
             "runName": event.run_name,
             "status": event.status,
             "stage": event.stage,
-            "occurredAtUtc": event.occurred_at_utc.isoformat(),
+            "occurredAtUtc": self._format_utc(event.occurred_at_utc),
             "message": event.message,
             "progress": self._progress_payload(event),
             "warnings": list(event.warnings),
@@ -78,8 +124,8 @@ class BackendTrainingEventPublisher:
             return None
         return {
             "percent": event.progress.percent,
-            "epoch": event.progress.epoch,
-            "totalEpochs": event.progress.total_epochs,
+            "epochCurrent": event.progress.epoch_current,
+            "epochTotal": event.progress.epoch_total,
             "trainLoss": event.progress.train_loss,
             "validationLoss": event.progress.validation_loss,
             "trainAccuracy": event.progress.train_accuracy,
@@ -93,8 +139,6 @@ class BackendTrainingEventPublisher:
         return {
             "producedModelName": event.result.produced_model_name,
             "reportStatus": event.result.report_status,
-            "reportRelativePath": event.result.report_relative_path,
-            "metricsSummary": self._metrics_summary_payload(event),
             "canUseProducedModelForInference": (
                 event.result.can_use_produced_model_for_inference
             ),
@@ -106,10 +150,12 @@ class BackendTrainingEventPublisher:
             "confusionMatrixRelativePath": (
                 event.result.confusion_matrix_relative_path
             ),
+            "metricsSummary": self._metrics_summary_payload(event),
         }
 
     def _metrics_summary_payload(
-        self, event: TrainingRunEventDto
+        self,
+        event: TrainingRunEventDto,
     ) -> dict | None:
         if event.result is None or event.result.metrics_summary is None:
             return None
@@ -117,6 +163,19 @@ class BackendTrainingEventPublisher:
             "accuracy": event.result.metrics_summary.accuracy,
             "macroF1": event.result.metrics_summary.macro_f1,
         }
+
+    def _event_log_context(self, event: TrainingRunEventDto) -> dict:
+        context = {
+            "run_name": event.run_name,
+            "event_type": event.event_type,
+            "sequence": event.sequence,
+        }
+        if event.result is not None:
+            context["report_status"] = event.result.report_status
+        return context
+
+    def _format_utc(self, value: datetime) -> str:
+        return value.isoformat().replace("+00:00", "Z")
 
     def _failure_payload(self, event: TrainingRunEventDto) -> dict | None:
         if event.failure is None:

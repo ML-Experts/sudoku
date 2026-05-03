@@ -108,9 +108,9 @@ export type RegistryModelListItemApiResponse = {
   parentModelName: string | null;
   trainingMode: string;
   inputProfile: string;
-  trainingProfileName: string;
-  augmentationProfileName: string;
-  createdAtUtc: string;
+  trainingProfileName: string | null;
+  augmentationProfileName: string | null;
+  createdAtUtc: string | null;
   canStartTraining: boolean;
   canUseForInference: boolean;
   warnings: string[];

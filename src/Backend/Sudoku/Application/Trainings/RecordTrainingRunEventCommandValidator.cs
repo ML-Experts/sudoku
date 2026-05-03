@@ -27,6 +27,14 @@ public sealed class RecordTrainingRunEventCommandValidator : AbstractValidator<R
         TrainingRunStatus.Cancelled
     };
 
+    private static readonly HashSet<string> AllowedStages = new(StringComparer.Ordinal)
+    {
+        "queued",
+        "training",
+        "evaluation",
+        "finished"
+    };
+
     public RecordTrainingRunEventCommandValidator()
     {
         RuleFor(command => command)
@@ -37,6 +45,7 @@ public sealed class RecordTrainingRunEventCommandValidator : AbstractValidator<R
                 ValidateOccurredAtUtc(command.OccurredAtUtc, context);
                 ValidateKnownValue(command.EventType, nameof(command.EventType), AllowedEventTypes, context);
                 ValidateKnownValue(command.Status, nameof(command.Status), AllowedStatuses, context);
+                ValidateKnownValue(command.Stage, nameof(command.Stage), AllowedStages, context);
                 ValidateProgress(command.Progress, context);
             });
     }

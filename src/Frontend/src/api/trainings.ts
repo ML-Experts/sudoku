@@ -92,9 +92,11 @@ function isRegistryModelListItemApiResponse(
     (typeof record.parentModelName === "string" || record.parentModelName === null) &&
     typeof record.trainingMode === "string" &&
     typeof record.inputProfile === "string" &&
-    typeof record.trainingProfileName === "string" &&
-    typeof record.augmentationProfileName === "string" &&
-    typeof record.createdAtUtc === "string" &&
+    (typeof record.trainingProfileName === "string" ||
+      record.trainingProfileName === null) &&
+    (typeof record.augmentationProfileName === "string" ||
+      record.augmentationProfileName === null) &&
+    (typeof record.createdAtUtc === "string" || record.createdAtUtc === null) &&
     typeof record.canStartTraining === "boolean" &&
     typeof record.canUseForInference === "boolean" &&
     Array.isArray(record.warnings) &&

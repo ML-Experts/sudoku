@@ -37,10 +37,12 @@ public sealed class InternalMlTrainingsController : ControllerBase
             Sequence: entry?.Sequence ?? 0,
             EventType: entry?.EventType,
             Status: entry?.Status,
+            Stage: entry?.Stage,
             OccurredAtUtc: entry?.OccurredAtUtc ?? default,
             Message: entry?.Message,
             Progress: ToProgressDto(entry?.Progress),
             Result: ToResultDto(entry?.Result),
+            Failure: ToFailureDto(entry?.Failure),
             Warnings: entry?.Warnings);
 
         try
@@ -118,12 +120,13 @@ public sealed class InternalMlTrainingsController : ControllerBase
             ? null
             : new TrainingRunProgressDto(
                 Percent: entry.Percent,
-                Epoch: entry.Epoch,
-                TotalEpochs: entry.TotalEpochs,
+                Epoch: entry.EpochCurrent,
+                TotalEpochs: entry.EpochTotal,
                 TrainLoss: entry.TrainLoss,
                 ValidationLoss: entry.ValidationLoss,
                 TrainAccuracy: entry.TrainAccuracy,
-                ValidationAccuracy: entry.ValidationAccuracy);
+                ValidationAccuracy: entry.ValidationAccuracy,
+                EtaSeconds: entry.EtaSeconds);
     }
 
     private static TrainingRunEventResultDto? ToResultDto(TrainingRunEventResultApiEntry? entry)
@@ -135,6 +138,9 @@ public sealed class InternalMlTrainingsController : ControllerBase
                 PrimaryArtifactRelativePath: entry.PrimaryArtifactRelativePath,
                 ReportStatus: entry.ReportStatus,
                 ReportRelativePath: entry.ReportRelativePath,
+                SummaryRelativePath: entry.SummaryRelativePath,
+                MetricsRelativePath: entry.MetricsRelativePath,
+                ConfusionMatrixRelativePath: entry.ConfusionMatrixRelativePath,
                 CanUseProducedModelForInference: entry.CanUseProducedModelForInference,
                 MetricsSummary: ToMetricsSummaryDto(entry.MetricsSummary));
     }
@@ -146,6 +152,16 @@ public sealed class InternalMlTrainingsController : ControllerBase
             : new TrainingMetricsSummaryDto(
                 Accuracy: entry.Accuracy,
                 MacroF1: entry.MacroF1);
+    }
+
+    private static TrainingRunFailureDto? ToFailureDto(TrainingRunFailureApiEntry? entry)
+    {
+        return entry is null
+            ? null
+            : new TrainingRunFailureDto(
+                ErrorType: entry.ErrorType,
+                Message: entry.Message,
+                CanUseProducedModelForInference: entry.CanUseProducedModelForInference);
     }
 
     private static IActionResult MapValidationError(ValidationException exception)
