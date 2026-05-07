@@ -108,9 +108,12 @@ public sealed class RecordTrainingRunEventCommandHandler
         var nextMetadata = metadata with
         {
             Status = nextStatus,
+            Stage = request.Stage?.Trim(),
             UpdatedAtUtc = _timeProvider.GetUtcNow(),
             LastAcceptedSequence = request.Sequence,
             LastEventType = request.EventType,
+            LastEventMessage = string.IsNullOrWhiteSpace(request.Message) ? null : request.Message.Trim(),
+            LastEventOccurredAtUtc = request.OccurredAtUtc,
             StartedAtUtc = ResolveStartedAtUtc(metadata, nextStatus, request.OccurredAtUtc),
             Progress = request.Progress ?? metadata.Progress,
             Warnings = MergeWarnings(metadata.Warnings, request.Warnings)
@@ -201,6 +204,11 @@ public sealed class RecordTrainingRunEventCommandHandler
             FinishedAtUtc = request.OccurredAtUtc,
             ReportStatus = reportStatus,
             ReportRelativePath = result.ReportRelativePath,
+            PrimaryArtifactRelativePath = result.PrimaryArtifactRelativePath,
+            ReportArtifacts = new TrainingReportArtifactsDto(
+                SummaryRelativePath: result.SummaryRelativePath,
+                MetricsRelativePath: result.MetricsRelativePath,
+                ConfusionMatrixRelativePath: result.ConfusionMatrixRelativePath),
             MetricsSummary = result.MetricsSummary
         };
     }
@@ -218,7 +226,10 @@ public sealed class RecordTrainingRunEventCommandHandler
         {
             Status = TrainingRunStatus.Failed,
             FinishedAtUtc = request.OccurredAtUtc,
-            FailureReason = string.IsNullOrWhiteSpace(request.Message) ? null : request.Message.Trim(),
+            FailureReason = ResolveFailureMessage(request),
+            FailureErrorType = string.IsNullOrWhiteSpace(request.Failure?.ErrorType)
+                ? null
+                : request.Failure.ErrorType.Trim(),
             CleanupWarnings = MergeWarnings(metadata.CleanupWarnings, cleanupWarnings)
         };
     }
@@ -297,11 +308,11 @@ public sealed class RecordTrainingRunEventCommandHandler
     {
         if (string.IsNullOrWhiteSpace(reportStatus))
         {
-            return TrainingReportStatus.Ok;
+            return TrainingReportStatus.Ready;
         }
 
         var trimmedStatus = reportStatus.Trim();
-        if (trimmedStatus is TrainingReportStatus.Ok
+        if (trimmedStatus is TrainingReportStatus.Ready
             or TrainingReportStatus.Missing
             or TrainingReportStatus.Corrupted)
         {
@@ -317,6 +328,16 @@ public sealed class RecordTrainingRunEventCommandHandler
             ? throw new TrainingRunEventInvalidTransitionException(
                 $"Model bazowy nie zawiera wymaganego pola technicznego {fieldName}.")
             : value.Trim();
+    }
+
+    private static string? ResolveFailureMessage(RecordTrainingRunEventCommand request)
+    {
+        if (!string.IsNullOrWhiteSpace(request.Failure?.Message))
+        {
+            return request.Failure.Message.Trim();
+        }
+
+        return string.IsNullOrWhiteSpace(request.Message) ? null : request.Message.Trim();
     }
 
     private static int RequireTechnicalModelField(int? value, string fieldName)

@@ -15,10 +15,148 @@ namespace Sudoku.Controllers;
 public sealed class TrainingsController : ControllerBase
 {
     private readonly ISender _sender;
+    private readonly ILogger<TrainingsController> _logger;
 
-    public TrainingsController(ISender sender)
+    public TrainingsController(
+        ISender sender,
+        ILogger<TrainingsController> logger)
     {
         _sender = sender;
+        _logger = logger;
+    }
+
+    [Authorize]
+    [HttpGet]
+    [ProducesResponseType(typeof(TrainingRunsListApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> ListAsync(CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Rozpoczęto listowanie runów treningowych.");
+
+        try
+        {
+            var result = await _sender.Send(new ListTrainingRunsQuery(), cancellationToken);
+            var items = result.Items
+                .Select(ToTrainingRunListItemApiResponse)
+                .ToArray();
+
+            _logger.LogInformation(
+                "Zakończono listowanie runów treningowych. TotalCount={TotalCount}.",
+                result.TotalCount);
+
+            return Ok(new TrainingRunsListApiResponse(
+                Items: items,
+                TotalCount: result.TotalCount));
+        }
+        catch (Exception exception) when (exception is IOException
+                                         or UnauthorizedAccessException
+                                         or InvalidDataException
+                                         or JsonException
+                                         or FileStorageItemNotFoundException)
+        {
+            _logger.LogError(
+                exception,
+                "Nie udało się odczytać listy runów treningowych. ErrorType={ErrorType}.",
+                ListTrainingRunsErrorTypes.ReadFailed);
+
+            return StatusCode(
+                StatusCodes.Status500InternalServerError,
+                new ErrorApiResponse(
+                    ErrorType: ListTrainingRunsErrorTypes.ReadFailed,
+                    Message: "Nie udało się odczytać listy runów treningowych."));
+        }
+    }
+
+    [Authorize]
+    [HttpGet("{runName}")]
+    [ProducesResponseType(typeof(TrainingRunDetailsApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> GetByRunNameAsync(
+        [FromRoute] string? runName,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation(
+            "Rozpoczęto odczyt szczegółów runu treningowego. RunName={RunName}.",
+            runName);
+
+        try
+        {
+            var result = await _sender.Send(new GetTrainingRunDetailsQuery(runName), cancellationToken);
+            var response = ToTrainingRunDetailsApiResponse(result.Details);
+
+            _logger.LogInformation(
+                "Zakończono odczyt szczegółów runu treningowego. RunName={RunName}, Status={Status}, ReportStatus={ReportStatus}.",
+                response.RunName,
+                response.Status,
+                response.Report.Status);
+
+            return Ok(response);
+        }
+        catch (ValidationException exception)
+        {
+            return MapValidationError(exception, GetTrainingRunDetailsErrorTypes.InvalidTrainingRunName);
+        }
+        catch (TrainingRunDetailsNotFoundException exception)
+        {
+            _logger.LogWarning(
+                exception,
+                "Nie znaleziono runu treningowego. RunName={RunName}, ErrorType={ErrorType}.",
+                runName,
+                GetTrainingRunDetailsErrorTypes.TrainingRunNotFound);
+
+            return NotFound(new ErrorApiResponse(
+                ErrorType: GetTrainingRunDetailsErrorTypes.TrainingRunNotFound,
+                Message: exception.Message));
+        }
+        catch (TrainingRunDetailsConflictException exception)
+        {
+            _logger.LogWarning(
+                exception,
+                "Wykryto niespójne szczegóły runu treningowego. RunName={RunName}, ErrorType={ErrorType}.",
+                runName,
+                GetTrainingRunDetailsErrorTypes.TrainingRunDetailsConflict);
+
+            return Conflict(new ErrorApiResponse(
+                ErrorType: GetTrainingRunDetailsErrorTypes.TrainingRunDetailsConflict,
+                Message: exception.Message));
+        }
+        catch (TrainingRunReportInvalidException exception)
+        {
+            _logger.LogError(
+                exception,
+                "Raport runu treningowego nie spełnia kontraktu. RunName={RunName}, ErrorType={ErrorType}.",
+                runName,
+                GetTrainingRunDetailsErrorTypes.TrainingRunReportInvalid);
+
+            return UnprocessableEntity(new ErrorApiResponse(
+                ErrorType: GetTrainingRunDetailsErrorTypes.TrainingRunReportInvalid,
+                Message: exception.Message));
+        }
+        catch (Exception exception) when (exception is IOException
+                                         or UnauthorizedAccessException
+                                         or InvalidDataException
+                                         or JsonException
+                                         or FileStorageItemNotFoundException
+                                         or InvalidOperationException)
+        {
+            _logger.LogError(
+                exception,
+                "Nie udało się odczytać szczegółów runu treningowego. RunName={RunName}, ErrorType={ErrorType}.",
+                runName,
+                GetTrainingRunDetailsErrorTypes.TrainingRunDetailsReadFailed);
+
+            return StatusCode(
+                StatusCodes.Status500InternalServerError,
+                new ErrorApiResponse(
+                    ErrorType: GetTrainingRunDetailsErrorTypes.TrainingRunDetailsReadFailed,
+                    Message: "Nie udało się odczytać szczegółów runu treningowego."));
+        }
     }
 
     [Authorize]
@@ -262,6 +400,90 @@ public sealed class TrainingsController : ControllerBase
         }
     }
 
+    private static TrainingRunDetailsApiResponse ToTrainingRunDetailsApiResponse(TrainingRunDetailsDto details)
+    {
+        return new TrainingRunDetailsApiResponse(
+            RunName: details.RunName,
+            Status: details.Status,
+            Stage: details.Stage,
+            CreatedAtUtc: details.CreatedAtUtc,
+            StartedAtUtc: details.StartedAtUtc,
+            FinishedAtUtc: details.FinishedAtUtc,
+            BaseModel: ToTrainingRunModelReferenceApiResponse(details.BaseModel),
+            ProducedModel: details.ProducedModel is null
+                ? null
+                : ToTrainingRunModelReferenceApiResponse(details.ProducedModel),
+            Dataset: new TrainingRunDatasetDetailsApiResponse(
+                ProcessedDatasetName: details.Dataset.ProcessedDatasetName,
+                PreprocessingProfile: details.Dataset.PreprocessingProfile,
+                SampleCounts: details.Dataset.SampleCounts is null
+                    ? null
+                    : new TrainingDatasetSampleCountsApiResponse(
+                        Train: details.Dataset.SampleCounts.Train,
+                        Val: details.Dataset.SampleCounts.Val,
+                        Test: details.Dataset.SampleCounts.Test)),
+            Configuration: new TrainingRunConfigurationApiResponse(
+                TrainingMode: details.Configuration.TrainingMode,
+                TrainingProfileName: details.Configuration.TrainingProfileName,
+                AugmentationProfileName: details.Configuration.AugmentationProfileName,
+                BenchmarkName: details.Configuration.BenchmarkName,
+                Seed: details.Configuration.Seed,
+                SourceRevision: details.Configuration.SourceRevision),
+            Progress: ToTrainingRunProgressApiResponse(details.Progress),
+            Report: ToTrainingRunReportApiResponse(details.Report),
+            Warnings: details.Warnings);
+    }
+
+    private static TrainingRunModelReferenceApiResponse ToTrainingRunModelReferenceApiResponse(
+        TrainingRunModelReferenceDto model)
+    {
+        return new TrainingRunModelReferenceApiResponse(
+            Name: model.Name,
+            DisplayName: model.DisplayName,
+            SourceType: model.SourceType,
+            SourceRunName: model.SourceRunName,
+            ParentModelName: model.ParentModelName,
+            InputProfile: model.InputProfile,
+            CanUseForInference: model.CanUseForInference,
+            CanStartTraining: model.CanStartTraining);
+    }
+
+    private static TrainingRunReportApiResponse ToTrainingRunReportApiResponse(TrainingRunReportDto report)
+    {
+        return new TrainingRunReportApiResponse(
+            Status: report.Status,
+            Summary: report.Summary is null
+                ? null
+                : new TrainingReportSummaryApiResponse(
+                    Accuracy: report.Summary.Accuracy,
+                    PrecisionMacro: report.Summary.PrecisionMacro,
+                    RecallMacro: report.Summary.RecallMacro,
+                    F1Macro: report.Summary.F1Macro,
+                    TrainingDurationSeconds: report.Summary.TrainingDurationSeconds,
+                    AverageInferenceTimeMs: report.Summary.AverageInferenceTimeMs),
+            PerClassMetrics: report.PerClassMetrics
+                .Select(metric => new TrainingClassMetricApiResponse(
+                    Label: metric.Label,
+                    Precision: metric.Precision,
+                    Recall: metric.Recall,
+                    F1: metric.F1,
+                    Support: metric.Support))
+                .ToArray(),
+            History: report.History
+                .Select(point => new TrainingMetricHistoryPointApiResponse(
+                    Epoch: point.Epoch,
+                    TrainLoss: point.TrainLoss,
+                    ValidationLoss: point.ValidationLoss,
+                    TrainAccuracy: point.TrainAccuracy,
+                    ValidationAccuracy: point.ValidationAccuracy))
+                .ToArray(),
+            ConfusionMatrix: report.ConfusionMatrix is null
+                ? null
+                : new TrainingConfusionMatrixApiResponse(
+                    ClassNames: report.ConfusionMatrix.ClassNames,
+                    Matrix: report.ConfusionMatrix.Matrix));
+    }
+
     private static TrainingRunApiResponse ToTrainingRunApiResponse(CreateTrainingRunCommandResultDto result)
     {
         return new TrainingRunApiResponse(
@@ -277,6 +499,60 @@ public sealed class TrainingsController : ControllerBase
             BenchmarkName: result.BenchmarkName,
             Seed: result.Seed,
             ProgressChannelUrl: result.ProgressChannelUrl);
+    }
+
+    private static TrainingRunListItemApiResponse ToTrainingRunListItemApiResponse(TrainingRunListItemDto item)
+    {
+        return new TrainingRunListItemApiResponse(
+            RunName: item.RunName,
+            Status: item.Status,
+            CreatedAtUtc: item.CreatedAtUtc,
+            UpdatedAtUtc: item.UpdatedAtUtc,
+            StartedAtUtc: item.StartedAtUtc,
+            FinishedAtUtc: item.FinishedAtUtc,
+            BaseModelName: item.BaseModelName,
+            ProducedModelName: item.ProducedModelName,
+            ProcessedDatasetName: item.ProcessedDatasetName,
+            TrainingMode: item.TrainingMode,
+            TrainingProfileName: item.TrainingProfileName,
+            AugmentationProfileName: item.AugmentationProfileName,
+            BenchmarkName: item.BenchmarkName,
+            ReportStatus: item.ReportStatus,
+            Progress: ToTrainingRunProgressApiResponse(item.Progress),
+            MetricsSummary: ToTrainingMetricsSummaryApiResponse(item.MetricsSummary),
+            Warnings: item.Warnings);
+    }
+
+    private static TrainingRunProgressApiResponse? ToTrainingRunProgressApiResponse(
+        TrainingRunProgressDto? progress)
+    {
+        if (progress is null)
+        {
+            return null;
+        }
+
+        return new TrainingRunProgressApiResponse(
+            Percent: progress.Percent,
+            EpochCurrent: progress.Epoch,
+            EpochTotal: progress.TotalEpochs,
+            TrainLoss: progress.TrainLoss,
+            ValidationLoss: progress.ValidationLoss,
+            TrainAccuracy: progress.TrainAccuracy,
+            ValidationAccuracy: progress.ValidationAccuracy,
+            EtaSeconds: progress.EtaSeconds);
+    }
+
+    private static TrainingMetricsSummaryApiResponse? ToTrainingMetricsSummaryApiResponse(
+        TrainingMetricsSummaryDto? metricsSummary)
+    {
+        if (metricsSummary is null)
+        {
+            return null;
+        }
+
+        return new TrainingMetricsSummaryApiResponse(
+            Accuracy: metricsSummary.Accuracy,
+            MacroF1: metricsSummary.MacroF1);
     }
 
     private static IActionResult MapValidationError(

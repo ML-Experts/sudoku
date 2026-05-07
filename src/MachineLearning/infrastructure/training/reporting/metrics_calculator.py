@@ -26,6 +26,7 @@ class MetricsCalculator:
             true_positive = int(confusion_matrix[index, index])
             false_positive = int(confusion_matrix[:, index].sum()) - true_positive
             false_negative = int(confusion_matrix[index, :].sum()) - true_positive
+            support = int(confusion_matrix[index, :].sum())
             precision = self._safe_divide(
                 true_positive,
                 true_positive + false_positive,
@@ -44,6 +45,7 @@ class MetricsCalculator:
                     "precision": precision,
                     "recall": recall,
                     "f1": f1,
+                    "support": support,
                 }
             )
 
@@ -53,6 +55,7 @@ class MetricsCalculator:
             "recallMacro": float(np.mean(recall_values)),
             "f1Macro": float(np.mean(f1_values)),
             "perClass": per_class,
+            "classes": per_class,
             "confusionMatrix": confusion_matrix.tolist(),
             "classNames": list(class_names),
         }

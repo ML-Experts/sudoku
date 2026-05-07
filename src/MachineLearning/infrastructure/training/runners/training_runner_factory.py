@@ -71,6 +71,7 @@ class TrainingRunnerFactory:
                 profile_catalog=profile_catalog,
                 utc_clock=self._utc_clock,
                 interval_seconds=self._settings.mock_interval_seconds,
+                report_writer=TrainingReportWriter(),
             )
         if runner_name == "pytorch":
             return PytorchTrainingRunner(

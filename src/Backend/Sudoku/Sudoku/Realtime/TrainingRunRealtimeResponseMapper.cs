@@ -1,49 +1,83 @@
 using Sudoku.Application.Trainings;
 using Sudoku.Contracts;
+using Sudoku.Models.Trainings;
 
 namespace Sudoku.Realtime;
 
 public static class TrainingRunRealtimeResponseMapper
 {
-    public const string SnapshotMessageKind = "snapshot";
-    public const string EventMessageKind = "event";
+    private const string SnapshotEventType = "snapshot";
+    private const string StatusChangedEventType = "statusChanged";
+    private const string TrainingStage = "training";
+    private const string QueuedStage = "queued";
+    private const string EvaluationStage = "evaluation";
+    private const string FinishedStage = "finished";
+    private const string DefaultFailureErrorType = "training_run_failed";
 
-    public static TrainingRunRealtimeApiResponse ToApiResponse(
-        TrainingRunRealtimeSnapshotDto snapshot,
-        string messageKind)
+    public static TrainingRunSocketEventApiResponse ToSnapshotApiResponse(
+        TrainingRunRealtimeSnapshotDto snapshot)
     {
-        return new TrainingRunRealtimeApiResponse(
-            MessageKind: messageKind,
+        return ToApiResponse(
+            EventType: SnapshotEventType,
+            Sequence: snapshot.LastAcceptedSequence ?? 0,
             RunName: snapshot.RunName,
             Status: snapshot.Status,
-            CreatedAtUtc: snapshot.CreatedAtUtc,
-            UpdatedAtUtc: snapshot.UpdatedAtUtc,
-            StartedAtUtc: snapshot.StartedAtUtc,
-            FinishedAtUtc: snapshot.FinishedAtUtc,
-            BaseModelName: snapshot.BaseModelName,
-            ProducedModelName: snapshot.ProducedModelName,
-            ProcessedDatasetName: snapshot.ProcessedDatasetName,
-            TrainingMode: snapshot.TrainingMode,
-            TrainingProfileName: snapshot.TrainingProfileName,
-            AugmentationProfileName: snapshot.AugmentationProfileName,
-            BenchmarkName: snapshot.BenchmarkName,
-            Seed: snapshot.Seed,
-            LastAcceptedSequence: snapshot.LastAcceptedSequence,
-            LastEventType: snapshot.LastEventType,
-            Progress: ToProgressApiResponse(snapshot.Progress),
-            MetricsSummary: ToMetricsSummaryApiResponse(snapshot.MetricsSummary),
-            ReportStatus: snapshot.ReportStatus,
-            ReportRelativePath: snapshot.ReportRelativePath,
-            Warnings: snapshot.Warnings,
-            CleanupWarnings: snapshot.CleanupWarnings,
-            FailureReason: snapshot.FailureReason);
+            Stage: ResolveStage(snapshot.Status, snapshot.Stage),
+            OccurredAtUtc: snapshot.LastEventOccurredAtUtc
+                           ?? snapshot.UpdatedAtUtc
+                           ?? snapshot.CreatedAtUtc,
+            Message: snapshot.LastEventMessage,
+            Progress: snapshot.Progress,
+            Warnings: MergeWarnings(snapshot.Warnings, snapshot.CleanupWarnings),
+            Result: BuildResult(snapshot),
+            Failure: BuildFailure(snapshot));
     }
 
-    public static TrainingRunRealtimeApiResponse ToApiResponse(
-        TrainingRunMetadataDto metadata,
-        string messageKind)
+    public static TrainingRunSocketEventApiResponse ToEventApiResponse(
+        TrainingRunMetadataDto metadata)
     {
-        return ToApiResponse(ToSnapshot(metadata), messageKind);
+        var snapshot = ToSnapshot(metadata);
+        return ToApiResponse(
+            EventType: snapshot.LastEventType ?? StatusChangedEventType,
+            Sequence: snapshot.LastAcceptedSequence ?? 0,
+            RunName: snapshot.RunName,
+            Status: snapshot.Status,
+            Stage: ResolveStage(snapshot.Status, snapshot.Stage),
+            OccurredAtUtc: snapshot.LastEventOccurredAtUtc
+                           ?? snapshot.UpdatedAtUtc
+                           ?? snapshot.CreatedAtUtc,
+            Message: snapshot.LastEventMessage,
+            Progress: snapshot.Progress,
+            Warnings: MergeWarnings(snapshot.Warnings, snapshot.CleanupWarnings),
+            Result: BuildResult(snapshot),
+            Failure: BuildFailure(snapshot));
+    }
+
+    private static TrainingRunSocketEventApiResponse ToApiResponse(
+        string EventType,
+        long Sequence,
+        string RunName,
+        string Status,
+        string Stage,
+        DateTimeOffset OccurredAtUtc,
+        string? Message,
+        TrainingRunProgressDto? Progress,
+        IReadOnlyList<string> Warnings,
+        TrainingRunResultApiResponse? Result,
+        TrainingRunFailureApiResponse? Failure)
+    {
+        return new TrainingRunSocketEventApiResponse(
+            EventType: EventType,
+            Sequence: Sequence,
+            RunName: RunName,
+            Status: Status,
+            Stage: Stage,
+            OccurredAtUtc: OccurredAtUtc,
+            Message: Message,
+            Progress: ToProgressApiResponse(Progress),
+            Warnings: Warnings,
+            Result: Result,
+            Failure: Failure);
     }
 
     private static TrainingRunRealtimeSnapshotDto ToSnapshot(TrainingRunMetadataDto metadata)
@@ -65,13 +99,19 @@ public static class TrainingRunRealtimeResponseMapper
             Seed: metadata.Seed,
             LastAcceptedSequence: metadata.LastAcceptedSequence,
             LastEventType: metadata.LastEventType,
+            Stage: metadata.Stage,
+            LastEventMessage: metadata.LastEventMessage,
+            LastEventOccurredAtUtc: metadata.LastEventOccurredAtUtc,
             Progress: metadata.Progress,
             MetricsSummary: metadata.MetricsSummary,
             ReportStatus: metadata.ReportStatus,
             ReportRelativePath: metadata.ReportRelativePath,
+            PrimaryArtifactRelativePath: metadata.PrimaryArtifactRelativePath,
+            ReportArtifacts: metadata.ReportArtifacts,
             Warnings: metadata.Warnings ?? Array.Empty<string>(),
             CleanupWarnings: metadata.CleanupWarnings ?? Array.Empty<string>(),
-            FailureReason: metadata.FailureReason);
+            FailureReason: metadata.FailureReason,
+            FailureErrorType: metadata.FailureErrorType);
     }
 
     private static TrainingRunProgressApiResponse? ToProgressApiResponse(TrainingRunProgressDto? progress)
@@ -80,12 +120,13 @@ public static class TrainingRunRealtimeResponseMapper
             ? null
             : new TrainingRunProgressApiResponse(
                 Percent: progress.Percent,
-                Epoch: progress.Epoch,
-                TotalEpochs: progress.TotalEpochs,
+                EpochCurrent: progress.Epoch,
+                EpochTotal: progress.TotalEpochs,
                 TrainLoss: progress.TrainLoss,
                 ValidationLoss: progress.ValidationLoss,
                 TrainAccuracy: progress.TrainAccuracy,
-                ValidationAccuracy: progress.ValidationAccuracy);
+                ValidationAccuracy: progress.ValidationAccuracy,
+                EtaSeconds: progress.EtaSeconds);
     }
 
     private static TrainingMetricsSummaryApiResponse? ToMetricsSummaryApiResponse(
@@ -96,5 +137,69 @@ public static class TrainingRunRealtimeResponseMapper
             : new TrainingMetricsSummaryApiResponse(
                 Accuracy: metricsSummary.Accuracy,
                 MacroF1: metricsSummary.MacroF1);
+    }
+
+    private static TrainingRunResultApiResponse? BuildResult(TrainingRunRealtimeSnapshotDto snapshot)
+    {
+        if (!TrainingRunStatus.IsTerminal(snapshot.Status)
+            || !string.Equals(snapshot.Status, TrainingRunStatus.Succeeded, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        return new TrainingRunResultApiResponse(
+            ProducedModelName: snapshot.ProducedModelName,
+            ReportStatus: snapshot.ReportStatus ?? "missing",
+            CanUseProducedModelForInference: true,
+            PrimaryArtifactRelativePath: snapshot.PrimaryArtifactRelativePath ?? string.Empty,
+            SummaryRelativePath: snapshot.ReportArtifacts?.SummaryRelativePath,
+            MetricsRelativePath: snapshot.ReportArtifacts?.MetricsRelativePath,
+            ConfusionMatrixRelativePath: snapshot.ReportArtifacts?.ConfusionMatrixRelativePath,
+            MetricsSummary: ToMetricsSummaryApiResponse(snapshot.MetricsSummary));
+    }
+
+    private static TrainingRunFailureApiResponse? BuildFailure(TrainingRunRealtimeSnapshotDto snapshot)
+    {
+        if (!string.Equals(snapshot.Status, TrainingRunStatus.Failed, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        return new TrainingRunFailureApiResponse(
+            ErrorType: string.IsNullOrWhiteSpace(snapshot.FailureErrorType)
+                ? DefaultFailureErrorType
+                : snapshot.FailureErrorType,
+            Message: string.IsNullOrWhiteSpace(snapshot.FailureReason)
+                ? "Run treningowy zakończył się błędem technicznym."
+                : snapshot.FailureReason,
+            CanUseProducedModelForInference: false);
+    }
+
+    private static string ResolveStage(string status, string? stage)
+    {
+        if (!string.IsNullOrWhiteSpace(stage))
+        {
+            return stage;
+        }
+
+        return status switch
+        {
+            TrainingRunStatus.Queued or TrainingRunStatus.Starting => QueuedStage,
+            TrainingRunStatus.Succeeded or TrainingRunStatus.Cancelled => FinishedStage,
+            TrainingRunStatus.Failed => EvaluationStage,
+            _ => TrainingStage
+        };
+    }
+
+    private static IReadOnlyList<string> MergeWarnings(
+        IReadOnlyList<string> warnings,
+        IReadOnlyList<string> cleanupWarnings)
+    {
+        return warnings
+            .Concat(cleanupWarnings)
+            .Where(warning => !string.IsNullOrWhiteSpace(warning))
+            .Select(warning => warning.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
     }
 }

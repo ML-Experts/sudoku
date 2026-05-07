@@ -2,9 +2,10 @@ namespace Sudoku.Contracts;
 
 public sealed record TrainingRunProgressApiEntry(
     decimal? Percent,
-    int? Epoch,
-    int? TotalEpochs,
+    int? EpochCurrent,
+    int? EpochTotal,
     decimal? TrainLoss,
     decimal? ValidationLoss,
     decimal? TrainAccuracy,
-    decimal? ValidationAccuracy);
+    decimal? ValidationAccuracy,
+    int? EtaSeconds);

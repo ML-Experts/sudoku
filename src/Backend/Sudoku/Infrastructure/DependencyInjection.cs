@@ -41,7 +41,9 @@ public static class DependencyInjection
         services.AddTransient<IFileStorageGateway, LocalFileStorageGateway>();
         services.AddTransient<IProcessedDatasetsGateway, ProcessedDatasetsGateway>();
         services.AddTransient<IModelsRegistryGateway, ModelsRegistryGateway>();
+        services.AddTransient<IActiveModelPointerGateway, ActiveModelPointerGateway>();
         services.AddTransient<ITrainingRunsGateway, TrainingRunsGateway>();
+        services.AddTransient<ITrainingReportsGateway, TrainingReportsGateway>();
         services.AddTransient<ITrainingArtifactsCleanupGateway, TrainingArtifactsCleanupGateway>();
         services.AddTransient<ITrainingEventsPathProvider, MlTrainingEventsPathProvider>();
 

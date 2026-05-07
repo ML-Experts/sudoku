@@ -36,7 +36,7 @@ flowchart TD
 
     O --> V[ML worker: wykonuje trening w tle<br/>write tmp/trainings/{runName}/...<br/>write trainings/runs/{runName}/...]
 
-    V --> VA[ML worker: zapisuje artefakty i raport<br/>write models/registry/{producedModelName}/artifacts/model.keras<br/>write trainings/reports/{runName}/...]
+    V --> VA[ML worker: zapisuje artefakty i raport<br/>write models/registry/{producedModelName}/artifacts/model.pt<br/>write trainings/reports/{runName}/...]
 
     VA -->|ML -> BE<br/>POST /internal/ml/trainings/{runName}/events| W[BE: zapisuje event i aktualizuje status<br/>update trainings/metadata/{runName}.json]
 

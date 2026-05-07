@@ -97,7 +97,20 @@ class TrainingRunProgressApiEntry(BaseModel):
     percent: float | None = None
     epoch_current: int | None = Field(default=None, alias="epochCurrent")
     epoch_total: int | None = Field(default=None, alias="epochTotal")
+    train_loss: float | None = Field(default=None, alias="trainLoss")
+    validation_loss: float | None = Field(default=None, alias="validationLoss")
+    train_accuracy: float | None = Field(default=None, alias="trainAccuracy")
+    validation_accuracy: float | None = Field(
+        default=None, alias="validationAccuracy"
+    )
     eta_seconds: int | None = Field(default=None, alias="etaSeconds")
+
+
+class TrainingMetricsSummaryApiEntry(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    accuracy: float | None = None
+    macro_f1: float | None = Field(default=None, alias="macroF1")
 
 
 class TrainingRunResultApiEntry(BaseModel):
@@ -115,6 +128,9 @@ class TrainingRunResultApiEntry(BaseModel):
     metrics_relative_path: str | None = Field(alias="metricsRelativePath")
     confusion_matrix_relative_path: str | None = Field(
         alias="confusionMatrixRelativePath"
+    )
+    metrics_summary: TrainingMetricsSummaryApiEntry | None = Field(
+        default=None, alias="metricsSummary"
     )
 
 
