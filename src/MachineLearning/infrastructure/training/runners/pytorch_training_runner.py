@@ -1,5 +1,7 @@
+import logging
 import random
 from pathlib import Path
+from time import perf_counter
 
 import numpy as np
 import torch
@@ -23,10 +25,17 @@ from infrastructure.training.cancellation.cancellation_token import (
     CancellationToken,
     CancelledTrainingRun,
 )
+from infrastructure.training.reporting.training_report_writer import (
+    ReportCorruptedError,
+)
 from models.report_status import ReportStatus
 from models.training_run_event_type import TrainingRunEventType
 from models.training_run_stage import TrainingRunStage
 from models.training_run_status import TrainingRunStatus
+
+LOGGER = logging.getLogger(__name__)
+REPORT_MISSING_WARNING = "training_report_missing"
+REPORT_CORRUPTED_WARNING = "training_report_corrupted"
 
 
 class PytorchTrainingRunner:
@@ -69,6 +78,7 @@ class PytorchTrainingRunner:
         context: TrainingRunContextDto,
         cancellation_token: CancellationToken,
     ) -> None:
+        training_started_at = perf_counter()
         sequence = TrainingEventSequence()
         profile = self._profile_catalog.get(
             context.resolved_configuration.training_profile_name,
@@ -137,8 +147,10 @@ class PytorchTrainingRunner:
                 history.append(
                     {
                         "epoch": epoch,
-                        "train": train_metrics,
-                        "val": val_metrics,
+                        "trainLoss": train_metrics["loss"],
+                        "validationLoss": val_metrics["loss"],
+                        "trainAccuracy": train_metrics["accuracy"],
+                        "validationAccuracy": val_metrics["accuracy"],
                     }
                 )
                 self._write_checkpoint(context, model, epoch)
@@ -161,18 +173,15 @@ class PytorchTrainingRunner:
                 epoch_total=profile.epochs,
             )
             evaluation_loader = self._select_evaluation_loader(dataloaders)
-            y_true, y_pred = self._predict(model, evaluation_loader, device)
+            y_true, y_pred, average_inference_time_ms = self._predict(
+                model,
+                evaluation_loader,
+                device,
+            )
             metrics = self._metrics_calculator.calculate(
                 y_true,
                 y_pred,
                 arrays.class_names,
-            )
-            report_paths = self._write_reports(
-                context,
-                profile.epochs,
-                device,
-                metrics,
-                history,
             )
             cancellation_token.throw_if_cancelled()
             artifact_relative_path = self._artifact_writer.write(
@@ -180,16 +189,62 @@ class PytorchTrainingRunner:
                 context.output_model.directory_path,
                 context.model_manifest,
             )
+            report_status = ReportStatus.READY.value
+            warnings = ()
+            try:
+                report_paths = self._write_reports(
+                    context,
+                    profile.epochs,
+                    device,
+                    metrics,
+                    history,
+                    training_duration_seconds=round(
+                        perf_counter() - training_started_at,
+                        3,
+                    ),
+                    average_inference_time_ms=average_inference_time_ms,
+                )
+            except ReportCorruptedError as error:
+                LOGGER.warning(
+                    "Training report validation failed after model artifact was written.",
+                    extra={
+                        "run_name": context.run_name,
+                        "error_type": type(error).__name__,
+                    },
+                )
+                report_status = ReportStatus.CORRUPTED.value
+                warnings = (REPORT_CORRUPTED_WARNING,)
+                report_paths = {
+                    "summary": None,
+                    "metrics": None,
+                    "confusionMatrix": None,
+                }
+            except Exception as error:
+                LOGGER.warning(
+                    "Training report write failed after model artifact was written.",
+                    extra={
+                        "run_name": context.run_name,
+                        "error_type": type(error).__name__,
+                    },
+                )
+                report_status = ReportStatus.MISSING.value
+                warnings = (REPORT_MISSING_WARNING,)
+                report_paths = {
+                    "summary": None,
+                    "metrics": None,
+                    "confusionMatrix": None,
+                }
             await self._publish_completed(
                 sequence,
                 context,
                 artifact_relative_path,
                 report_paths,
+                report_status,
                 TrainingMetricsSummaryDto(
                     accuracy=metrics.get("accuracy"),
                     macro_f1=metrics.get("f1Macro"),
                 ),
-                warnings=(),
+                warnings=warnings,
             )
         except CancelledTrainingRun:
             await self._publish_cancelled(sequence, context)
@@ -298,18 +353,36 @@ class PytorchTrainingRunner:
         model: nn.Module,
         dataloader: DataLoader,
         device: torch.device,
-    ) -> tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray, float | None]:
         model.eval()
         y_true = []
         y_pred = []
+        inference_seconds = 0.0
+        inference_count = 0
         with torch.no_grad():
             for images, labels in dataloader:
-                logits = model(images.to(device))
+                device_images = images.to(device)
+                batch_started_at = perf_counter()
+                logits = model(device_images)
+                if device.type == "cuda":
+                    torch.cuda.synchronize(device)
+                inference_seconds += perf_counter() - batch_started_at
+                inference_count += int(labels.shape[0])
                 y_true.extend(labels.cpu().numpy().astype(np.int64).tolist())
                 y_pred.extend(
                     logits.argmax(dim=1).cpu().numpy().astype(np.int64).tolist()
                 )
-        return np.array(y_true, dtype=np.int64), np.array(y_pred, dtype=np.int64)
+        average_inference_time_ms = None
+        if inference_count > 0:
+            average_inference_time_ms = round(
+                inference_seconds * 1000 / inference_count,
+                4,
+            )
+        return (
+            np.array(y_true, dtype=np.int64),
+            np.array(y_pred, dtype=np.int64),
+            average_inference_time_ms,
+        )
 
     def _write_checkpoint(
         self,
@@ -331,11 +404,14 @@ class PytorchTrainingRunner:
         device: torch.device,
         metrics: dict,
         history: list[dict],
+        training_duration_seconds: float,
+        average_inference_time_ms: float | None,
     ) -> dict[str, str | None]:
         summary = {
             "runName": context.run_name,
             "baseModelName": context.base_model.name,
             "processedDatasetName": context.processed_dataset.name,
+            "producedModelName": context.output_model.name,
             "architectureType": context.model_manifest.architecture.type,
             "trainingProfileName": (
                 context.resolved_configuration.training_profile_name
@@ -347,12 +423,14 @@ class PytorchTrainingRunner:
             "seed": context.resolved_configuration.seed,
             "epochs": epoch_total,
             "device": str(device),
-            "history": history,
+            "trainingDurationSeconds": training_duration_seconds,
+            "averageInferenceTimeMs": average_inference_time_ms,
         }
         return self._report_writer.write(
             context.output_paths.report_directory_path,
             summary,
             metrics,
+            history,
         )
 
     async def _publish_status_changed(
@@ -374,8 +452,8 @@ class PytorchTrainingRunner:
                 message=message,
                 progress=TrainingRunProgressDto(
                     percent=0.0,
-                    epoch=0,
-                    total_epochs=epoch_total,
+                    epoch_current=0,
+                    epoch_total=epoch_total,
                 ),
                 warnings=(),
                 result=None,
@@ -402,9 +480,9 @@ class PytorchTrainingRunner:
                 occurred_at_utc=self._utc_clock.now(),
                 message=f"Epoch {epoch}/{epoch_total}.",
                 progress=TrainingRunProgressDto(
-                    percent=epoch / epoch_total * 100,
-                    epoch=epoch,
-                    total_epochs=epoch_total,
+                    percent=round(epoch / epoch_total * 100, 2),
+                    epoch_current=epoch,
+                    epoch_total=epoch_total,
                     train_loss=train_metrics["loss"],
                     validation_loss=val_metrics["loss"],
                     train_accuracy=train_metrics["accuracy"],
@@ -422,6 +500,7 @@ class PytorchTrainingRunner:
         context: TrainingRunContextDto,
         artifact_relative_path: str,
         report_paths: dict[str, str | None],
+        report_status: str,
         metrics_summary: TrainingMetricsSummaryDto | None,
         warnings: tuple[str, ...],
     ) -> None:
@@ -438,10 +517,9 @@ class PytorchTrainingRunner:
                 warnings=warnings,
                 result=TrainingRunResultDto(
                     produced_model_name=context.output_model.name,
-                    report_status=ReportStatus.OK.value,
+                    report_status=report_status,
                     can_use_produced_model_for_inference=True,
                     primary_artifact_relative_path=artifact_relative_path,
-                    report_relative_path=report_paths.get("summary"),
                     metrics_summary=metrics_summary,
                     summary_relative_path=report_paths.get("summary"),
                     metrics_relative_path=report_paths.get("metrics"),

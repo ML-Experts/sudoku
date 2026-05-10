@@ -4,6 +4,7 @@ using Sudoku.Application.Abstractions;
 using Sudoku.Application.Auth;
 using Sudoku.Application.Datasets;
 using Sudoku.Application.Examples;
+using Sudoku.Application.ModelsActive;
 using Sudoku.Application.ModelsRegistry;
 using Sudoku.Application.Trainings;
 using Sudoku.Configuration;
@@ -112,6 +113,15 @@ builder.Services
     .Validate(
         options => Path.IsPathRooted(options.RegistryDirectoryPath),
         $"{ModelsRegistryStorageOptions.SectionName}:RegistryDirectoryPath must be an absolute path.")
+    .ValidateOnStart();
+
+builder.Services
+    .AddOptions<ModelsActiveStorageOptions>()
+    .BindConfiguration(ModelsActiveStorageOptions.SectionName)
+    .ValidateDataAnnotations()
+    .Validate(
+        options => Path.IsPathRooted(options.ActiveDirectoryPath),
+        $"{ModelsActiveStorageOptions.SectionName}:ActiveDirectoryPath must be an absolute path.")
     .ValidateOnStart();
 
 builder.Services

@@ -7,4 +7,5 @@ public sealed record TrainingRunProgressDto(
     decimal? TrainLoss,
     decimal? ValidationLoss,
     decimal? TrainAccuracy,
-    decimal? ValidationAccuracy);
+    decimal? ValidationAccuracy,
+    int? EtaSeconds);

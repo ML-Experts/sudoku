@@ -51,12 +51,18 @@ public sealed class GetTrainingRunRealtimeSnapshotQueryHandler
             Seed: metadata.Seed,
             LastAcceptedSequence: metadata.LastAcceptedSequence,
             LastEventType: metadata.LastEventType,
+            Stage: metadata.Stage,
+            LastEventMessage: metadata.LastEventMessage,
+            LastEventOccurredAtUtc: metadata.LastEventOccurredAtUtc,
             Progress: metadata.Progress,
             MetricsSummary: metadata.MetricsSummary,
             ReportStatus: metadata.ReportStatus,
             ReportRelativePath: metadata.ReportRelativePath,
+            PrimaryArtifactRelativePath: metadata.PrimaryArtifactRelativePath,
+            ReportArtifacts: metadata.ReportArtifacts,
             Warnings: metadata.Warnings ?? Array.Empty<string>(),
             CleanupWarnings: metadata.CleanupWarnings ?? Array.Empty<string>(),
-            FailureReason: metadata.FailureReason);
+            FailureReason: metadata.FailureReason,
+            FailureErrorType: metadata.FailureErrorType);
     }
 }

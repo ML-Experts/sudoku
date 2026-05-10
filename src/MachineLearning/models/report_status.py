@@ -2,6 +2,6 @@ from enum import StrEnum
 
 
 class ReportStatus(StrEnum):
-    OK = "ok"
+    READY = "ready"
     MISSING = "missing"
     CORRUPTED = "corrupted"

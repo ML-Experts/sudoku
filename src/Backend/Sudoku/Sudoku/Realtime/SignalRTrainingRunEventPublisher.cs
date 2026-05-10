@@ -27,9 +27,7 @@ public sealed class SignalRTrainingRunEventPublisher : ITrainingRunEventPublishe
     {
         try
         {
-            var response = TrainingRunRealtimeResponseMapper.ToApiResponse(
-                metadata,
-                TrainingRunRealtimeResponseMapper.EventMessageKind);
+            var response = TrainingRunRealtimeResponseMapper.ToEventApiResponse(metadata);
             var groupName = TrainingRunHubGroups.ForRun(metadata.RunName);
 
             await _hubContext.Clients

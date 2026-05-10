@@ -249,10 +249,22 @@ public sealed class ModelsRegistryGateway : IModelsRegistryGateway
 
     private static void EnsureRelativePath(string value, string fieldName)
     {
-        if (string.IsNullOrWhiteSpace(value) || Path.IsPathRooted(value))
+        if (string.IsNullOrWhiteSpace(value)
+            || Path.IsPathRooted(value)
+            || ContainsParentDirectorySegment(value))
         {
-            throw new InvalidDataException($"Pole {fieldName} musi być niepustą ścieżką względną.");
+            throw new InvalidDataException(
+                $"Pole {fieldName} musi być niepustą, bezpieczną ścieżką względną.");
         }
+    }
+
+    private static bool ContainsParentDirectorySegment(string relativePath)
+    {
+        return relativePath
+            .Split(
+                new[] { '/', '\\' },
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Any(segment => segment == "..");
     }
 
     private static string GetRequiredString(JsonElement root, params string[] path)

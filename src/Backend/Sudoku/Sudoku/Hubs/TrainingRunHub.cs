@@ -77,9 +77,7 @@ public sealed class TrainingRunHub : Hub
         await Groups.AddToGroupAsync(Context.ConnectionId, groupName, Context.ConnectionAborted);
         await Clients.Caller.SendAsync(
             TrainingSnapshotClientMethod,
-            TrainingRunRealtimeResponseMapper.ToApiResponse(
-                result.Snapshot,
-                TrainingRunRealtimeResponseMapper.SnapshotMessageKind),
+            TrainingRunRealtimeResponseMapper.ToSnapshotApiResponse(result.Snapshot),
             Context.ConnectionAborted);
 
         if (TrainingRunStatus.IsTerminal(result.Snapshot.Status))

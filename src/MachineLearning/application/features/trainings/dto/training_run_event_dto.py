@@ -5,8 +5,8 @@ from datetime import datetime
 @dataclass(frozen=True)
 class TrainingRunProgressDto:
     percent: float | None
-    epoch: int | None
-    total_epochs: int | None
+    epoch_current: int | None
+    epoch_total: int | None
     train_loss: float | None = None
     validation_loss: float | None = None
     train_accuracy: float | None = None
@@ -26,7 +26,6 @@ class TrainingRunResultDto:
     report_status: str
     can_use_produced_model_for_inference: bool
     primary_artifact_relative_path: str
-    report_relative_path: str | None
     metrics_summary: TrainingMetricsSummaryDto | None
     summary_relative_path: str | None
     metrics_relative_path: str | None

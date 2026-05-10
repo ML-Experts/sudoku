@@ -17,10 +17,16 @@ public sealed record TrainingRunRealtimeSnapshotDto(
     int Seed,
     long? LastAcceptedSequence,
     string? LastEventType,
+    string? Stage,
+    string? LastEventMessage,
+    DateTimeOffset? LastEventOccurredAtUtc,
     TrainingRunProgressDto? Progress,
     TrainingMetricsSummaryDto? MetricsSummary,
     string? ReportStatus,
     string? ReportRelativePath,
+    string? PrimaryArtifactRelativePath,
+    TrainingReportArtifactsDto? ReportArtifacts,
     IReadOnlyList<string> Warnings,
     IReadOnlyList<string> CleanupWarnings,
-    string? FailureReason);
+    string? FailureReason,
+    string? FailureErrorType);
