@@ -855,20 +855,6 @@ export function Uc06TrainingSection({
         uruchamia nowy trening przez <code>POST /api/trainings</code> i monitoruje
         postep przez <code>/ws/trainings/{"{runName}"}</code>.
       </p>
-      {accessToken ? (
-        <div className="examples-row-actions">
-          <button
-            className="secondary-button"
-            type="button"
-            onClick={() => void recoverFromActiveRun()}
-            disabled={activeRunState.kind === "loading"}
-          >
-            {activeRunState.kind === "loading"
-              ? "Odswiezanie stanu..."
-              : "Odswiez stan treningu"}
-          </button>
-        </div>
-      ) : null}
 
       {!accessToken ? (
         <p className="status-banner status-loading">
@@ -1028,14 +1014,6 @@ export function Uc06TrainingSection({
             </div>
           </dl>
           <div className="examples-row-actions">
-            <button
-              className="secondary-button"
-              type="button"
-              onClick={() => void recoverFromActiveRun()}
-              disabled={activeRunState.kind === "loading"}
-            >
-              Sprawdz czy run jest nadal aktywny
-            </button>
             <button
               className="secondary-button"
               type="button"
