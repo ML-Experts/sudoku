@@ -167,23 +167,32 @@ export function Uc11RawCandidatesSection({
               Brak wykrytych datasetów w źródłach raw.
             </p>
           ) : (
-            <ul className="uc11-candidates-list">
-              {candidates.map((item) => (
-                <li key={`${item.type}-${item.name}`} className="uc11-candidate-item">
+            <>
+              <p className="muted-copy">
+                W UC-11 pokazujemy tylko podsumowanie kandydatow, aby nie dublowac tej samej listy.
+                Szczegolowa lista z mozliwoscia zaznaczania zrodel jest dostepna w kroku UC-12.
+              </p>
+              <ul className="uc11-candidates-list">
+                <li className="uc11-candidate-item">
                   <div>
-                    <strong>{item.name}</strong>
-                    <p className="muted-copy">
-                      Typ techniczny zwrócony przez backend: <code>{item.type}</code>
-                    </p>
+                    <strong>Plansze sudoku</strong>
+                    <p className="muted-copy">Typ: <code>board</code></p>
                   </div>
-                  <span
-                    className={`uc11-type-badge ${item.type === "board" ? "is-board" : item.type === "digit" ? "is-digit" : ""}`}
-                  >
-                    {resolveTypeLabel(item.type)}
+                  <span className="uc11-type-badge is-board">
+                    {resolveTypeLabel("board")} ({boardCount})
                   </span>
                 </li>
-              ))}
-            </ul>
+                <li className="uc11-candidate-item">
+                  <div>
+                    <strong>Zbiory cyfr</strong>
+                    <p className="muted-copy">Typ: <code>digit</code></p>
+                  </div>
+                  <span className="uc11-type-badge is-digit">
+                    {resolveTypeLabel("digit")} ({digitCount})
+                  </span>
+                </li>
+              </ul>
+            </>
           )}
         </>
       ) : null}
