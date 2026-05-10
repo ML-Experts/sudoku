@@ -1302,25 +1302,27 @@ export default function App() {
                 </div>
               </section>
 
-              {datasetsStep === "uc11" ? (
+              <div hidden={datasetsStep !== "uc11"} aria-hidden={datasetsStep !== "uc11"}>
                 <Uc11RawCandidatesSection
                   apiBaseUrl={apiBaseUrl}
                   accessToken={authToken?.accessToken ?? null}
                   onUnauthorized={() => handleAdminUnauthorized("invalid_token")}
                 />
-              ) : datasetsStep === "uc12" ? (
+              </div>
+              <div hidden={datasetsStep !== "uc12"} aria-hidden={datasetsStep !== "uc12"}>
                 <Uc12DatasetPreparationSection
                   apiBaseUrl={apiBaseUrl}
                   accessToken={authToken?.accessToken ?? null}
                   onUnauthorized={() => handleAdminUnauthorized("invalid_token")}
                 />
-              ) : (
+              </div>
+              <div hidden={datasetsStep !== "uc06"} aria-hidden={datasetsStep !== "uc06"}>
                 <Uc06TrainingSection
                   apiBaseUrl={apiBaseUrl}
                   accessToken={authToken?.accessToken ?? null}
                   onUnauthorized={() => handleAdminUnauthorized("invalid_token")}
                 />
-              )}
+              </div>
             </>
           ) : null}
         </div>
