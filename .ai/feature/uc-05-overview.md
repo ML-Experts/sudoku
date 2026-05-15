@@ -1,93 +1,71 @@
 # UC-05 — Rozpoznanie cyfr, solver i prezentacja wyniku
 
 ## Cel
-`UC-05` opisuje przejście od obrazu komórki lub planszy sudoku do rozpoznanych cyfr, rozwiązania i czytelnej prezentacji wyniku.
+`UC-05` opisuje produktowy przepływ "rozwiąż sudoku", czyli przejście od obrazu albo siatki komórek do:
+- `recognizedGrid`,
+- `solvedGrid`,
+- prezentacji wyniku w `UI`,
+- opcjonalnego overlay na obrazie,
+- opcjonalnego podglądu kroków solvera na żywo.
 
-Produktowo jest to jeden strumień "rozwiąż sudoku", ale implementacyjnie dzielimy go na mniejsze historyjki, żeby dało się testować i wdrażać kolejne kroki niezależnie.
+Dokument został rozbity na osobne pliki dla pod-historyjek, żeby łatwiej rozwijać kontrakty i zachować czytelność.
 
-## UC-05A — Inferencja pojedynczej cyfry / komórki
-### Cel
-Rozpoznać zawartość pojedynczej komórki sudoku przy użyciu aktywnego modelu inferencyjnego.
-
-### Wejście
-- Obraz komórki jako `ImageApiEntry`:
-  - `mimeType`,
-  - `base64`.
-
-### Wyjście
-- Minimalna odpowiedź `DigitInferenceApiResponse`:
-
-```json
-{
-  "digit": 7
-}
+## Diagram biznesowy
+```mermaid
+flowchart TD
+    A[Użytkownik dostarcza obraz sudoku] --> B[System wykrywa planszę i dzieli ją na komórki]
+    B --> C[System rozpoznaje każdą komórkę]
+    C --> D{Czy w komórce jest cyfra?}
+    D -->|nie| E[Komórka otrzymuje null]
+    D -->|tak| F[Komórka otrzymuje cyfrę 1..9]
+    E --> G[System buduje recognizedGrid]
+    F --> G
+    G --> H[System waliduje grid]
+    H --> I{Czy sudoku jest poprawne i rozwiązywalne?}
+    I -->|nie| J[Użytkownik dostaje czytelny błąd]
+    I -->|tak| K[Solver wylicza solvedGrid]
+    K --> L[UI pokazuje wynik]
+    K --> M[Opcjonalnie SignalR pokazuje kroki solvera]
+    L --> N[Opcjonalnie system generuje overlay]
 ```
 
-- Dla pustej komórki albo braku rozpoznanej cyfry:
+## Wspólne decyzje architektoniczne
+- `Backend` jest właścicielem publicznego API i orkiestruje cały przepływ `UC-05`.
+- `Frontend` komunikuje się wyłącznie z `Backendem`; nie wywołuje `ML` bezpośrednio.
+- Publiczne payloady HTTP używają `camelCase`.
+- Błędy API używają `ErrorApiResponse` z polami `errorType` i `message`.
+- Reprezentacja planszy w `UC-05` to zawsze siatka 9×9 z wartościami `1..9` albo `null`.
+- Pusta komórka musi być rozpoznawana jako `digit = null`, a nie jako wymuszona klasyfikacja `1..9`.
+- W `UC-05A` pustą komórkę wykrywamy przed inferencją modelową na zbinaryzowanym obrazie z odwróconymi kolorami, analizując foreground w centralnym obszarze zbudowanym z 4 wewnętrznych ćwiartek skierowanych do środka komórki.
 
-```json
-{
-  "digit": null
-}
-```
+## Podział na pliki
+- [`UC-05A — Inferencja pojedynczej komórki`](./uc-05a-overview.md)
+- [`UC-05B — Backtracking dla rozpoznanego gridu`](./uc-05b-overview.md)
+- [`UC-05C — Historyjka scalona`](./uc-05c-overview.md)
+- [`UC-05D — Graficzne naniesienie cyfr na obraz`](./uc-05d-overview.md)
+- [`UC-05E — Pokazywanie kroków backtrackingu na żywo przez SignalR`](./uc-05e-overview.md)
 
-- `digit` przyjmuje wartości `1..9` albo `null`.
-- FE wie, którą komórkę wysłał, więc odpowiedź nie musi zawierać `cellIndex`.
-- Informacje diagnostyczne, takie jak model, pewność albo ostrzeżenia, nie są częścią minimalnego kontraktu MVP.
+Praktyczna decyzja dla obecnej wersji dokumentacji:
+- dawne `UC-05C` zostało scalone do `UC-05A` i `UC-05E`,
+- plik `UC-05C` pozostaje tylko jako notka porządkująca i punkt referencyjny dla wcześniejszych odwołań.
 
-### Uwagi
-- Eksperyment `EXP-04` jest punktem odniesienia technicznego, ale nie jest docelowym API produktu.
-- Frontend nie powinien wołać `ML` bezpośrednio; publiczny kontrakt przechodzi przez Backend.
-- Dla pełnej planszy dopuszczalne są różne strategie komunikacji: 81 osobnych requestów `FE -> BE`, batch albo endpoint wyższego poziomu. Wariant 81 requestów jest szczególnie prosty po `UC-04`, bo `FE` zna indeksy komórek i może pokazywać progres na podstawie liczby zakończonych odpowiedzi.
-- Jeśli wybierzemy 81 requestów, warto ograniczyć równoległość po stronie `FE`, żeby nie przeciążyć `BE` ani kolejki inferencji po stronie `ML`.
+## Endpoint orkiestrujący cały przepływ
+Z perspektywy produktu nadal warto utrzymać wyższy poziom API:
 
-## UC-05B — Backtracking dla rozpoznanego gridu
-### Cel
-Rozwiązać sudoku na podstawie gridu 9×9 zawierającego rozpoznane cyfry i puste pola.
+### `POST /api/solve-from-image`
+- Endpoint publiczny, dostępny także bez tokenu administracyjnego.
+- Request body: `SolveFromImageApiEntry`.
+- `200 OK` -> `SolveFromImageApiResponse`.
 
-### Wejście
-- Grid 9×9.
-- Cyfry `1..9`.
-- Puste pola jako `null` albo równoważna reprezentacja ustalona w kontrakcie API.
+Minimalny zakres odpowiedzi:
+- `recognizedGrid`,
+- `solvedGrid`,
+- opcjonalnie `overlayImage` jako `ImageApiResponse`.
 
-### Wyjście
-- `solvedGrid` dla poprawnego sudoku.
-- Status błędu dla gridu niepoprawnego lub nierozwiązywalnego.
-
-### Uwagi
-- Solver backtracking nie wymaga modelu ML.
-- Solver powinien być możliwy do testowania niezależnie od inferencji obrazu.
-- Błędy walidacji gridu powinny być czytelne dla UI.
-
-## UC-05C — Przypisanie cyfr do komórek
-### Cel
-Pokazać użytkownikowi rozpoznany i rozwiązany stan planszy w siatce 9×9.
-
-### Zakres podstawowy
-- Przypisanie rozpoznanych cyfr do odpowiadających komórek.
-- Pokazanie cyfr jako tekstu w UI.
-- Rozróżnienie cyfr wejściowych od cyfr dopisanych przez solver.
-- Możliwość pokazania błędów lub niepewnych komórek.
-
-### Uwagi
-- Ten wariant jest tańszy i stabilniejszy niż generowanie obrazu wynikowego.
-- Powinien być pierwszym docelowym sposobem prezentacji rozwiązania, zanim powstanie graficzny overlay.
-
-## UC-05D — Graficzne naniesienie cyfr na obraz
-### Cel
-Wygenerować obraz wynikowy z naniesionymi cyframi rozwiązania.
-
-### Warianty
-- Wariant podstawowy: naniesienie cyfr na obraz planszy po korekcji perspektywy z `UC-04`.
-- Wariant ambitny: naniesienie cyfr na oryginalne zdjęcie wejściowe sprzed korekcji perspektywy.
-
-### Uwagi
-- Overlay jest osobną funkcjonalnością od samego solvera.
-- Wariant na oryginalnym zdjęciu wymaga zachowania transformacji perspektywy z etapu preprocessingu.
-- Generowanie overlay nie powinno blokować podstawowej prezentacji wyniku w gridzie.
+Wewnętrzny odpowiednik `BE -> ML` może pozostać jako `POST /ml/solve-from-image`, ale nie zastępuje kontraktów granularnych z pod-historyjek.
 
 ## Kolejność rekomendowana
-1. `UC-05A` — stabilna inferencja pojedynczej komórki przez Backend.
-2. `UC-05B` — solver backtracking testowany na gridzie.
-3. `UC-05C` — prezentacja wyniku w siatce 9×9.
+1. `UC-05A` — stabilna inferencja pojedynczej komórki z poprawnym `null` dla pustej komórki.
+2. `UC-05B` — solver backtracking z czytelną walidacją wejścia.
+3. `UC-05E` — strumień kroków solvera po `SignalR`, jeśli chcemy pokazać "pracę" algorytmu na tym samym gridzie zbudowanym wcześniej w `UC-05A`.
 4. `UC-05D` — overlay graficzny, najpierw na obrazie po korekcji perspektywy.

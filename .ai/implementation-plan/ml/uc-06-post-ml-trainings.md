@@ -14,6 +14,7 @@
 - Dataset `.npz` pozostaje kanoniczny i wspólny. Różnice między architekturami obsługują transformacje tensora i fabryki modeli, a nie osobne formaty datasetu.
 - Obecny dynamiczny mock nie może definiować zachowania produkcyjnego. W szczególności należy usunąć założenie stałych `8` kroków/zdarzeń widocznych dla `BE`.
 - Liczba eventów progress ma wynikać z rzeczywistego profilu treningowego i liczby epok. Jeśli profil ma `epochs = 20`, runner wysyła progress per epoka `1..20`; jeśli profil zostanie ograniczony przez bezpiecznik `ML_TRAINING_MAX_EPOCHS_OVERRIDE`, `epochTotal` pokazuje wartość po ograniczeniu.
+- W bieżącym `MVP` domyślny profil treningowy wspiera do `20` epok, zapis checkpointu po każdej epoce i wybór najlepszego checkpointu walidacyjnego jako finalnego artefaktu modelu.
 
 ## 3. Kontrakt API ML <-> BE
 - Kontrakt `BE -> ML` ma pozostać taki sam jak w planie `UC-06 BE`; plan ML nie dodaje, nie usuwa i nie zmienia nazw pól requestu ani response.
@@ -163,6 +164,7 @@ Przykład eventu progress dla epoki:
 - `training/runners/training_runner_factory.py` (update/reuse) — wybór `mock` albo `pytorch` z konfiguracji; produkcyjnie `pytorch`, mock tylko do testów/smoke.
 - `training/runners/mock_training_runner.py` (update) — testowy runner zgodny z interfejsem; usunąć semantykę produkcyjnych `8` kroków. Jeśli zostaje, jego liczba epok ma pochodzić z profilu/testowej konfiguracji albo być wyraźnie testowa i nieużywana produkcyjnie.
 - `training/runners/pytorch_training_runner.py` (update/reuse) — realny runner PyTorch: seed, device, model, wagi, dataset, profile, training loop, checkpointy, ewaluacja, raporty, artifact writer, eventy i anulowanie.
+- `training/selection/best_checkpoint_selector.py` (new, jeśli obecna logika runnera robi się zbyt rozbudowana) — wybór najlepszego checkpointu walidacyjnego i metadanych `bestEpoch` / `bestMetric`.
 - `training/model/model_manifest_reader.py` (update/reuse) — odczyt `model.json` i walidacja wymaganych pól runtime.
 - `training/model/model_factory.py` (update/reuse) — budowa `CustomDigitCnnV1` albo `torchvision` ResNet na podstawie manifestu.
 - `training/model/custom_digit_cnn_v1.py` (reuse) — implementacja bazowej architektury CNN dla cyfr.
@@ -179,6 +181,7 @@ Przykład eventu progress dla epoki:
 - `training/profiles/scheduler_factory.py` (new, jeśli potrzebny) — przyszłe schedulery bez rozbudowy runnera.
 - `training/reporting/metrics_calculator.py` (update/reuse) — accuracy, precision, recall, F1, confusion matrix.
 - `training/reporting/training_report_writer.py` (update/reuse) — zapis `summary.json`, `metrics.json`, `confusion_matrix.json` do `reportDirectoryPath`.
+- `summary.json` powinno umieć zapisać co najmniej `epochs`, `bestEpoch` oraz nazwę/metrykę używaną do wyboru najlepszego checkpointu.
 - `training/reporting/confusion_matrix_writer.py` (new, jeśli obecny writer robi zbyt dużo) — opcjonalne wydzielenie zapisu macierzy pomyłek.
 
 ### 5.5 Testy (`src/MachineLearning/tests`)
@@ -206,6 +209,7 @@ Przykład eventu progress dla epoki:
   4. dokładnie jeden terminalny `completed`, `failed` albo `cancelled`.
 - `epochTotal` zawsze pochodzi z `TrainingProfile.epochs` po zastosowaniu ewentualnego override.
 - `percent` dla epok może być liczony jako `epoch / epochTotal * 100`; jeśli dochodzi osobna faza ewaluacji, nie należy sztucznie dopisywać jej jako ósmego kroku. Można wysłać osobny `statusChanged(stage=evaluation)` bez udawania epoki.
+- Po każdej epoce runner zapisuje checkpoint i aktualizuje ranking najlepszego stanu walidacyjnego; finalny artefakt modelu ma zostać zapisany z najlepszego checkpointu, nie z ostatniej epoki.
 - `MockTrainingRunner`, jeśli zostaje dla testów integracyjnych, ma być konfigurowalny i opisany jako narzędzie testowe. Nie wolno opierać publicznego kontraktu `BE/FE` na liczbie eventów mocka.
 
 ## 8. Wyjątki, błędy i fallbacki
@@ -285,8 +289,10 @@ async def run_pytorch_training(context, cancellation_token):
 
     for epoch in range(1, profile.epochs + 1):
         cancellation_token.throw_if_cancelled()
-        train_one_epoch(model, dataloaders["train"], optimizer, device)
+        train_metrics = train_one_epoch(model, dataloaders["train"], optimizer, device)
+        validation_metrics = evaluate_validation_split(model, dataloaders["val"], device)
         write_checkpoint(context.output_paths.run_directory_path, model, epoch)
+        best_checkpoint_selector.observe(epoch, validation_metrics)
         await publish_progress(
             sequence=sequence,
             epoch_current=epoch,
@@ -296,11 +302,12 @@ async def run_pytorch_training(context, cancellation_token):
 
     cancellation_token.throw_if_cancelled()
     await publish_status_changed(sequence, status="running", stage="evaluation")
-    metrics = evaluate(model, dataloaders)
+    best_model = best_checkpoint_selector.load_best_or_current(model)
+    metrics = evaluate(best_model, dataloaders)
 
     report_status, report_paths, report_warnings = write_reports(metrics)
     artifact_relative_path = artifact_writer.write(
-        model,
+        best_model,
         context.output_model.directory_path,
     )
 
@@ -341,8 +348,8 @@ async def run_pytorch_training(context, cancellation_token):
 5. `PytorchTrainingRunner` oznacza run jako `running`, publikuje `statusChanged`.
 6. Runner buduje model z manifestu, ładuje wagi modelu bazowego i dataset `.npz`.
 7. Runner dobiera transformacje, dataloadery, profil treningu, fine-tuning policy i optimizer.
-8. Runner wykonuje pętlę epok. Po każdej epoce zapisuje checkpoint i publikuje `progress` z realnym `epochCurrent/epochTotal`.
-9. Runner wykonuje ewaluację, zapisuje raporty i finalny artefakt modelu.
+8. Runner wykonuje pętlę epok. Po każdej epoce zapisuje checkpoint, ocenia walidację, aktualizuje najlepszy checkpoint i publikuje `progress` z realnym `epochCurrent/epochTotal`.
+9. Runner wykonuje ewaluację i zapisuje finalny artefakt modelu na podstawie najlepszego checkpointu walidacyjnego.
 10. Runner wysyła terminalny event `completed`, `failed` albo `cancelled` do `BE`.
 11. Runner zwalnia aktywny run po stronie `ML`.
 
@@ -367,11 +374,12 @@ async def run_pytorch_training(context, cancellation_token):
 5. Dokończyć dataset `.npz`, dataloadery i transformacje wejścia dla `CNN` oraz `ResNet`.
 6. Dokończyć `TrainingProfileCatalog`, `FineTuningPolicyFactory`, `OptimizerFactory` i ewentualny `SchedulerFactory`.
 7. Dokończyć `PytorchTrainingRunner`: pętla epok, checkpointy, anulowanie, eventy per epoka, ewaluacja.
-8. Dokończyć raporty: `summary.json`, `metrics.json`, `confusion_matrix.json`, `reportStatus`.
-9. Dokończyć `BackendTrainingEventPublisher`: retry terminalnych eventów i idempotencja payloadu.
-10. Uzupełnić `.env.local`, `.env.production`, `runtime_settings.py` i workflow ML-CD.
-11. Dodać testy jednostkowe oraz integracyjne na mini `.npz`.
-12. Przełączyć środowisko docelowe na `ML_TRAINING_RUNNER=pytorch`; mock zostawić tylko do testów i smoke.
+8. Dokończyć wybór najlepszego checkpointu walidacyjnego i eksport finalnego artefaktu z `bestEpoch`.
+9. Dokończyć raporty: `summary.json`, `metrics.json`, `confusion_matrix.json`, `reportStatus`.
+10. Dokończyć `BackendTrainingEventPublisher`: retry terminalnych eventów i idempotencja payloadu.
+11. Uzupełnić `.env.local`, `.env.production`, `runtime_settings.py` i workflow ML-CD.
+12. Dodać testy jednostkowe oraz integracyjne na mini `.npz`.
+13. Przełączyć środowisko docelowe na `ML_TRAINING_RUNNER=pytorch`; mock zostawić tylko do testów i smoke.
 
 ## 14. Zależności między historyjkami
 - **Twarde wejściowe**:
@@ -404,6 +412,7 @@ async def run_pytorch_training(context, cancellation_token):
 - `sourceRevision` pozostaje po stronie `BE`; `ML` może przepisywać je do raportu tylko jeśli zostanie przekazane w kontrakcie w przyszłości.
 - `TrainingProfile` jest wersjonowany nazwą. Zmiana liczby epok albo hiperparametrów powinna skutkować nową nazwą profilu, chyba że jest to lokalny override testowy.
 - `ML_TRAINING_MAX_EPOCHS_OVERRIDE` jest bezpiecznikiem runtime, nie częścią biznesowego kontraktu `FE`.
+- Finalny model wynikowy nie moze byc wybierany przez prostą zasadę "ostatnia epoka wygrywa"; potrzebny jest jawny wybór najlepszego checkpointu walidacyjnego.
 - `etaSeconds` może być `null` w MVP, ale `epochCurrent`, `epochTotal` i `percent` muszą być spójne.
 - Dla porównywalności eksperymentów seed musi ustawiać `random`, `numpy`, `torch` i CUDA, jeśli jest używana.
 
@@ -413,8 +422,10 @@ async def run_pytorch_training(context, cancellation_token):
 - Unit `ModelFactory`: `custom-cnn-v1`, `resnet18`, nieobsługiwany typ.
 - Unit `InputTransformFactory`: CNN daje `1x28x28`, ResNet daje `3x224x224` albo rozmiar z manifestu.
 - Unit `TrainingProfileCatalog`: profil zgodny z rodziną, niezgodny z rodziną, override epok.
+- Unit / integration `BestCheckpointSelector`: poprawny wybór najlepszego `bestEpoch` przy poprawie i regresji metryki walidacyjnej.
 - Unit `NpzDigitDatasetLoader`: brak kluczy, puste `train`, niespójne długości `x/y`.
 - Integracyjny `POST /ml/trainings`: `202 Accepted`, worker uruchomiony, event `statusChanged`.
 - Integracyjny `PytorchTrainingRunner`: mini `.npz`, 1 epoka, progress z `epochTotal=1`, zapis artefaktu i raportów, terminalny `completed`.
+- Integracyjny `PytorchTrainingRunner`: kilka epok, najlepsza walidacja przed ostatnią epoką, finalny artefakt pochodzi z `bestEpoch`, a nie z ostatniego checkpointu.
 - Integracyjny cancel: żądanie cancel między epokami, terminalny `cancelled`, brak finalnego artefaktu sukcesu.
 - Integracyjny event retry: terminalny event ponawiany z tym samym `sequence` po błędzie transportu.

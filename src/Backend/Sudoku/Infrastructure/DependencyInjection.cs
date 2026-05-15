@@ -1,8 +1,11 @@
+using System.Threading.Channels;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Sudoku.Application.Abstractions;
 using Sudoku.Application.Auth;
+using Sudoku.Application.SudokuSolve;
+using Sudoku.Infrastructure.Background;
 using Sudoku.Infrastructure.Auth;
 using Sudoku.Infrastructure.Configuration;
 using Sudoku.Infrastructure.Ml;
@@ -25,8 +28,26 @@ public static class DependencyInjection
                 options => Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out _),
                 $"{MlServiceOptions.SectionName}:BaseUrl must be an absolute URL.")
             .Validate(
+                options => options.PingPath.StartsWith("/", StringComparison.Ordinal),
+                $"{MlServiceOptions.SectionName}:PingPath must start with '/'.")
+            .Validate(
+                options => options.PreprocessBoardPath.StartsWith("/", StringComparison.Ordinal),
+                $"{MlServiceOptions.SectionName}:PreprocessBoardPath must start with '/'.")
+            .Validate(
+                options => options.PreprocessCellsPath.StartsWith("/", StringComparison.Ordinal),
+                $"{MlServiceOptions.SectionName}:PreprocessCellsPath must start with '/'.")
+            .Validate(
+                options => options.CellInferencePath.StartsWith("/", StringComparison.Ordinal),
+                $"{MlServiceOptions.SectionName}:CellInferencePath must start with '/'.")
+            .Validate(
+                options => options.PrepareDatasetPath.StartsWith("/", StringComparison.Ordinal),
+                $"{MlServiceOptions.SectionName}:PrepareDatasetPath must start with '/'.")
+            .Validate(
                 options => options.StartTrainingPath.StartsWith("/", StringComparison.Ordinal),
                 $"{MlServiceOptions.SectionName}:StartTrainingPath must start with '/'.")
+            .Validate(
+                options => options.TrainingEventsPathTemplate.StartsWith("/", StringComparison.Ordinal),
+                $"{MlServiceOptions.SectionName}:TrainingEventsPathTemplate must start with '/'.")
             .Validate(
                 options => options.CancelTrainingPathTemplate.StartsWith("/", StringComparison.Ordinal),
                 $"{MlServiceOptions.SectionName}:CancelTrainingPathTemplate must start with '/'.")
@@ -46,6 +67,21 @@ public static class DependencyInjection
         services.AddTransient<ITrainingReportsGateway, TrainingReportsGateway>();
         services.AddTransient<ITrainingArtifactsCleanupGateway, TrainingArtifactsCleanupGateway>();
         services.AddTransient<ITrainingEventsPathProvider, MlTrainingEventsPathProvider>();
+        services.AddTransient<ISolveSessionsGateway, SolveSessionsGateway>();
+
+        services.AddSingleton(_ => Channel.CreateUnbounded<SolveSessionWorkItemDto>(
+            new UnboundedChannelOptions
+            {
+                SingleReader = true,
+                SingleWriter = false,
+                AllowSynchronousContinuations = false
+            }));
+        services.AddSingleton<ChannelReader<SolveSessionWorkItemDto>>(serviceProvider =>
+            serviceProvider.GetRequiredService<Channel<SolveSessionWorkItemDto>>().Reader);
+        services.AddSingleton<ChannelWriter<SolveSessionWorkItemDto>>(serviceProvider =>
+            serviceProvider.GetRequiredService<Channel<SolveSessionWorkItemDto>>().Writer);
+        services.AddSingleton<ISudokuSolveExecutionScheduler, SudokuSolveExecutionScheduler>();
+        services.AddHostedService<SudokuSolveBackgroundWorker>();
 
         services.AddHttpClient<IMlPingGateway, MlPingHttpClient>(ConfigureMlHttpClient);
         services.AddHttpClient<IMlImageProcessingGateway, MlImageProcessingHttpClient>(ConfigureMlHttpClient);

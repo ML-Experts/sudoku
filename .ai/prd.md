@@ -18,7 +18,7 @@ Na zajęciach wymagany jest projekt z elementem Machine Learning w Pythonie. Tem
 
 ### 3) Cele projektu
 - **G1 (funkcjonalny)**: Rozpoznanie planszy Sudoku z obrazu i zbudowanie stanu gry jako macierzy 9×9.
-- **G2 (ML)**: Rozpoznanie cyfr 1–9 (oraz/lub wykrycie pustych pól) z użyciem sieci neuronowej.
+- **G2 (ML)**: Rozpoznanie cyfr `1–9` z użyciem sieci neuronowej oraz wykrycie pustych pól heurystyką opartą o centralny foreground komórki po binaryzacji.
 - **G3 (solver)**: Poprawne rozwiązanie sudoku metodą backtrackingu.
 - **G4 (output)**: Wygenerowanie obrazu wynikowego z naniesionymi cyframi rozwiązania na planszę.
 - **G5 (ewaluacja)**: Raport jakości (confusion matrix, accuracy, precision, recall, F1) + porównanie podejść (model własny vs transfer learning).
@@ -76,7 +76,7 @@ Uwaga: w zakresie pozostaje wyłącznie prosta bramka administracyjna oparta o j
 - **FR-01**: System przyjmuje obraz sudoku (jpg/png) z UI i przekazuje go do pipeline’u.
 - **FR-02**: System wykrywa obszar planszy i wykonuje korekcję perspektywy (widok z góry).
 - **FR-03**: System dzieli planszę na 81 pól i przygotowuje dane wejściowe dla modelu (np. 28×28, normalizacja 0–1).
-- **FR-04**: System klasyfikuje zawartość pól (cyfra 1–9 lub puste).
+- **FR-04**: System rozpoznaje zawartość pól jako `cyfra 1–9` albo `puste`, przy czym pustą komórkę wykrywa przed klasyfikacją modelową na podstawie foregroundu w centralnym obszarze zbinaryzowanej komórki.
 - **FR-05**: System buduje macierz 9×9 reprezentującą stan sudoku.
 - **FR-06**: System rozwiązuje sudoku algorytmem backtrackingu.
 - **FR-07**: System generuje obraz wynikowy z naniesionymi cyframi rozwiązania.
@@ -98,6 +98,7 @@ Uwaga: w zakresie pozostaje wyłącznie prosta bramka administracyjna oparta o j
 - **FR-23**: Dla wyboru `mix` system wykonuje automatyczny split do `train` / `val` / `test` zgodnie z polityką projektu; dla jawnego wyboru jednego lub wielu splitów zapisuje dane do wskazanych partycji bez dublowania tej samej próbki między splitami.
 - **FR-24**: System udostępnia listę przygotowanych zestawów `.npz` oraz listę wpisów rejestru modeli z capability do treningu i/lub inferencji, aby użytkownik mógł uruchomić trening i później wybrać aktywny model.
 - **FR-25**: System uruchamia trening na podstawie wybranego modelu z rejestru i wybranego zestawu `.npz`, utrzymuje dokładnie jeden aktywny run jednocześnie, pozwala anulować aktywny run, publikuje postęp przez kanał `SignalR` po stronie Backendu zasilany zdarzeniami z `ML`, a po zakończeniu zapisuje model wynikowy jako nowy wpis rejestru oraz raport treningu. Brakujący albo uszkodzony raport nie unieważnia automatycznie modelu, jeśli artefakty inferencyjne są kompletne.
+- W `MVP` domyślny profil treningowy wspiera do `20` epok, zapis checkpointów po każdej epoce i wybór najlepszego checkpointu walidacyjnego jako finalnego artefaktu modelu; model z ostatniej epoki nie jest automatycznie uznawany za wynikowy.
 - **FR-26**: Rejestr modeli jest utrzymywany jako katalog `models/registry`, gdzie każdy wpis modelu jest osobnym katalogiem `{modelName}` zawierającym obowiązkowy manifest `model.json` oraz katalog `artifacts/` z artefaktami technicznymi modelu.
 - **FR-27**: System obsługuje model bootstrap dodany ręcznie do rejestru bez powiązanego `runName`; taki wpis nadal musi mieć pełny manifest `model.json` i może zostać użyty jako model bazowy do treningu albo jako aktywny model inferencyjny.
 - **FR-28**: System utrzymuje aktywny model inferencyjny przez lekki plik wskaźnikowy w `models/active` (np. `inference.json`) wskazujący wpis z `models/registry`, bez kopiowania całego katalogu modelu przy każdym przełączeniu.
@@ -247,6 +248,7 @@ Uwaga organizacyjna:
 #### UC-05 — „Rozpoznaj cyfry, rozwiąż sudoku i zaprezentuj wynik”
 - **UC-05A — Inferencja pojedynczej cyfry / komórki**:
   - System przyjmuje obraz komórki jako `ImageApiEntry` (`mimeType` + `base64`) i zwraca minimalną odpowiedź `{ "digit": 1..9 | null }`, gdzie `null` oznacza brak rozpoznanej cyfry / pustą komórkę.
+  - Pusta komórka jest wykrywana przed klasyfikacją modelową na zbinaryzowanym obrazie z odwróconymi kolorami przez analizę centralnego obszaru komórki: komórkę dzielimy na 4 ćwiartki, a następnie dla każdej ćwiartki bierzemy jej wewnętrzną ćwiartkę skierowaną do środka; z tych 4 fragmentów powstaje mały obszar centralny. Jeśli udział foregroundu w tym obszarze nie przekracza progu, system zwraca `digit = null`.
   - Eksperymentalny endpoint z `EXP-04` jest tylko źródłem wniosków technicznych; docelowe API produktu przechodzi przez Backend.
 - **UC-05B — Backtracking dla rozpoznanego gridu**:
   - System przyjmuje grid 9×9 z cyframi i pustymi polami, waliduje poprawność wejścia i zwraca rozwiązany grid albo czytelny błąd `invalid` / `unsolvable`.
@@ -284,6 +286,7 @@ Uwaga organizacyjna:
 - **ML**:
   - Job treningowy bazujący na jednym przygotowanym artefakcie `.npz`; preprocessing i split są wykonane wcześniej podczas przygotowania datasetu.
   - Trening wykorzystuje wpis modelu bazowego wskazany przez Backend przez jego manifest i główny artefakt oraz zapisuje końcowe artefakty modelu do docelowego katalogu `models/registry/{producedModelName}/artifacts`, a checkpointy oraz raport treningu do skonfigurowanych katalogów `trainings/*` i `tmp`.
+  - W `MVP` domyślny profil treningowy wykonuje maksymalnie `20` epok; po każdej epoce runner zapisuje checkpoint i śledzi metrykę walidacyjną, a finalny artefakt modelu powstaje z najlepszego checkpointu walidacyjnego, a nie z ostatniej epoki.
   - Finalna ewaluacja porównawcza modeli odbywa się na wspólnym, stałym benchmarku / secie testowym Sudoku.
   - Zapis artefaktów technicznych (model/checkpoint + metryki + raporty) odbywa się wyłącznie w skonfigurowanych katalogach systemowych; `BE` przekazuje `ML` resolved ścieżki wejścia i wyjścia, a `ML` raportuje wynik i referencje do Backendu potrzebne do finalizacji `model.json`.
   - `ML` raportuje postęp, anulowanie i stan końcowy do `BE` przez wewnętrzny endpoint statusowy; `FE` nie łączy się z `ML` bezpośrednio.
@@ -296,6 +299,7 @@ Uwaga organizacyjna:
     - Jeśli drugi start trafi na już istniejący aktywny run, `FE` może odzyskać jego dane przez endpoint aktywnego runu i przejść do monitoringu.
     - Aktywny run może zostać anulowany i dopiero wtedy można uruchomić kolejny run.
     - W `MVP` `FE` nie parametryzuje presetów treningowych; system używa jednego stałego presetu treningowego i jednego stałego presetu augmentacji rozwiązywanych po stronie `BE`.
+    - W `MVP` domyślny preset treningowy wspiera do `20` epok i wybór najlepszego checkpointu walidacyjnego jako finalnego modelu wynikowego.
     - Po anulowaniu system zachowuje `trainings/metadata/{runName}.json` ze statusem `cancelled`, ale usuwa techniczne artefakty runtime tego runu.
     - Po `failed` system zachowuje `trainings/metadata/{runName}.json` ze statusem `failed`, ale usuwa techniczne artefakty runtime tego runu analogicznie do `cancelled`.
     - Run tworzy wpis treningu widoczny w liście (UC-08), a run zakończony sukcesem tworzy dodatkowo docelowy wpis modelu wynikowego w rejestrze.
@@ -556,6 +560,12 @@ Publiczny kontrakt odpowiedzi dla przygotowania datasetu `.npz` jest opisany w d
   - wycięcie / wyśrodkowanie cyfry w komórce, opcjonalne ignorowanie marginesów i czyszczenie pozostałości siatki,
   - standaryzacja obrazu cyfry do 28×28,
   - binaryzacja / normalizacja pikseli do [0, 1].
+- **Wykrycie pustej komórki w runtime inferencji**:
+  - detektor pracuje na obrazie już zbinaryzowanym i odwróconym, gdzie cyfra oraz resztki linii siatki stanowią foreground,
+  - komórka jest dzielona na 4 ćwiartki, a następnie z każdej ćwiartki wybierana jest jej wewnętrzna ćwiartka skierowana do środka komórki,
+  - suma tych 4 małych fragmentów tworzy obszar centralny używany do decyzji `empty` vs `digit`,
+  - jeśli udział foregroundu w obszarze centralnym nie przekracza progu konfiguracyjnego, system zwraca `digit = null` i nie uruchamia modelu,
+  - jeśli próg zostanie przekroczony, próbka trafia do klasyfikacji `1..9`.
 - **Augmentacje treningowe (opcjonalne / konfigurowalne)**:
   - rotacja ±10°,
   - przesunięcie,
@@ -575,6 +585,9 @@ Publiczny kontrakt odpowiedzi dla przygotowania datasetu `.npz` jest opisany w d
   - system dopuszcza dokładnie jeden aktywny run jednocześnie; kolejny start nie tworzy kolejki, ale aktywny run można anulować,
   - Backend uruchamia trening, odbiera status z `ML` i publikuje postęp przez `SignalR`,
   - utrata połączenia `SignalR` po stronie `FE` nie zatrzymuje runu,
+  - w `MVP` domyślny profil treningowy wykonuje maksymalnie `20` epok,
+  - po każdej epoce runner zapisuje checkpoint i ocenia, czy bieżący stan jest najlepszy według metryki walidacyjnej,
+  - finalny artefakt modelu wynikowego jest budowany z najlepszego checkpointu walidacyjnego, a nie automatycznie z wag z ostatniej epoki,
   - po zakończeniu sukcesem zapisujemy wytrenowany model jako nowy wpis rejestru modeli oraz raport treningu w skonfigurowanych lokalizacjach systemowych,
   - jeśli run kończy się `failed`, Backend zachowuje rekord metadanych, ale czyści artefakty runtime analogicznie do `cancelled`,
   - jeśli jedynym problemem końcowym jest raport, ale model wynikowy jest kompletny, run kończy się sukcesem z ostrzeżeniem, a nie statusem `failed`.

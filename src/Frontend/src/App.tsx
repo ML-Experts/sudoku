@@ -15,6 +15,8 @@ import { Uc06TrainingSection } from "./components/Uc06TrainingSection";
 import { Uc11RawCandidatesSection } from "./components/Uc11RawCandidatesSection";
 import { Uc12DatasetPreparationSection } from "./components/Uc12DatasetPreparationSection";
 import { useAdminSession } from "./context/AdminSessionContext";
+import { Uc05WorkflowSection } from "./features/uc05/api";
+import { toImageDataUrl } from "./shared/images/toImageDataUrl";
 import type {
   CellsGridApiResponse,
   ExampleFileApiResponse,
@@ -268,10 +270,6 @@ function formatBytes(bytes: number): string {
   }
 
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function toImageDataUrl(image: ImageApiResponse): string {
-  return `data:${image.mimeType};base64,${image.base64}`;
 }
 
 type AppView = "health" | "examples" | "datasets";
@@ -1114,146 +1112,156 @@ export default function App() {
               </section>
 
               {selectedProcessName ? (
-                <section
-                  className="result-card uc04-flow-section"
-                  aria-live="polite"
-                >
-                  <p className="eyebrow">UC-04 — Przetwarzanie przykladu</p>
-                  <h2>Pipeline preprocessingu</h2>
-                  <p className="muted-copy">
-                    Wybrany plik: <code>{selectedProcessName}</code>
-                  </p>
+                <>
+                  <section
+                    className="result-card uc04-flow-section"
+                    aria-live="polite"
+                  >
+                    <p className="eyebrow">UC-04 — Przetwarzanie przykladu</p>
+                    <h2>Pipeline preprocessingu</h2>
+                    <p className="muted-copy">
+                      Wybrany plik: <code>{selectedProcessName}</code>
+                    </p>
 
-                  <div className="examples-row-actions">
-                    <button
-                      className="secondary-button"
-                      type="button"
-                      onClick={() => void runUc04Flow(selectedProcessName)}
-                      disabled={
-                        previewStageState.kind === "loading" ||
-                        boardStageState.kind === "loading" ||
-                        cellsStageState.kind === "loading"
-                      }
-                    >
-                      Uruchom ponownie
-                    </button>
-                    <button
-                      className="secondary-button"
-                      type="button"
-                      onClick={() => setSelectedProcessName(null)}
-                    >
-                      Wyczysc wybor
-                    </button>
-                  </div>
+                    <div className="examples-row-actions">
+                      <button
+                        className="secondary-button"
+                        type="button"
+                        onClick={() => void runUc04Flow(selectedProcessName)}
+                        disabled={
+                          previewStageState.kind === "loading" ||
+                          boardStageState.kind === "loading" ||
+                          cellsStageState.kind === "loading"
+                        }
+                      >
+                        Uruchom ponownie
+                      </button>
+                      <button
+                        className="secondary-button"
+                        type="button"
+                        onClick={() => setSelectedProcessName(null)}
+                      >
+                        Wyczysc wybor
+                      </button>
+                    </div>
 
-                  <div className="uc04-stage-grid">
+                    <div className="uc04-stage-grid">
+                      <article className="uc04-stage-card">
+                        <h3>Etap 0 — Podglad wejscia</h3>
+                        {previewStageState.kind === "loading" ? (
+                          <p className="status-banner status-loading">
+                            Pobieranie obrazu wejsciowego...
+                          </p>
+                        ) : null}
+                        {previewStageState.kind === "error" ? (
+                          <>
+                            <p className="status-banner status-error">
+                              {previewStageState.error}
+                            </p>
+                            {previewStageState.errorType ? (
+                              <p className="muted-copy">
+                                Typ bledu: {previewStageState.errorType}
+                              </p>
+                            ) : null}
+                            {previewStageState.httpStatus !== null ? (
+                              <p className="muted-copy">
+                                HTTP status: {previewStageState.httpStatus}
+                              </p>
+                            ) : null}
+                          </>
+                        ) : null}
+                        {previewStageState.kind === "success" ? (
+                          <img
+                            className="uc04-image-preview"
+                            src={toImageDataUrl(previewStageState.image)}
+                            alt={`Podglad ${selectedProcessName}`}
+                          />
+                        ) : null}
+                      </article>
+
+                      <article className="uc04-stage-card">
+                        <h3>Etap 1 — Preprocess board</h3>
+                        {boardStageState.kind === "loading" ? (
+                          <p className="status-banner status-loading">
+                            Przetwarzanie boarda...
+                          </p>
+                        ) : null}
+                        {boardStageState.kind === "error" ? (
+                          <>
+                            <p className="status-banner status-error">
+                              {boardStageState.error}
+                            </p>
+                            {boardStageState.errorType ? (
+                              <p className="muted-copy">
+                                Typ bledu: {boardStageState.errorType}
+                              </p>
+                            ) : null}
+                            {boardStageState.httpStatus !== null ? (
+                              <p className="muted-copy">
+                                HTTP status: {boardStageState.httpStatus}
+                              </p>
+                            ) : null}
+                          </>
+                        ) : null}
+                        {boardStageState.kind === "success" ? (
+                          <img
+                            className="uc04-image-preview"
+                            src={toImageDataUrl(boardStageState.image)}
+                            alt="Wynik etapu preprocess board"
+                          />
+                        ) : null}
+                      </article>
+                    </div>
+
                     <article className="uc04-stage-card">
-                      <h3>Etap 0 — Podglad wejscia</h3>
-                      {previewStageState.kind === "loading" ? (
+                      <h3>Etap 2 — Siatka komorek 9x9</h3>
+                      {cellsStageState.kind === "loading" ? (
                         <p className="status-banner status-loading">
-                          Pobieranie obrazu wejsciowego...
+                          Dzielenie boarda na komorki...
                         </p>
                       ) : null}
-                      {previewStageState.kind === "error" ? (
+                      {cellsStageState.kind === "error" ? (
                         <>
                           <p className="status-banner status-error">
-                            {previewStageState.error}
+                            {cellsStageState.error}
                           </p>
-                          {previewStageState.errorType ? (
+                          {cellsStageState.errorType ? (
                             <p className="muted-copy">
-                              Typ bledu: {previewStageState.errorType}
+                              Typ bledu: {cellsStageState.errorType}
                             </p>
                           ) : null}
-                          {previewStageState.httpStatus !== null ? (
+                          {cellsStageState.httpStatus !== null ? (
                             <p className="muted-copy">
-                              HTTP status: {previewStageState.httpStatus}
+                              HTTP status: {cellsStageState.httpStatus}
                             </p>
                           ) : null}
                         </>
                       ) : null}
-                      {previewStageState.kind === "success" ? (
-                        <img
-                          className="uc04-image-preview"
-                          src={toImageDataUrl(previewStageState.image)}
-                          alt={`Podglad ${selectedProcessName}`}
-                        />
+                      {cellsStageState.kind === "success" ? (
+                        <div className="uc04-cells-grid">
+                          {cellsStageState.cells.cells.map((row, rowIndex) =>
+                            row.map((cell, cellIndex) => (
+                              <img
+                                key={`${rowIndex}-${cellIndex}`}
+                                className="uc04-cell-image"
+                                src={toImageDataUrl(cell)}
+                                alt={`Komorka ${rowIndex + 1}-${cellIndex + 1}`}
+                              />
+                            )),
+                          )}
+                        </div>
                       ) : null}
                     </article>
+                  </section>
 
-                    <article className="uc04-stage-card">
-                      <h3>Etap 1 — Preprocess board</h3>
-                      {boardStageState.kind === "loading" ? (
-                        <p className="status-banner status-loading">
-                          Przetwarzanie boarda...
-                        </p>
-                      ) : null}
-                      {boardStageState.kind === "error" ? (
-                        <>
-                          <p className="status-banner status-error">
-                            {boardStageState.error}
-                          </p>
-                          {boardStageState.errorType ? (
-                            <p className="muted-copy">
-                              Typ bledu: {boardStageState.errorType}
-                            </p>
-                          ) : null}
-                          {boardStageState.httpStatus !== null ? (
-                            <p className="muted-copy">
-                              HTTP status: {boardStageState.httpStatus}
-                            </p>
-                          ) : null}
-                        </>
-                      ) : null}
-                      {boardStageState.kind === "success" ? (
-                        <img
-                          className="uc04-image-preview"
-                          src={toImageDataUrl(boardStageState.image)}
-                          alt="Wynik etapu preprocess board"
-                        />
-                      ) : null}
-                    </article>
-                  </div>
-
-                  <article className="uc04-stage-card">
-                    <h3>Etap 2 — Siatka komorek 9x9</h3>
-                    {cellsStageState.kind === "loading" ? (
-                      <p className="status-banner status-loading">
-                        Dzielenie boarda na komorki...
-                      </p>
-                    ) : null}
-                    {cellsStageState.kind === "error" ? (
-                      <>
-                        <p className="status-banner status-error">
-                          {cellsStageState.error}
-                        </p>
-                        {cellsStageState.errorType ? (
-                          <p className="muted-copy">
-                            Typ bledu: {cellsStageState.errorType}
-                          </p>
-                        ) : null}
-                        {cellsStageState.httpStatus !== null ? (
-                          <p className="muted-copy">
-                            HTTP status: {cellsStageState.httpStatus}
-                          </p>
-                        ) : null}
-                      </>
-                    ) : null}
-                    {cellsStageState.kind === "success" ? (
-                      <div className="uc04-cells-grid">
-                        {cellsStageState.cells.cells.map((row, rowIndex) =>
-                          row.map((cell, cellIndex) => (
-                            <img
-                              key={`${rowIndex}-${cellIndex}`}
-                              className="uc04-cell-image"
-                              src={toImageDataUrl(cell)}
-                              alt={`Komorka ${rowIndex + 1}-${cellIndex + 1}`}
-                            />
-                          )),
-                        )}
-                      </div>
-                    ) : null}
-                  </article>
-                </section>
+                  <Uc05WorkflowSection
+                    apiBaseUrl={apiBaseUrl}
+                    cellsGrid={
+                      cellsStageState.kind === "success" ? cellsStageState.cells : null
+                    }
+                    selectedProcessName={selectedProcessName}
+                  />
+                </>
               ) : null}
             </>
           ) : null}

@@ -44,8 +44,13 @@ jobs:
       BE_KESTREL_URL: ${{ vars.BE_KESTREL_URL }}
       BE_ML_BASE_URL: ${{ vars.BE_ML_BASE_URL }}
       BE_ML_PING_PATH: ${{ vars.BE_ML_PING_PATH }}
+      BE_ML_CELL_INFERENCE_PATH: ${{ vars.BE_ML_CELL_INFERENCE_PATH }}
       BE_ML_PREPARE_DATASET_PATH: ${{ vars.BE_ML_PREPARE_DATASET_PATH }}
       BE_ML_TIMEOUT_SECONDS: ${{ vars.BE_ML_TIMEOUT_SECONDS }}
+      BE_SUDOKU_CELLS_INFERENCE_MAX_INLINE_IMAGE_SIZE_BYTES: ${{ vars.BE_SUDOKU_CELLS_INFERENCE_MAX_INLINE_IMAGE_SIZE_BYTES }}
+      BE_SUDOKU_CELLS_INFERENCE_PROFILE_NAME: ${{ vars.BE_SUDOKU_CELLS_INFERENCE_PROFILE_NAME }}
+      BE_SUDOKU_CELLS_INFERENCE_EMPTY_CELL_INNER_MARGIN_RATIO: ${{ vars.BE_SUDOKU_CELLS_INFERENCE_EMPTY_CELL_INNER_MARGIN_RATIO }}
+      BE_SUDOKU_CELLS_INFERENCE_EMPTY_CELL_DARK_PIXEL_RATIO_THRESHOLD: ${{ vars.BE_SUDOKU_CELLS_INFERENCE_EMPTY_CELL_DARK_PIXEL_RATIO_THRESHOLD }}
       BE_RAW_DATASETS_BOARDS_SUBDIRECTORY: ${{ vars.BE_RAW_DATASETS_BOARDS_SUBDIRECTORY }}
       BE_RAW_DATASETS_DIGITS_SUBDIRECTORY: ${{ vars.BE_RAW_DATASETS_DIGITS_SUBDIRECTORY }}
       BE_DATASETS_PREP_BOARDS_SUBDIRECTORY: ${{ vars.BE_DATASETS_PREP_BOARDS_SUBDIRECTORY }}
@@ -60,6 +65,7 @@ jobs:
       BE_TRAININGS_REPORTS_DIRECTORY_PATH: ${{ vars.BE_TRAININGS_REPORTS_DIRECTORY_PATH }}
       BE_TRAININGS_METADATA_DIRECTORY_PATH: ${{ vars.BE_TRAININGS_METADATA_DIRECTORY_PATH }}
       BE_TRAININGS_WORKING_DIRECTORY_PATH: ${{ vars.BE_TRAININGS_WORKING_DIRECTORY_PATH }}
+      BE_SUDOKU_SOLVE_SESSIONS_METADATA_DIRECTORY_PATH: ${{ vars.BE_SUDOKU_SOLVE_SESSIONS_METADATA_DIRECTORY_PATH }}
       BE_MODELS_REGISTRY_DIRECTORY_PATH: ${{ vars.BE_MODELS_REGISTRY_DIRECTORY_PATH }}
       BE_MODELS_ACTIVE_DIRECTORY_PATH: ${{ vars.BE_MODELS_ACTIVE_DIRECTORY_PATH }}
       BE_ADMIN_SHARED_PASSWORD: ${{ secrets.BE_ADMIN_SHARED_PASSWORD }}
@@ -97,6 +103,11 @@ jobs:
             exit 1
           fi
 
+          if [ -z "$BE_ML_CELL_INFERENCE_PATH" ]; then
+            echo "Missing BE_ML_CELL_INFERENCE_PATH variable for the selected GitHub environment."
+            exit 1
+          fi
+
           if [ -z "$BE_ML_PREPARE_DATASET_PATH" ]; then
             echo "Missing BE_ML_PREPARE_DATASET_PATH variable for the selected GitHub environment."
             exit 1
@@ -104,6 +115,26 @@ jobs:
 
           if [ -z "$BE_ML_TIMEOUT_SECONDS" ]; then
             echo "Missing BE_ML_TIMEOUT_SECONDS variable for the selected GitHub environment."
+            exit 1
+          fi
+
+          if [ -z "$BE_SUDOKU_CELLS_INFERENCE_MAX_INLINE_IMAGE_SIZE_BYTES" ]; then
+            echo "Missing BE_SUDOKU_CELLS_INFERENCE_MAX_INLINE_IMAGE_SIZE_BYTES variable for the selected GitHub environment."
+            exit 1
+          fi
+
+          if [ -z "$BE_SUDOKU_CELLS_INFERENCE_PROFILE_NAME" ]; then
+            echo "Missing BE_SUDOKU_CELLS_INFERENCE_PROFILE_NAME variable for the selected GitHub environment."
+            exit 1
+          fi
+
+          if [ -z "$BE_SUDOKU_CELLS_INFERENCE_EMPTY_CELL_INNER_MARGIN_RATIO" ]; then
+            echo "Missing BE_SUDOKU_CELLS_INFERENCE_EMPTY_CELL_INNER_MARGIN_RATIO variable for the selected GitHub environment."
+            exit 1
+          fi
+
+          if [ -z "$BE_SUDOKU_CELLS_INFERENCE_EMPTY_CELL_DARK_PIXEL_RATIO_THRESHOLD" ]; then
+            echo "Missing BE_SUDOKU_CELLS_INFERENCE_EMPTY_CELL_DARK_PIXEL_RATIO_THRESHOLD variable for the selected GitHub environment."
             exit 1
           fi
 
@@ -177,6 +208,11 @@ jobs:
             exit 1
           fi
 
+          if [ -z "$BE_SUDOKU_SOLVE_SESSIONS_METADATA_DIRECTORY_PATH" ]; then
+            echo "Missing BE_SUDOKU_SOLVE_SESSIONS_METADATA_DIRECTORY_PATH variable for the selected GitHub environment."
+            exit 1
+          fi
+
           if [ -z "$BE_MODELS_REGISTRY_DIRECTORY_PATH" ]; then
             echo "Missing BE_MODELS_REGISTRY_DIRECTORY_PATH variable for the selected GitHub environment."
             exit 1
@@ -246,8 +282,13 @@ jobs:
               "BE_KESTREL_URL",
               "BE_ML_BASE_URL",
               "BE_ML_PING_PATH",
+              "BE_ML_CELL_INFERENCE_PATH",
               "BE_ML_PREPARE_DATASET_PATH",
               "BE_ML_TIMEOUT_SECONDS",
+              "BE_SUDOKU_CELLS_INFERENCE_MAX_INLINE_IMAGE_SIZE_BYTES",
+              "BE_SUDOKU_CELLS_INFERENCE_PROFILE_NAME",
+              "BE_SUDOKU_CELLS_INFERENCE_EMPTY_CELL_INNER_MARGIN_RATIO",
+              "BE_SUDOKU_CELLS_INFERENCE_EMPTY_CELL_DARK_PIXEL_RATIO_THRESHOLD",
               "BE_RAW_DATASETS_BOARDS_SUBDIRECTORY",
               "BE_RAW_DATASETS_DIGITS_SUBDIRECTORY",
               "BE_DATASETS_PREP_BOARDS_SUBDIRECTORY",
@@ -262,6 +303,7 @@ jobs:
               "BE_TRAININGS_REPORTS_DIRECTORY_PATH",
               "BE_TRAININGS_METADATA_DIRECTORY_PATH",
               "BE_TRAININGS_WORKING_DIRECTORY_PATH",
+              "BE_SUDOKU_SOLVE_SESSIONS_METADATA_DIRECTORY_PATH",
               "BE_MODELS_REGISTRY_DIRECTORY_PATH",
               "BE_MODELS_ACTIVE_DIRECTORY_PATH",
               "BE_ADMIN_SHARED_PASSWORD",
@@ -281,6 +323,27 @@ jobs:
           except ValueError as exc:
               raise SystemExit(
                   "BE_ML_TIMEOUT_SECONDS must be a non-empty integer."
+              ) from exc
+
+          try:
+              sudoku_cells_max_inline_image_size_bytes = int(
+                  os.environ["BE_SUDOKU_CELLS_INFERENCE_MAX_INLINE_IMAGE_SIZE_BYTES"]
+              )
+          except ValueError as exc:
+              raise SystemExit(
+                  "BE_SUDOKU_CELLS_INFERENCE_MAX_INLINE_IMAGE_SIZE_BYTES must be a non-empty integer."
+              ) from exc
+
+          try:
+              sudoku_cells_empty_cell_inner_margin_ratio = float(
+                  os.environ["BE_SUDOKU_CELLS_INFERENCE_EMPTY_CELL_INNER_MARGIN_RATIO"]
+              )
+              sudoku_cells_empty_cell_dark_pixel_ratio_threshold = float(
+                  os.environ["BE_SUDOKU_CELLS_INFERENCE_EMPTY_CELL_DARK_PIXEL_RATIO_THRESHOLD"]
+              )
+          except ValueError as exc:
+              raise SystemExit(
+                  "BE_SUDOKU_CELLS_INFERENCE_EMPTY_CELL_* values must be numeric."
               ) from exc
 
           try:
@@ -308,8 +371,15 @@ jobs:
           ml_service = config.setdefault("MlService", {})
           ml_service["BaseUrl"] = os.environ["BE_ML_BASE_URL"]
           ml_service["PingPath"] = os.environ["BE_ML_PING_PATH"]
+          ml_service["CellInferencePath"] = os.environ["BE_ML_CELL_INFERENCE_PATH"]
           ml_service["PrepareDatasetPath"] = os.environ["BE_ML_PREPARE_DATASET_PATH"]
           ml_service["TimeoutSeconds"] = ml_timeout_seconds
+
+          sudoku_cells_inference = config.setdefault("SudokuCellsInference", {})
+          sudoku_cells_inference["MaxInlineImageSizeBytes"] = sudoku_cells_max_inline_image_size_bytes
+          sudoku_cells_inference["InferenceProfileName"] = os.environ["BE_SUDOKU_CELLS_INFERENCE_PROFILE_NAME"]
+          sudoku_cells_inference["EmptyCellInnerMarginRatio"] = sudoku_cells_empty_cell_inner_margin_ratio
+          sudoku_cells_inference["EmptyCellDarkPixelRatioThreshold"] = sudoku_cells_empty_cell_dark_pixel_ratio_threshold
 
           raw_datasets_storage = config.setdefault("RawDatasetsStorage", {})
           raw_datasets_storage["BoardsSubdirectory"] = os.environ["BE_RAW_DATASETS_BOARDS_SUBDIRECTORY"]
@@ -332,6 +402,9 @@ jobs:
           trainings_storage["ReportsDirectoryPath"] = os.environ["BE_TRAININGS_REPORTS_DIRECTORY_PATH"]
           trainings_storage["MetadataDirectoryPath"] = os.environ["BE_TRAININGS_METADATA_DIRECTORY_PATH"]
           trainings_storage["WorkingDirectoryPath"] = os.environ["BE_TRAININGS_WORKING_DIRECTORY_PATH"]
+
+          sudoku_solve_sessions_storage = config.setdefault("SudokuSolveSessionsStorage", {})
+          sudoku_solve_sessions_storage["MetadataDirectoryPath"] = os.environ["BE_SUDOKU_SOLVE_SESSIONS_METADATA_DIRECTORY_PATH"]
 
           models_registry_storage = config.setdefault("ModelsRegistryStorage", {})
           models_registry_storage["RegistryDirectoryPath"] = os.environ["BE_MODELS_REGISTRY_DIRECTORY_PATH"]

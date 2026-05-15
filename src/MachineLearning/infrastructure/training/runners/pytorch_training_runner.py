@@ -1,5 +1,6 @@
 import logging
 import random
+from copy import deepcopy
 from pathlib import Path
 from time import perf_counter
 
@@ -36,6 +37,8 @@ from models.training_run_status import TrainingRunStatus
 LOGGER = logging.getLogger(__name__)
 REPORT_MISSING_WARNING = "training_report_missing"
 REPORT_CORRUPTED_WARNING = "training_report_corrupted"
+BEST_CHECKPOINT_FILE_NAME = "checkpoint_best.pt"
+MIN_SCHEDULER_LR = 1e-6
 
 
 class PytorchTrainingRunner:
@@ -127,8 +130,17 @@ class PytorchTrainingRunner:
                 trainable_parameters,
             )
             criterion = nn.CrossEntropyLoss()
+            scheduler = self._build_scheduler(optimizer, profile)
 
             history = []
+            best_model_state = deepcopy(model.state_dict())
+            best_monitored_loss = None
+            best_monitored_accuracy = None
+            best_monitored_metric_name = None
+            best_epoch = 0
+            executed_epochs = 0
+            epochs_without_improvement = 0
+            stopped_early = False
             for epoch in range(1, profile.epochs + 1):
                 cancellation_token.throw_if_cancelled()
                 train_metrics = self._train_one_epoch(
@@ -154,6 +166,30 @@ class PytorchTrainingRunner:
                     }
                 )
                 self._write_checkpoint(context, model, epoch)
+                (
+                    monitored_loss,
+                    monitored_accuracy,
+                    monitored_metric_name,
+                ) = self._select_monitored_metrics(train_metrics, val_metrics)
+                if scheduler is not None and monitored_loss is not None:
+                    scheduler.step(monitored_loss)
+                if self._is_monitored_metric_improved(
+                    monitored_loss=monitored_loss,
+                    monitored_accuracy=monitored_accuracy,
+                    best_monitored_loss=best_monitored_loss,
+                    best_monitored_accuracy=best_monitored_accuracy,
+                    min_delta=profile.early_stopping_min_delta,
+                ):
+                    best_model_state = deepcopy(model.state_dict())
+                    best_monitored_loss = monitored_loss
+                    best_monitored_accuracy = monitored_accuracy
+                    best_monitored_metric_name = monitored_metric_name
+                    best_epoch = epoch
+                    epochs_without_improvement = 0
+                    self._write_best_checkpoint(context, model)
+                else:
+                    epochs_without_improvement += 1
+                executed_epochs = epoch
                 await self._publish_progress(
                     sequence,
                     context,
@@ -162,14 +198,28 @@ class PytorchTrainingRunner:
                     train_metrics,
                     val_metrics,
                 )
+                if self._should_stop_early(
+                    profile,
+                    epochs_without_improvement,
+                ):
+                    stopped_early = True
+                    break
 
             cancellation_token.throw_if_cancelled()
+            if best_epoch > 0:
+                model.load_state_dict(best_model_state)
             stage = TrainingRunStage.EVALUATION.value
+            evaluation_message = "Training evaluation started."
+            if stopped_early:
+                evaluation_message = (
+                    f"Early stopping triggered at epoch {executed_epochs}. "
+                    "Training evaluation started."
+                )
             await self._publish_status_changed(
                 sequence,
                 context,
                 stage=stage,
-                message="Training evaluation started.",
+                message=evaluation_message,
                 epoch_total=profile.epochs,
             )
             evaluation_loader = self._select_evaluation_loader(dataloaders)
@@ -195,9 +245,15 @@ class PytorchTrainingRunner:
                 report_paths = self._write_reports(
                     context,
                     profile.epochs,
-                    device,
-                    metrics,
-                    history,
+                    executed_epochs=executed_epochs,
+                    best_epoch=best_epoch or None,
+                    stopped_early=stopped_early,
+                    best_monitored_metric_name=best_monitored_metric_name,
+                    best_monitored_loss=best_monitored_loss,
+                    best_monitored_accuracy=best_monitored_accuracy,
+                    device=device,
+                    metrics=metrics,
+                    history=history,
                     training_duration_seconds=round(
                         perf_counter() - training_started_at,
                         3,
@@ -338,6 +394,72 @@ class PytorchTrainingRunner:
             "accuracy": correct_count / total_count,
         }
 
+    def _build_scheduler(
+        self,
+        optimizer: torch.optim.Optimizer,
+        profile,
+    ) -> torch.optim.lr_scheduler.ReduceLROnPlateau | None:
+        if (
+            profile.lr_scheduler_patience is None
+            or profile.lr_scheduler_factor is None
+        ):
+            return None
+        return torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer,
+            mode="min",
+            factor=profile.lr_scheduler_factor,
+            patience=profile.lr_scheduler_patience,
+            min_lr=MIN_SCHEDULER_LR,
+        )
+
+    def _select_monitored_metrics(
+        self,
+        train_metrics: dict,
+        val_metrics: dict,
+    ) -> tuple[float | None, float | None, str]:
+        if val_metrics["loss"] is not None:
+            return (
+                val_metrics["loss"],
+                val_metrics["accuracy"],
+                "validationLoss",
+            )
+        return (
+            train_metrics["loss"],
+            train_metrics["accuracy"],
+            "trainLoss",
+        )
+
+    def _is_monitored_metric_improved(
+        self,
+        monitored_loss: float | None,
+        monitored_accuracy: float | None,
+        best_monitored_loss: float | None,
+        best_monitored_accuracy: float | None,
+        min_delta: float,
+    ) -> bool:
+        if monitored_loss is None:
+            return best_monitored_loss is None
+        if best_monitored_loss is None:
+            return True
+        if monitored_loss < best_monitored_loss - min_delta:
+            return True
+        if (
+            abs(monitored_loss - best_monitored_loss) <= min_delta
+            and monitored_accuracy is not None
+            and best_monitored_accuracy is not None
+        ):
+            return monitored_accuracy > best_monitored_accuracy
+        return False
+
+    def _should_stop_early(
+        self,
+        profile,
+        epochs_without_improvement: int,
+    ) -> bool:
+        if profile.early_stopping_patience is None:
+            return False
+        return epochs_without_improvement >= profile.early_stopping_patience
+
     def _select_evaluation_loader(
         self,
         dataloaders: dict[str, DataLoader],
@@ -397,10 +519,28 @@ class PytorchTrainingRunner:
             checkpoint_directory / f"checkpoint_epoch_{epoch}.pt",
         )
 
+    def _write_best_checkpoint(
+        self,
+        context: TrainingRunContextDto,
+        model: nn.Module,
+    ) -> None:
+        checkpoint_directory = Path(context.output_paths.run_directory_path)
+        checkpoint_directory.mkdir(parents=True, exist_ok=True)
+        torch.save(
+            model.state_dict(),
+            checkpoint_directory / BEST_CHECKPOINT_FILE_NAME,
+        )
+
     def _write_reports(
         self,
         context: TrainingRunContextDto,
         epoch_total: int,
+        executed_epochs: int,
+        best_epoch: int | None,
+        stopped_early: bool,
+        best_monitored_metric_name: str | None,
+        best_monitored_loss: float | None,
+        best_monitored_accuracy: float | None,
         device: torch.device,
         metrics: dict,
         history: list[dict],
@@ -422,6 +562,12 @@ class PytorchTrainingRunner:
             "benchmarkName": context.resolved_configuration.benchmark_name,
             "seed": context.resolved_configuration.seed,
             "epochs": epoch_total,
+            "executedEpochs": executed_epochs,
+            "bestEpoch": best_epoch,
+            "stoppedEarly": stopped_early,
+            "bestCheckpointMetricName": best_monitored_metric_name,
+            "bestMonitoredLoss": best_monitored_loss,
+            "bestMonitoredAccuracy": best_monitored_accuracy,
             "device": str(device),
             "trainingDurationSeconds": training_duration_seconds,
             "averageInferenceTimeMs": average_inference_time_ms,

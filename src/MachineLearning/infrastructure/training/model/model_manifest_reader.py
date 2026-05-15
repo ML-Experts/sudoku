@@ -7,6 +7,7 @@ from application.features.trainings.errors.training_run_errors import (
 from models.model_manifest import (
     ModelArchitecture,
     ModelArtifacts,
+    ModelCapabilities,
     ModelManifest,
 )
 
@@ -17,6 +18,7 @@ class ModelManifestReader:
             raw_manifest = json.loads(Path(manifest_path).read_text("utf-8"))
             architecture = raw_manifest["architecture"]
             artifacts = raw_manifest["artifacts"]
+            capabilities = raw_manifest.get("capabilities", {})
             return ModelManifest(
                 framework=str(raw_manifest["framework"]),
                 architecture=ModelArchitecture(
@@ -33,6 +35,19 @@ class ModelManifestReader:
                         artifacts["primaryArtifactRelativePath"]
                     ),
                     format=str(artifacts["format"]),
+                ),
+                capabilities=ModelCapabilities(
+                    can_start_training=bool(
+                        capabilities.get("canStartTraining", False)
+                    ),
+                    can_use_for_inference=bool(
+                        capabilities.get("canUseForInference", False)
+                    ),
+                ),
+                source_type=(
+                    str(raw_manifest["sourceType"])
+                    if raw_manifest.get("sourceType") is not None
+                    else None
                 ),
             )
         except (KeyError, TypeError, ValueError, json.JSONDecodeError) as error:

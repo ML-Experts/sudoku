@@ -10,12 +10,21 @@ class CellPreprocessingPipeline:
         self._output_size = output_size
 
     def run(self, cell_image: NDArray[np.uint8]) -> NDArray[np.float32]:
+        binary_image = self.build_foreground_mask(cell_image)
+        centered_image = self._center_foreground(binary_image)
+        normalized_image = centered_image.astype(np.float32) / 255.0
+        return normalized_image
+
+    def build_foreground_mask(
+        self,
+        cell_image: NDArray[np.uint8],
+    ) -> NDArray[np.uint8]:
         if cell_image.size == 0:
             raise ValueError("Cell image cannot be empty.")
 
         grayscale_image = self._to_grayscale(cell_image)
         sharpened_image = self._sharpen(grayscale_image)
-        binary_image = cv2.adaptiveThreshold(
+        return cv2.adaptiveThreshold(
             sharpened_image,
             255,
             cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
@@ -23,9 +32,6 @@ class CellPreprocessingPipeline:
             11,
             2,
         )
-        centered_image = self._center_foreground(binary_image)
-        normalized_image = centered_image.astype(np.float32) / 255.0
-        return normalized_image
 
     def _to_grayscale(self, image: NDArray[np.uint8]) -> NDArray[np.uint8]:
         if image.ndim == 2:

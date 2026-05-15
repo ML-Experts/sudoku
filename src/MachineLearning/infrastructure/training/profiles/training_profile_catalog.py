@@ -12,11 +12,15 @@ class TrainingProfileCatalog:
             "cnn-default-v1": TrainingProfile(
                 name="cnn-default-v1",
                 architecture_family="cnn",
-                epochs=20,
+                epochs=40,
                 batch_size=64,
                 learning_rate=0.001,
                 optimizer="adam",
                 fine_tuning_policy="all",
+                early_stopping_patience=6,
+                early_stopping_min_delta=0.001,
+                lr_scheduler_patience=3,
+                lr_scheduler_factor=0.5,
             ),
             "resnet18-finetune-v1": TrainingProfile(
                 name="resnet18-finetune-v1",
@@ -26,6 +30,10 @@ class TrainingProfileCatalog:
                 learning_rate=0.0001,
                 optimizer="adam",
                 fine_tuning_policy="head-only",
+                early_stopping_patience=4,
+                early_stopping_min_delta=0.001,
+                lr_scheduler_patience=2,
+                lr_scheduler_factor=0.5,
             ),
         }
 
@@ -55,4 +63,8 @@ class TrainingProfileCatalog:
             learning_rate=profile.learning_rate,
             optimizer=profile.optimizer,
             fine_tuning_policy=profile.fine_tuning_policy,
+            early_stopping_patience=profile.early_stopping_patience,
+            early_stopping_min_delta=profile.early_stopping_min_delta,
+            lr_scheduler_patience=profile.lr_scheduler_patience,
+            lr_scheduler_factor=profile.lr_scheduler_factor,
         )

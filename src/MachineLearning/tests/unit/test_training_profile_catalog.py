@@ -3,7 +3,12 @@ import unittest
 from infrastructure.training.profiles.training_profile_catalog import (
     TrainingProfileCatalog,
 )
-from models.model_manifest import ModelArchitecture, ModelArtifacts, ModelManifest
+from models.model_manifest import (
+    ModelArchitecture,
+    ModelArtifacts,
+    ModelCapabilities,
+    ModelManifest,
+)
 
 
 def _manifest(family: str = "cnn") -> ModelManifest:
@@ -22,16 +27,33 @@ def _manifest(family: str = "cnn") -> ModelManifest:
             primary_artifact_relative_path="artifacts/model.pt",
             format="pytorch-state-dict",
         ),
+        capabilities=ModelCapabilities(
+            can_start_training=True,
+            can_use_for_inference=True,
+        ),
     )
 
 
 class TrainingProfileCatalogTests(unittest.TestCase):
+    def test_get_should_return_cnn_profile_with_40_epochs_and_training_controls(
+        self,
+    ) -> None:
+        catalog = TrainingProfileCatalog()
+
+        profile = catalog.get("cnn-default-v1", _manifest())
+
+        self.assertEqual(profile.epochs, 40)
+        self.assertEqual(profile.early_stopping_patience, 6)
+        self.assertEqual(profile.lr_scheduler_patience, 3)
+        self.assertEqual(profile.lr_scheduler_factor, 0.5)
+
     def test_get_should_apply_max_epochs_override(self) -> None:
         catalog = TrainingProfileCatalog(max_epochs_override=1)
 
         profile = catalog.get("cnn-default-v1", _manifest())
 
         self.assertEqual(profile.epochs, 1)
+        self.assertEqual(profile.early_stopping_patience, 6)
 
     def test_get_should_reject_architecture_mismatch(self) -> None:
         catalog = TrainingProfileCatalog()

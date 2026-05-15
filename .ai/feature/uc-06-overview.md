@@ -112,6 +112,7 @@ flowchart TD
 ### Profile treningowe i augmentacyjne
 - `trainingMode` opisuje typ uruchamianego runu; w `MVP` jest to `fineTuning`.
 - `trainingProfileName` identyfikuje preset parametrów treningu, np. liczbę epok, batch size, learning rate albo politykę zamrażania warstw.
+- W bieżącym `MVP` domyślny preset treningowy wspiera do `20` epok; runner zapisuje checkpoint po każdej epoce i wybiera najlepszy checkpoint walidacyjny jako finalny model wynikowy.
 - `augmentationProfileName` identyfikuje preset augmentacji danych używany podczas treningu.
 - `benchmarkName` identyfikuje wspólny benchmark używany do końcowego porównania modeli.
 - `seed` jest ziarnem losowości runu potrzebnym do powtarzalności eksperymentu.
@@ -316,12 +317,13 @@ flowchart TD
 23. `ML` zapisuje:
    - checkpointy i logi do `trainings/runs/{runName}`,
    - raporty do `trainings/reports/{runName}`,
-   - finalne artefakty modelu do `models/registry/{producedModelName}/artifacts`.
-24. Po zdarzeniu końcowym `completed` `BE` finalizuje `models/registry/{producedModelName}/model.json`.
-25. Jeśli końcowy problem dotyczy wyłącznie raportu (`missing` albo `corrupted`), ale artefakty modelu są kompletne, `ML` raportuje `completed`, a `BE` zachowuje model wynikowy i publikuje ostrzeżenie zamiast przechodzić do `failed`.
-26. Po zdarzeniu końcowym `failed` `BE` zachowuje `trainings/metadata/{runName}.json` ze statusem `failed`, usuwa artefakty runtime runu z `trainings/runs/{runName}`, `trainings/reports/{runName}`, katalogu tymczasowego oraz częściowo utworzonego katalogu `models/registry/{producedModelName}`, a dopiero potem publikuje publiczny event `failed`.
-27. Po zdarzeniu końcowym `cancelled` `BE` zachowuje `trainings/metadata/{runName}.json` ze statusem `cancelled`, usuwa artefakty runtime runu z `trainings/runs/{runName}`, `trainings/reports/{runName}`, katalogu tymczasowego oraz częściowo utworzonego katalogu `models/registry/{producedModelName}`, a dopiero potem publikuje publiczny event `cancelled`.
-28. Run staje się widoczny w późniejszych use case'ach:
+   - finalne artefakty modelu do `models/registry/{producedModelName}/artifacts`, ale z wag najlepszego checkpointu walidacyjnego, a nie automatycznie z ostatniej epoki.
+24. W `MVP` domyślny profil treningowy wykonuje maksymalnie `20` epok; po każdej epoce runner aktualizuje ranking checkpointów według metryki walidacyjnej.
+25. Po zdarzeniu końcowym `completed` `BE` finalizuje `models/registry/{producedModelName}/model.json`.
+26. Jeśli końcowy problem dotyczy wyłącznie raportu (`missing` albo `corrupted`), ale artefakty modelu są kompletne, `ML` raportuje `completed`, a `BE` zachowuje model wynikowy i publikuje ostrzeżenie zamiast przechodzić do `failed`.
+27. Po zdarzeniu końcowym `failed` `BE` zachowuje `trainings/metadata/{runName}.json` ze statusem `failed`, usuwa artefakty runtime runu z `trainings/runs/{runName}`, `trainings/reports/{runName}`, katalogu tymczasowego oraz częściowo utworzonego katalogu `models/registry/{producedModelName}`, a dopiero potem publikuje publiczny event `failed`.
+28. Po zdarzeniu końcowym `cancelled` `BE` zachowuje `trainings/metadata/{runName}.json` ze statusem `cancelled`, usuwa artefakty runtime runu z `trainings/runs/{runName}`, `trainings/reports/{runName}`, katalogu tymczasowego oraz częściowo utworzonego katalogu `models/registry/{producedModelName}`, a dopiero potem publikuje publiczny event `cancelled`.
+29. Run staje się widoczny w późniejszych use case'ach:
    - `UC-07` postęp,
    - `UC-08` lista treningów i modeli,
    - `UC-09` szczegóły i metryki,

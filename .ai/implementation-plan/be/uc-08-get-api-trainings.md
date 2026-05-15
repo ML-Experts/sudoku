@@ -74,7 +74,7 @@ Przykład:
       "progress": {
         "percent": 100,
         "epoch": 10,
-        "totalEpochs": 10,
+        "totalEpochs": 20,
         "trainLoss": 0.05,
         "validationLoss": 0.08,
         "trainAccuracy": 0.98,

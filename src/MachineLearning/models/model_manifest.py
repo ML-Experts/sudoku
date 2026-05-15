@@ -19,7 +19,15 @@ class ModelArtifacts:
 
 
 @dataclass(frozen=True)
+class ModelCapabilities:
+    can_start_training: bool
+    can_use_for_inference: bool
+
+
+@dataclass(frozen=True)
 class ModelManifest:
     framework: str
     architecture: ModelArchitecture
     artifacts: ModelArtifacts
+    capabilities: ModelCapabilities
+    source_type: str | None = None

@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Sudoku.Application.Abstractions;
 using Sudoku.Application.Ml;
+using Sudoku.Application.Sudoku;
 using Sudoku.Infrastructure.Configuration;
 using Sudoku.Models.Images;
 
@@ -40,6 +41,22 @@ public sealed class MlImageProcessingHttpClient : IMlImageProcessingGateway
         CancellationToken cancellationToken = default)
     {
         return SendCellsAsync(_options.PreprocessCellsPath, image, cancellationToken);
+    }
+
+    public async Task<InferSudokuCellDigitMlResultDto> InferDigitAsync(
+        InferSudokuCellDigitMlRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var payload = await SendInferDigitAsync(_options.CellInferencePath, request, cancellationToken);
+
+        if (payload.Digit is < 1 or > 9)
+        {
+            throw new MlOperationFailedException(
+                InferSudokuCellDigitErrorTypes.MlInvalidResponse,
+                "Serwis ML zwrócił cyfrę spoza dozwolonego zakresu 1..9 albo null.");
+        }
+
+        return new InferSudokuCellDigitMlResultDto(payload.Digit);
     }
 
     private async Task<ImageContent> SendImageAsync(
@@ -96,20 +113,56 @@ public sealed class MlImageProcessingHttpClient : IMlImageProcessingGateway
         }
     }
 
+    private Task<DigitInferenceApiContract> SendInferDigitAsync(
+        string relativePath,
+        InferSudokuCellDigitMlRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var payload = new DigitInferenceRequestApiContract(
+            Image: new ImageApiContract(
+                MimeType: request.Image.MimeType,
+                Base64: Convert.ToBase64String(request.Image.Content)),
+            ActiveModel: new DigitInferenceActiveModelApiContract(
+                Name: request.ActiveModel.Name,
+                ManifestPath: request.ActiveModel.ManifestPath,
+                PrimaryArtifactPath: request.ActiveModel.PrimaryArtifactPath,
+                InputProfile: request.ActiveModel.InputProfile),
+            ResolvedConfiguration: new DigitInferenceResolvedConfigurationApiContract(
+                InferenceProfileName: request.ResolvedConfiguration.InferenceProfileName,
+                EmptyCellInnerMarginRatio: request.ResolvedConfiguration.EmptyCellInnerMarginRatio,
+                EmptyCellDarkPixelRatioThreshold: request.ResolvedConfiguration.EmptyCellDarkPixelRatioThreshold));
+
+        return SendPayloadAsync<DigitInferenceRequestApiContract, DigitInferenceApiContract>(
+            relativePath,
+            payload,
+            cancellationToken);
+    }
+
     private async Task<TResponse> SendAsync<TResponse>(
         string relativePath,
         ImageContent image,
         CancellationToken cancellationToken)
     {
+        var payload = new ImageApiContract(
+            MimeType: image.MimeType,
+            Base64: Convert.ToBase64String(image.Content));
+
+        return await SendPayloadAsync<ImageApiContract, TResponse>(
+            relativePath,
+            payload,
+            cancellationToken);
+    }
+
+    private async Task<TResponse> SendPayloadAsync<TRequest, TResponse>(
+        string relativePath,
+        TRequest payload,
+        CancellationToken cancellationToken)
+    {
         try
         {
-            var img = new ImageApiContract(
-                MimeType: image.MimeType,
-                Base64: Convert.ToBase64String(image.Content)
-            );
             using var response = await _httpClient.PutAsJsonAsync(
                 relativePath,
-                img,
+                payload,
                 cancellationToken);
 
             if (!response.IsSuccessStatusCode)
@@ -117,15 +170,15 @@ public sealed class MlImageProcessingHttpClient : IMlImageProcessingGateway
                 await ThrowMappedExceptionAsync(response, cancellationToken);
             }
 
-            var payload = await response.Content.ReadFromJsonAsync<TResponse>(cancellationToken: cancellationToken);
-            if (payload is null)
+            var responsePayload = await response.Content.ReadFromJsonAsync<TResponse>(cancellationToken: cancellationToken);
+            if (responsePayload is null)
             {
                 throw new MlOperationFailedException(
                     DefaultOperationErrorType,
                     "Serwis ML zwrócił pustą odpowiedź.");
             }
 
-            return payload;
+            return responsePayload;
         }
         catch (OperationCanceledException exception) when (!cancellationToken.IsCancellationRequested)
         {
@@ -252,6 +305,24 @@ public sealed class MlImageProcessingHttpClient : IMlImageProcessingGateway
 
     private sealed record CellsGridApiContract(
         IReadOnlyList<IReadOnlyList<ImageApiContract?>?>? Cells);
+
+    private sealed record DigitInferenceRequestApiContract(
+        ImageApiContract Image,
+        DigitInferenceActiveModelApiContract ActiveModel,
+        DigitInferenceResolvedConfigurationApiContract ResolvedConfiguration);
+
+    private sealed record DigitInferenceActiveModelApiContract(
+        string Name,
+        string ManifestPath,
+        string PrimaryArtifactPath,
+        string InputProfile);
+
+    private sealed record DigitInferenceResolvedConfigurationApiContract(
+        string InferenceProfileName,
+        double EmptyCellInnerMarginRatio,
+        double EmptyCellDarkPixelRatioThreshold);
+
+    private sealed record DigitInferenceApiContract(int? Digit);
 
     private sealed record ErrorApiContract(
         string? ErrorType,
