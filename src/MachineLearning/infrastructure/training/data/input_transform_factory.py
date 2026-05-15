@@ -21,6 +21,28 @@ class InputTransformFactory:
                 "Profil augmentacji nie jest obsługiwany.",
             )
 
+        return self._build_for_architecture(manifest)
+
+    def build_for_inference(
+        self,
+        manifest: ModelManifest,
+        inference_profile_name: str,
+    ) -> InputTransform:
+        if inference_profile_name != "default-28x28-v1":
+            raise TrainingRunValidationError(
+                "unsupported_input_profile",
+                "Profil wejściowy inferencji nie jest obsługiwany.",
+            )
+
+        if inference_profile_name != manifest.architecture.input_profile:
+            raise TrainingRunValidationError(
+                "input_profile_mismatch",
+                "Profil inferencji nie pasuje do manifestu modelu.",
+            )
+
+        return self._build_for_architecture(manifest)
+
+    def _build_for_architecture(self, manifest: ModelManifest) -> InputTransform:
         if manifest.architecture.family == "cnn":
             return CnnInputTransform()
         if manifest.architecture.family == "resnet":

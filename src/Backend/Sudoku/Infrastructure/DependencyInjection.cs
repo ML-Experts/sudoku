@@ -25,8 +25,26 @@ public static class DependencyInjection
                 options => Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out _),
                 $"{MlServiceOptions.SectionName}:BaseUrl must be an absolute URL.")
             .Validate(
+                options => options.PingPath.StartsWith("/", StringComparison.Ordinal),
+                $"{MlServiceOptions.SectionName}:PingPath must start with '/'.")
+            .Validate(
+                options => options.PreprocessBoardPath.StartsWith("/", StringComparison.Ordinal),
+                $"{MlServiceOptions.SectionName}:PreprocessBoardPath must start with '/'.")
+            .Validate(
+                options => options.PreprocessCellsPath.StartsWith("/", StringComparison.Ordinal),
+                $"{MlServiceOptions.SectionName}:PreprocessCellsPath must start with '/'.")
+            .Validate(
+                options => options.CellInferencePath.StartsWith("/", StringComparison.Ordinal),
+                $"{MlServiceOptions.SectionName}:CellInferencePath must start with '/'.")
+            .Validate(
+                options => options.PrepareDatasetPath.StartsWith("/", StringComparison.Ordinal),
+                $"{MlServiceOptions.SectionName}:PrepareDatasetPath must start with '/'.")
+            .Validate(
                 options => options.StartTrainingPath.StartsWith("/", StringComparison.Ordinal),
                 $"{MlServiceOptions.SectionName}:StartTrainingPath must start with '/'.")
+            .Validate(
+                options => options.TrainingEventsPathTemplate.StartsWith("/", StringComparison.Ordinal),
+                $"{MlServiceOptions.SectionName}:TrainingEventsPathTemplate must start with '/'.")
             .Validate(
                 options => options.CancelTrainingPathTemplate.StartsWith("/", StringComparison.Ordinal),
                 $"{MlServiceOptions.SectionName}:CancelTrainingPathTemplate must start with '/'.")

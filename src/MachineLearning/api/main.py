@@ -1,6 +1,9 @@
 from fastapi import FastAPI
 
 from api.config.environment import load_runtime_environment
+from api.controllers.cell_inference_controller import (
+    cell_inference_controller,
+)
 from api.controllers.preprocessing_controller import (
     preprocessing_controller,
 )
@@ -25,6 +28,7 @@ def create_app() -> FastAPI:
     app.state.runtime_settings = runtime_settings
     app.include_router(runtime_status_controller)
     app.include_router(preprocessing_controller)
+    app.include_router(cell_inference_controller)
     app.include_router(datasets_controller)
     app.include_router(trainings_controller)
     app.include_router(test_inference_controller)

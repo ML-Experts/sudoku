@@ -85,7 +85,7 @@ flowchart TD
       "progress": {
         "percent": 100,
         "epochCurrent": 10,
-        "epochTotal": 10,
+        "epochTotal": 20,
         "etaSeconds": 0
       },
       "metricsSummary": {
@@ -112,7 +112,7 @@ flowchart TD
       "progress": {
         "percent": 42,
         "epochCurrent": 4,
-        "epochTotal": 10,
+        "epochTotal": 20,
         "etaSeconds": 480
       },
       "metricsSummary": null,
@@ -274,7 +274,7 @@ Minimalny zakres potrzebny dla `UC-08`:
   "progress": {
     "percent": 100,
     "epochCurrent": 10,
-    "epochTotal": 10,
+    "epochTotal": 20,
     "etaSeconds": 0
   },
   "metricsSummary": {

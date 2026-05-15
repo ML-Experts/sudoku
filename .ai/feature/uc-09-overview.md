@@ -120,7 +120,7 @@ Jako użytkownik administracyjny chcę otworzyć szczegóły zakończonego albo 
   "progress": {
     "percent": 100,
     "epoch": 10,
-    "totalEpochs": 10,
+    "totalEpochs": 20,
     "trainLoss": 0.08,
     "validationLoss": 0.11,
     "trainAccuracy": 0.98,
@@ -250,7 +250,7 @@ Przykładowy zakres wykorzystywany przez `UC-09`:
   "augmentationProfileName": "default-augment-v1",
   "benchmarkName": "sudoku-benchmark-v1",
   "seed": 1234,
-  "epochs": 10,
+  "epochs": 20,
   "device": "cpu",
   "metricsSummary": {
     "accuracy": 0.96,

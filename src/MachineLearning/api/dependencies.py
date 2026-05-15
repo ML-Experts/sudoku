@@ -3,15 +3,19 @@ from functools import lru_cache
 from fastapi import Depends, Request
 
 from api.config.runtime_settings import (
+    InferenceSettings,
     PreprocessingSettings,
     RuntimeSettings,
     TrainingSettings,
 )
-from application.features.preprocessing.commands.extract_cells.extract_cells_command_handler import (
-    ExtractCellsCommandHandler,
-)
 from application.features.datasets.commands.prepare_dataset_artifact.prepare_dataset_artifact_command_handler import (
     PrepareDatasetArtifactCommandHandler,
+)
+from application.features.inference.commands.infer_cell_digit.infer_cell_digit_command_handler import (
+    InferCellDigitCommandHandler,
+)
+from application.features.preprocessing.commands.extract_cells.extract_cells_command_handler import (
+    ExtractCellsCommandHandler,
 )
 from application.features.inference.commands.test_digit_inference.test_digit_inference_command_handler import (
     TestDigitInferenceCommandHandler,
@@ -55,9 +59,13 @@ from infrastructure.datasets.source_resolver import DatasetSourceResolver
 from infrastructure.inference.active_model_resolver import (
     FilesystemActiveModelResolver,
 )
+from infrastructure.inference.cell_occupancy_detector import (
+    CellOccupancyDetector,
+)
 from infrastructure.inference.filesystem_test_image_repository import (
     FilesystemTestImageRepository,
 )
+from infrastructure.inference.runtime_model_loader import RuntimeModelLoader
 from infrastructure.reporting.preparation_report_builder import (
     PreparationReportBuilder,
 )
@@ -107,6 +115,12 @@ def get_training_settings(
     runtime_settings: RuntimeSettings = Depends(get_runtime_settings),
 ) -> TrainingSettings:
     return runtime_settings.training_settings
+
+
+def get_inference_settings(
+    runtime_settings: RuntimeSettings = Depends(get_runtime_settings),
+) -> InferenceSettings:
+    return runtime_settings.inference_settings
 
 
 @lru_cache
@@ -362,4 +376,30 @@ def get_test_digit_inference_command_handler(
         input_transform_factory=InputTransformFactory(),
         cell_preprocessing_pipeline=CellPreprocessingPipeline(output_size=28),
         device_setting=training_settings.device,
+    )
+
+
+def get_infer_cell_digit_command_handler(
+    preprocessing_settings: PreprocessingSettings = Depends(
+        get_preprocessing_settings
+    ),
+    inference_settings: InferenceSettings = Depends(get_inference_settings),
+) -> InferCellDigitCommandHandler:
+    return InferCellDigitCommandHandler(
+        image_codec=OpenCvImageCodec(),
+        cell_preprocessing_pipeline=CellPreprocessingPipeline(output_size=28),
+        cell_occupancy_detector=CellOccupancyDetector(),
+        runtime_model_loader=RuntimeModelLoader(
+            manifest_reader=ModelManifestReader(),
+            model_factory=ModelFactory(),
+            artifact_loader=ModelArtifactLoader(),
+            input_transform_factory=InputTransformFactory(),
+            device_setting=inference_settings.device,
+        ),
+        allowed_input_mime_types=(
+            preprocessing_settings.allowed_input_mime_types
+        ),
+        supported_input_profiles=(
+            inference_settings.supported_input_profiles
+        ),
     )

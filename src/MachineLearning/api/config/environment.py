@@ -4,6 +4,7 @@ from pathlib import Path
 from dotenv import dotenv_values
 
 from api.config.runtime_settings import (
+    InferenceSettings,
     PreprocessingSettings,
     RuntimeSettings,
     TrainingSettings,
@@ -217,6 +218,26 @@ def get_training_settings() -> TrainingSettings:
     )
 
 
+def get_inference_settings() -> InferenceSettings:
+    return InferenceSettings(
+        device=get_env_value("ML_INFERENCE_DEVICE", "auto"),
+        supported_input_profiles=parse_csv_values(
+            get_env_value(
+                "ML_INFERENCE_SUPPORTED_PROFILES",
+                "default-28x28-v1",
+            )
+        ),
+        empty_cell_inner_margin_ratio=get_env_float(
+            "ML_INFERENCE_EMPTY_CELL_INNER_MARGIN_RATIO",
+            0.12,
+        ),
+        empty_cell_dark_pixel_ratio_threshold=get_env_float(
+            "ML_INFERENCE_EMPTY_CELL_DARK_PIXEL_RATIO_THRESHOLD",
+            0.02,
+        ),
+    )
+
+
 def get_runtime_settings() -> RuntimeSettings:
     return RuntimeSettings(
         environment=get_env_value("ML_ENVIRONMENT", DEFAULT_ENVIRONMENT),
@@ -225,6 +246,7 @@ def get_runtime_settings() -> RuntimeSettings:
         ping_response_message=get_env_value("ML_PING_RESPONSE_MESSAGE", "pong"),
         preprocessing_settings=get_preprocessing_settings(),
         training_settings=get_training_settings(),
+        inference_settings=get_inference_settings(),
         boards_subdirectory=get_env_value(
             "ML_BOARDS_SUBDIRECTORY", "./data/raw/boards"
         ),

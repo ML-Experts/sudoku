@@ -24,6 +24,10 @@ export type CellsGridApiResponse = {
   cells: ImageApiResponse[][];
 };
 
+export type DigitInferenceApiResponse = {
+  digit: number | null;
+};
+
 export type AdminLoginApiEntry = {
   password: string;
 };

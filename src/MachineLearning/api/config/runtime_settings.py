@@ -46,6 +46,14 @@ class TrainingSettings:
 
 
 @dataclass(frozen=True)
+class InferenceSettings:
+    device: str
+    supported_input_profiles: tuple[str, ...]
+    empty_cell_inner_margin_ratio: float
+    empty_cell_dark_pixel_ratio_threshold: float
+
+
+@dataclass(frozen=True)
 class RuntimeSettings:
     environment: str
     service_name: str
@@ -53,6 +61,7 @@ class RuntimeSettings:
     ping_response_message: str
     preprocessing_settings: PreprocessingSettings
     training_settings: TrainingSettings
+    inference_settings: InferenceSettings
     boards_subdirectory: str
     digits_subdirectory: str
     temp_datasets_directory_path: str

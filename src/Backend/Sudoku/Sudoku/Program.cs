@@ -6,6 +6,7 @@ using Sudoku.Application.Datasets;
 using Sudoku.Application.Examples;
 using Sudoku.Application.ModelsActive;
 using Sudoku.Application.ModelsRegistry;
+using Sudoku.Application.Sudoku;
 using Sudoku.Application.Trainings;
 using Sudoku.Configuration;
 using Sudoku.Hubs;
@@ -46,6 +47,15 @@ builder.Services
     .AddOptions<ExamplesPreprocessOptions>()
     .BindConfiguration(ExamplesPreprocessOptions.SectionName)
     .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+builder.Services
+    .AddOptions<SudokuCellsInferenceOptions>()
+    .BindConfiguration(SudokuCellsInferenceOptions.SectionName)
+    .ValidateDataAnnotations()
+    .Validate(
+        options => !string.IsNullOrWhiteSpace(options.InferenceProfileName),
+        $"{SudokuCellsInferenceOptions.SectionName}:InferenceProfileName is required.")
     .ValidateOnStart();
 
 builder.Services
