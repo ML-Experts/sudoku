@@ -1,9 +1,11 @@
 import type {
+  ActiveModelApiResponse,
   CancelTrainingRunApiResponse,
   CreateTrainingRunApiEntry,
   ErrorApiResponse,
   RegistryModelListItemApiResponse,
   RegistryModelsListApiResponse,
+  SetActiveModelApiEntry,
   TrainingClassMetricApiResponse,
   TrainingConfusionMatrixApiResponse,
   TrainingDatasetSampleCountsApiResponse,
@@ -412,6 +414,24 @@ function isRegistryModelsListApiResponse(
   );
 }
 
+function isActiveModelApiResponse(value: unknown): value is ActiveModelApiResponse {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+  return (
+    typeof record.modelName === "string" &&
+    typeof record.displayName === "string" &&
+    typeof record.sourceType === "string" &&
+    (typeof record.sourceRunName === "string" || record.sourceRunName === null) &&
+    (typeof record.parentModelName === "string" || record.parentModelName === null) &&
+    typeof record.inputProfile === "string" &&
+    typeof record.canUseForInference === "boolean" &&
+    (typeof record.activatedAtUtc === "string" || record.activatedAtUtc === null)
+  );
+}
+
 function isCancelTrainingRunApiResponse(
   value: unknown,
 ): value is CancelTrainingRunApiResponse {
@@ -615,6 +635,73 @@ export async function getRegistryModels(
     if (!isRegistryModelsListApiResponse(parsed)) {
       throw new Error(
         "Backend zwrocil niepoprawny ksztalt RegistryModelsListApiResponse.",
+      );
+    }
+
+    return parsed;
+  }
+
+  throw buildErrorFromResponse(rawBody, response.status);
+}
+
+export async function getActiveModel(
+  apiBaseUrl: string,
+  accessToken?: string | null,
+  signal?: AbortSignal,
+): Promise<ActiveModelApiResponse | null> {
+  const response = await fetch(`${apiBaseUrl}/models/active`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      ...buildAuthHeaders(accessToken),
+    },
+    signal,
+  });
+
+  if (response.status === 204) {
+    return null;
+  }
+
+  const rawBody = await response.text();
+  const parsed = tryParseJson(rawBody);
+
+  if (response.status === 200) {
+    if (!isActiveModelApiResponse(parsed)) {
+      throw new Error(
+        "Backend zwrocil niepoprawny ksztalt ActiveModelApiResponse.",
+      );
+    }
+
+    return parsed;
+  }
+
+  throw buildErrorFromResponse(rawBody, response.status);
+}
+
+export async function putActiveModel(
+  apiBaseUrl: string,
+  entry: SetActiveModelApiEntry,
+  accessToken?: string | null,
+  signal?: AbortSignal,
+): Promise<ActiveModelApiResponse> {
+  const response = await fetch(`${apiBaseUrl}/models/active`, {
+    method: "PUT",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      ...buildAuthHeaders(accessToken),
+    },
+    body: JSON.stringify(entry),
+    signal,
+  });
+
+  const rawBody = await response.text();
+  const parsed = tryParseJson(rawBody);
+
+  if (response.status === 200) {
+    if (!isActiveModelApiResponse(parsed)) {
+      throw new Error(
+        "Backend zwrocil niepoprawny ksztalt ActiveModelApiResponse.",
       );
     }
 

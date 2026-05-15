@@ -126,6 +126,21 @@ export type RegistryModelsListApiResponse = {
   totalCount: number;
 };
 
+export type ActiveModelApiResponse = {
+  modelName: string;
+  displayName: string;
+  sourceType: string;
+  sourceRunName: string | null;
+  parentModelName: string | null;
+  inputProfile: string;
+  canUseForInference: boolean;
+  activatedAtUtc: string | null;
+};
+
+export type SetActiveModelApiEntry = {
+  modelName: string;
+};
+
 export type TrainingRunApiResponse = {
   runName: string;
   status: string;

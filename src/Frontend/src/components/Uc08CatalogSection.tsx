@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
+  getActiveModel,
   getTrainingRunDetails,
   getRegistryModels,
   getTrainingRuns,
+  putActiveModel,
   TrainingsApiError,
 } from "../api/trainings";
 import type {
+  ActiveModelApiResponse,
   RegistryModelListItemApiResponse,
   TrainingRunDetailsApiResponse,
   TrainingRunListItemApiResponse,
@@ -72,6 +75,52 @@ const defaultDetailsState: LoadableState<TrainingRunDetailsApiResponse> = {
   httpStatus: null,
 };
 
+const defaultActiveModelState: LoadableState<ActiveModelApiResponse | null> = {
+  kind: "idle",
+  data: null,
+  error: null,
+  errorType: null,
+  httpStatus: null,
+};
+
+type ActiveModelUpdateState =
+  | {
+      kind: "idle";
+      modelName: null;
+      message: null;
+      errorType: null;
+      httpStatus: null;
+    }
+  | {
+      kind: "loading";
+      modelName: string;
+      message: null;
+      errorType: null;
+      httpStatus: null;
+    }
+  | {
+      kind: "success";
+      modelName: string;
+      message: string;
+      errorType: null;
+      httpStatus: number;
+    }
+  | {
+      kind: "error";
+      modelName: string;
+      message: string;
+      errorType: string | null;
+      httpStatus: number | null;
+    };
+
+const defaultActiveModelUpdateState: ActiveModelUpdateState = {
+  kind: "idle",
+  modelName: null,
+  message: null,
+  errorType: null,
+  httpStatus: null,
+};
+
 function formatTimestamp(timestampUtc: string | null): string {
   if (!timestampUtc) {
     return "-";
@@ -106,6 +155,10 @@ export function Uc08CatalogSection({
   const [modelsState, setModelsState] = useState(defaultModelsState);
   const [selectedRunName, setSelectedRunName] = useState<string | null>(null);
   const [detailsState, setDetailsState] = useState(defaultDetailsState);
+  const [activeModelState, setActiveModelState] = useState(defaultActiveModelState);
+  const [activeModelUpdateState, setActiveModelUpdateState] = useState(
+    defaultActiveModelUpdateState,
+  );
 
   const loadCatalog = useCallback(async () => {
     if (!accessToken) {
@@ -176,9 +229,118 @@ export function Uc08CatalogSection({
     }
   }, [accessToken, apiBaseUrl, onUnauthorized]);
 
+  const loadActiveModelState = useCallback(async () => {
+    if (!accessToken) {
+      setActiveModelState(defaultActiveModelState);
+      return;
+    }
+
+    setActiveModelState((previous) => ({
+      kind: "loading",
+      data: previous.data,
+      error: null,
+      errorType: null,
+      httpStatus: null,
+    }));
+
+    try {
+      const activeModel = await getActiveModel(apiBaseUrl, accessToken);
+      setActiveModelState({
+        kind: "success",
+        data: activeModel,
+        error: null,
+        errorType: null,
+        httpStatus: activeModel ? 200 : 204,
+      });
+    } catch (error) {
+      if (
+        error instanceof TrainingsApiError &&
+        (error.status === 401 || error.status === 403)
+      ) {
+        onUnauthorized?.();
+      }
+
+      setActiveModelState({
+        kind: "error",
+        data: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Nie udalo sie odczytac aktywnego modelu.",
+        errorType: error instanceof TrainingsApiError ? error.errorType ?? null : null,
+        httpStatus: error instanceof TrainingsApiError ? error.status : null,
+      });
+    }
+  }, [accessToken, apiBaseUrl, onUnauthorized]);
+
   useEffect(() => {
     void loadCatalog();
-  }, [loadCatalog]);
+    void loadActiveModelState();
+  }, [loadCatalog, loadActiveModelState]);
+
+  const setModelAsActive = useCallback(
+    async (modelName: string) => {
+      if (!accessToken) {
+        setActiveModelUpdateState({
+          kind: "error",
+          modelName,
+          message: "Brak aktywnej sesji administratora.",
+          errorType: "unauthorized",
+          httpStatus: 401,
+        });
+        return;
+      }
+
+      setActiveModelUpdateState({
+        kind: "loading",
+        modelName,
+        message: null,
+        errorType: null,
+        httpStatus: null,
+      });
+
+      try {
+        const updatedActiveModel = await putActiveModel(
+          apiBaseUrl,
+          { modelName },
+          accessToken,
+        );
+        setActiveModelState({
+          kind: "success",
+          data: updatedActiveModel,
+          error: null,
+          errorType: null,
+          httpStatus: 200,
+        });
+        setActiveModelUpdateState({
+          kind: "success",
+          modelName,
+          message: `Aktywny model ustawiony na: ${updatedActiveModel.modelName}.`,
+          errorType: null,
+          httpStatus: 200,
+        });
+      } catch (error) {
+        if (
+          error instanceof TrainingsApiError &&
+          (error.status === 401 || error.status === 403)
+        ) {
+          onUnauthorized?.();
+        }
+
+        setActiveModelUpdateState({
+          kind: "error",
+          modelName,
+          message:
+            error instanceof Error
+              ? error.message
+              : "Nie udalo sie ustawic aktywnego modelu.",
+          errorType: error instanceof TrainingsApiError ? error.errorType ?? null : null,
+          httpStatus: error instanceof TrainingsApiError ? error.status : null,
+        });
+      }
+    },
+    [accessToken, apiBaseUrl, onUnauthorized],
+  );
 
   const loadRunDetails = useCallback(
     async (runName: string) => {
@@ -244,6 +406,10 @@ export function Uc08CatalogSection({
   );
   const modelNames = useMemo(() => new Set(models.map((model) => model.name)), [models]);
   const runNames = useMemo(() => new Set(runs.map((run) => run.runName)), [runs]);
+  const activeModelName =
+    activeModelState.kind === "success" && activeModelState.data
+      ? activeModelState.data.modelName
+      : null;
 
   return (
     <section className="hero-card uc12-section">
@@ -258,12 +424,22 @@ export function Uc08CatalogSection({
         <button
           className="secondary-button"
           type="button"
-          disabled={runsState.kind === "loading" || modelsState.kind === "loading"}
-          onClick={() => void loadCatalog()}
+          disabled={
+            runsState.kind === "loading" ||
+            modelsState.kind === "loading" ||
+            activeModelState.kind === "loading"
+          }
+          onClick={() => {
+            setActiveModelUpdateState(defaultActiveModelUpdateState);
+            void loadCatalog();
+            void loadActiveModelState();
+          }}
         >
-          {runsState.kind === "loading" || modelsState.kind === "loading"
+          {runsState.kind === "loading" ||
+          modelsState.kind === "loading" ||
+          activeModelState.kind === "loading"
             ? "Odswiezanie..."
-            : "Odswiez katalog"}
+            : "Odswiez katalog i aktywny model"}
         </button>
       </div>
 
@@ -341,6 +517,58 @@ export function Uc08CatalogSection({
       </article>
 
       <article className="uc12-panel">
+        <h3>UC-10 — Aktywny model inferencyjny</h3>
+
+        {activeModelState.kind === "loading" ? (
+          <p className="status-banner status-loading">Pobieranie aktywnego modelu...</p>
+        ) : null}
+
+        {activeModelState.kind === "error" ? (
+          <>
+            <p className="status-banner status-error">{activeModelState.error}</p>
+            <p className="muted-copy">
+              HTTP: {activeModelState.httpStatus ?? "-"} | typ:{" "}
+              {activeModelState.errorType ?? "-"}
+            </p>
+          </>
+        ) : null}
+
+        {activeModelState.kind === "success" && activeModelState.data ? (
+          <p className="muted-copy">
+            Aktualnie aktywny model: <code>{activeModelState.data.modelName}</code> | source:{" "}
+            {activeModelState.data.sourceType} | activatedAt:{" "}
+            {formatTimestamp(activeModelState.data.activatedAtUtc)}
+          </p>
+        ) : null}
+
+        {activeModelState.kind === "success" && !activeModelState.data ? (
+          <p className="muted-copy">
+            Brak aktywnego modelu. Wybierz model z listy rejestru poniżej.
+          </p>
+        ) : null}
+
+        {activeModelUpdateState.kind === "loading" ? (
+          <p className="status-banner status-loading">
+            Ustawianie aktywnego modelu: <code>{activeModelUpdateState.modelName}</code>...
+          </p>
+        ) : null}
+
+        {activeModelUpdateState.kind === "success" ? (
+          <p className="status-banner status-success">{activeModelUpdateState.message}</p>
+        ) : null}
+
+        {activeModelUpdateState.kind === "error" ? (
+          <>
+            <p className="status-banner status-error">{activeModelUpdateState.message}</p>
+            <p className="muted-copy">
+              HTTP: {activeModelUpdateState.httpStatus ?? "-"} | typ:{" "}
+              {activeModelUpdateState.errorType ?? "-"}
+            </p>
+          </>
+        ) : null}
+      </article>
+
+      <article className="uc12-panel">
         <h3>Rejestr modeli</h3>
         {models.length === 0 ? (
           <p className="muted-copy">Brak modeli w rejestrze.</p>
@@ -365,6 +593,10 @@ export function Uc08CatalogSection({
                     {String(model.canUseForInference)}
                   </span>
                   <span>
+                    activeModelState:{" "}
+                    <code>{activeModelName === model.name ? "active" : "inactive"}</code>
+                  </span>
+                  <span>
                     run relation:{" "}
                     <code>
                       {hasSourceRun === null
@@ -373,6 +605,24 @@ export function Uc08CatalogSection({
                           ? "run_found"
                           : "run_not_found"}
                     </code>
+                  </span>
+                  <span className="examples-row-actions">
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      disabled={
+                        !model.canUseForInference ||
+                        activeModelUpdateState.kind === "loading" ||
+                        activeModelName === model.name
+                      }
+                      onClick={() => void setModelAsActive(model.name)}
+                    >
+                      {activeModelName === model.name
+                        ? "Model aktywny"
+                        : model.canUseForInference
+                          ? "Ustaw jako aktywny"
+                          : "Niedozwolony do aktywacji"}
+                    </button>
                   </span>
                 </li>
               );
