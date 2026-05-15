@@ -95,6 +95,11 @@ export type ProcessedDatasetsListApiResponse = {
   totalCount: number;
 };
 
+export type TrainingMetricsSummaryApiResponse = {
+  accuracy: number | null;
+  macroF1: number | null;
+};
+
 export type CreateTrainingRunApiEntry = {
   baseModelName: string;
   processedDatasetName: string;
@@ -148,6 +153,121 @@ export type TrainingRunProgressApiResponse = {
   epochCurrent: number | null;
   epochTotal: number | null;
   etaSeconds: number | null;
+  trainLoss?: number | null;
+  validationLoss?: number | null;
+  trainAccuracy?: number | null;
+  validationAccuracy?: number | null;
+};
+
+export type TrainingRunListItemApiResponse = {
+  runName: string;
+  status: string;
+  createdAtUtc: string;
+  updatedAtUtc: string | null;
+  startedAtUtc: string | null;
+  finishedAtUtc: string | null;
+  baseModelName: string;
+  producedModelName: string;
+  processedDatasetName: string;
+  trainingMode: string;
+  trainingProfileName: string;
+  augmentationProfileName: string;
+  benchmarkName: string;
+  reportStatus: string | null;
+  progress: TrainingRunProgressApiResponse | null;
+  metricsSummary: TrainingMetricsSummaryApiResponse | null;
+  warnings: string[];
+};
+
+export type TrainingRunsListApiResponse = {
+  items: TrainingRunListItemApiResponse[];
+  totalCount: number;
+};
+
+export type TrainingRunModelReferenceApiResponse = {
+  name: string;
+  displayName: string;
+  sourceType: string;
+  sourceRunName: string | null;
+  parentModelName: string | null;
+  inputProfile: string;
+  canUseForInference: boolean;
+  canStartTraining: boolean;
+};
+
+export type TrainingDatasetSampleCountsApiResponse = {
+  train: number;
+  val: number;
+  test: number;
+};
+
+export type TrainingRunDatasetDetailsApiResponse = {
+  processedDatasetName: string;
+  preprocessingProfile: string | null;
+  sampleCounts: TrainingDatasetSampleCountsApiResponse | null;
+};
+
+export type TrainingRunConfigurationApiResponse = {
+  trainingMode: string;
+  trainingProfileName: string;
+  augmentationProfileName: string;
+  benchmarkName: string;
+  seed: number;
+  sourceRevision: string | null;
+};
+
+export type TrainingReportSummaryApiResponse = {
+  accuracy: number;
+  precisionMacro: number;
+  recallMacro: number;
+  f1Macro: number;
+  trainingDurationSeconds: number | null;
+  averageInferenceTimeMs: number | null;
+};
+
+export type TrainingClassMetricApiResponse = {
+  label: string;
+  precision: number;
+  recall: number;
+  f1: number;
+  support: number;
+};
+
+export type TrainingMetricHistoryPointApiResponse = {
+  epoch: number;
+  trainLoss: number | null;
+  validationLoss: number | null;
+  trainAccuracy: number | null;
+  validationAccuracy: number | null;
+};
+
+export type TrainingConfusionMatrixApiResponse = {
+  classNames: string[];
+  matrix: number[][];
+};
+
+export type TrainingRunReportApiResponse = {
+  status: string;
+  summary: TrainingReportSummaryApiResponse | null;
+  perClassMetrics: TrainingClassMetricApiResponse[];
+  history: TrainingMetricHistoryPointApiResponse[];
+  confusionMatrix: TrainingConfusionMatrixApiResponse | null;
+};
+
+export type TrainingRunDetailsApiResponse = {
+  runName: string;
+  status: string;
+  stage: string | null;
+  createdAtUtc: string;
+  startedAtUtc: string | null;
+  finishedAtUtc: string | null;
+  baseModel: TrainingRunModelReferenceApiResponse;
+  producedModel: TrainingRunModelReferenceApiResponse | null;
+  dataset: TrainingRunDatasetDetailsApiResponse;
+  configuration: TrainingRunConfigurationApiResponse;
+  progress: TrainingRunProgressApiResponse | null;
+  report: TrainingRunReportApiResponse;
+  warnings: string[];
 };
 
 export type TrainingRunResultApiResponse = {

@@ -12,6 +12,7 @@ import {
   putPreprocessCells,
 } from "./api/examples";
 import { Uc06TrainingSection } from "./components/Uc06TrainingSection";
+import { Uc08CatalogSection } from "./components/Uc08CatalogSection";
 import { Uc11RawCandidatesSection } from "./components/Uc11RawCandidatesSection";
 import { Uc12DatasetPreparationSection } from "./components/Uc12DatasetPreparationSection";
 import { useAdminSession } from "./context/AdminSessionContext";
@@ -275,7 +276,7 @@ function toImageDataUrl(image: ImageApiResponse): string {
 }
 
 type AppView = "health" | "examples" | "datasets";
-type DatasetsStep = "uc11" | "uc12" | "uc06";
+type DatasetsStep = "uc11" | "uc12" | "uc06" | "uc08";
 
 export default function App() {
   const apiBaseUrl = normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL);
@@ -332,7 +333,13 @@ export default function App() {
         ? "Przyklady"
         : "Datasety";
   const datasetsStepLabel =
-    datasetsStep === "uc11" ? "UC-11" : datasetsStep === "uc12" ? "UC-12" : "UC-06";
+    datasetsStep === "uc11"
+      ? "UC-11 — Przeglad kandydatow raw"
+      : datasetsStep === "uc12"
+        ? "UC-12 — Budowa datasetu processed"
+        : datasetsStep === "uc06"
+          ? "UC-06 — Start i monitoring treningu"
+          : "UC-08 — Katalog runow i modeli";
 
   const loadExamplesList = useCallback(async () => {
     setExamplesListState((previous) => ({
@@ -1262,10 +1269,11 @@ export default function App() {
             <>
               <section className="hero-card datasets-module-header">
                 <p className="eyebrow">Workflow datasetowy</p>
-                <h2>UC-11 -&gt; UC-12 -&gt; UC-06</h2>
+                <h2>UC-11 -&gt; UC-12 -&gt; UC-06 -&gt; UC-08</h2>
                 <p className="hero-copy">
                   Nawiguj krokami: najpierw kandydaci raw, potem budowa datasetu
-                  processed, a na koncu testowy start treningu i SignalR.
+                  processed, potem start treningu i SignalR, a na koncu katalog
+                  runow oraz modeli.
                 </p>
                 <div
                   className="datasets-stepper"
@@ -1279,7 +1287,7 @@ export default function App() {
                     className={`datasets-step ${datasetsStep === "uc11" ? "is-active" : ""}`}
                     onClick={() => setDatasetsStep("uc11")}
                   >
-                    1. UC-11
+                    1. Przeglad kandydatow raw (UC-11)
                   </button>
                   <button
                     type="button"
@@ -1288,7 +1296,7 @@ export default function App() {
                     className={`datasets-step ${datasetsStep === "uc12" ? "is-active" : ""}`}
                     onClick={() => setDatasetsStep("uc12")}
                   >
-                    2. UC-12
+                    2. Budowa datasetu processed (UC-12)
                   </button>
                   <button
                     type="button"
@@ -1297,7 +1305,16 @@ export default function App() {
                     className={`datasets-step ${datasetsStep === "uc06" ? "is-active" : ""}`}
                     onClick={() => setDatasetsStep("uc06")}
                   >
-                    3. UC-06
+                    3. Start i monitoring treningu (UC-06)
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={datasetsStep === "uc08"}
+                    className={`datasets-step ${datasetsStep === "uc08" ? "is-active" : ""}`}
+                    onClick={() => setDatasetsStep("uc08")}
+                  >
+                    4. Katalog runow i modeli (UC-08)
                   </button>
                 </div>
               </section>
@@ -1318,6 +1335,13 @@ export default function App() {
               </div>
               <div hidden={datasetsStep !== "uc06"} aria-hidden={datasetsStep !== "uc06"}>
                 <Uc06TrainingSection
+                  apiBaseUrl={apiBaseUrl}
+                  accessToken={authToken?.accessToken ?? null}
+                  onUnauthorized={() => handleAdminUnauthorized("invalid_token")}
+                />
+              </div>
+              <div hidden={datasetsStep !== "uc08"} aria-hidden={datasetsStep !== "uc08"}>
+                <Uc08CatalogSection
                   apiBaseUrl={apiBaseUrl}
                   accessToken={authToken?.accessToken ?? null}
                   onUnauthorized={() => handleAdminUnauthorized("invalid_token")}
