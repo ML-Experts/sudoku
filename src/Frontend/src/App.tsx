@@ -15,7 +15,7 @@ import { Uc06TrainingSection } from "./components/Uc06TrainingSection";
 import { Uc11RawCandidatesSection } from "./components/Uc11RawCandidatesSection";
 import { Uc12DatasetPreparationSection } from "./components/Uc12DatasetPreparationSection";
 import { useAdminSession } from "./context/AdminSessionContext";
-import { Uc05aRecognitionSection } from "./features/uc05a/api";
+import { Uc05WorkflowSection } from "./features/uc05/api";
 import { toImageDataUrl } from "./shared/images/toImageDataUrl";
 import type {
   CellsGridApiResponse,
@@ -1254,7 +1254,7 @@ export default function App() {
                     </article>
                   </section>
 
-                  <Uc05aRecognitionSection
+                  <Uc05WorkflowSection
                     apiBaseUrl={apiBaseUrl}
                     cellsGrid={
                       cellsStageState.kind === "success" ? cellsStageState.cells : null

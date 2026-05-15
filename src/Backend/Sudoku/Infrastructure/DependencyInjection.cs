@@ -1,8 +1,11 @@
+using System.Threading.Channels;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Sudoku.Application.Abstractions;
 using Sudoku.Application.Auth;
+using Sudoku.Application.SudokuSolve;
+using Sudoku.Infrastructure.Background;
 using Sudoku.Infrastructure.Auth;
 using Sudoku.Infrastructure.Configuration;
 using Sudoku.Infrastructure.Ml;
@@ -64,6 +67,21 @@ public static class DependencyInjection
         services.AddTransient<ITrainingReportsGateway, TrainingReportsGateway>();
         services.AddTransient<ITrainingArtifactsCleanupGateway, TrainingArtifactsCleanupGateway>();
         services.AddTransient<ITrainingEventsPathProvider, MlTrainingEventsPathProvider>();
+        services.AddTransient<ISolveSessionsGateway, SolveSessionsGateway>();
+
+        services.AddSingleton(_ => Channel.CreateUnbounded<SolveSessionWorkItemDto>(
+            new UnboundedChannelOptions
+            {
+                SingleReader = true,
+                SingleWriter = false,
+                AllowSynchronousContinuations = false
+            }));
+        services.AddSingleton<ChannelReader<SolveSessionWorkItemDto>>(serviceProvider =>
+            serviceProvider.GetRequiredService<Channel<SolveSessionWorkItemDto>>().Reader);
+        services.AddSingleton<ChannelWriter<SolveSessionWorkItemDto>>(serviceProvider =>
+            serviceProvider.GetRequiredService<Channel<SolveSessionWorkItemDto>>().Writer);
+        services.AddSingleton<ISudokuSolveExecutionScheduler, SudokuSolveExecutionScheduler>();
+        services.AddHostedService<SudokuSolveBackgroundWorker>();
 
         services.AddHttpClient<IMlPingGateway, MlPingHttpClient>(ConfigureMlHttpClient);
         services.AddHttpClient<IMlImageProcessingGateway, MlImageProcessingHttpClient>(ConfigureMlHttpClient);

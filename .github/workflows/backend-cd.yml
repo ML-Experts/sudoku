@@ -65,6 +65,7 @@ jobs:
       BE_TRAININGS_REPORTS_DIRECTORY_PATH: ${{ vars.BE_TRAININGS_REPORTS_DIRECTORY_PATH }}
       BE_TRAININGS_METADATA_DIRECTORY_PATH: ${{ vars.BE_TRAININGS_METADATA_DIRECTORY_PATH }}
       BE_TRAININGS_WORKING_DIRECTORY_PATH: ${{ vars.BE_TRAININGS_WORKING_DIRECTORY_PATH }}
+      BE_SUDOKU_SOLVE_SESSIONS_METADATA_DIRECTORY_PATH: ${{ vars.BE_SUDOKU_SOLVE_SESSIONS_METADATA_DIRECTORY_PATH }}
       BE_MODELS_REGISTRY_DIRECTORY_PATH: ${{ vars.BE_MODELS_REGISTRY_DIRECTORY_PATH }}
       BE_MODELS_ACTIVE_DIRECTORY_PATH: ${{ vars.BE_MODELS_ACTIVE_DIRECTORY_PATH }}
       BE_ADMIN_SHARED_PASSWORD: ${{ secrets.BE_ADMIN_SHARED_PASSWORD }}
@@ -207,6 +208,11 @@ jobs:
             exit 1
           fi
 
+          if [ -z "$BE_SUDOKU_SOLVE_SESSIONS_METADATA_DIRECTORY_PATH" ]; then
+            echo "Missing BE_SUDOKU_SOLVE_SESSIONS_METADATA_DIRECTORY_PATH variable for the selected GitHub environment."
+            exit 1
+          fi
+
           if [ -z "$BE_MODELS_REGISTRY_DIRECTORY_PATH" ]; then
             echo "Missing BE_MODELS_REGISTRY_DIRECTORY_PATH variable for the selected GitHub environment."
             exit 1
@@ -297,6 +303,7 @@ jobs:
               "BE_TRAININGS_REPORTS_DIRECTORY_PATH",
               "BE_TRAININGS_METADATA_DIRECTORY_PATH",
               "BE_TRAININGS_WORKING_DIRECTORY_PATH",
+              "BE_SUDOKU_SOLVE_SESSIONS_METADATA_DIRECTORY_PATH",
               "BE_MODELS_REGISTRY_DIRECTORY_PATH",
               "BE_MODELS_ACTIVE_DIRECTORY_PATH",
               "BE_ADMIN_SHARED_PASSWORD",
@@ -395,6 +402,9 @@ jobs:
           trainings_storage["ReportsDirectoryPath"] = os.environ["BE_TRAININGS_REPORTS_DIRECTORY_PATH"]
           trainings_storage["MetadataDirectoryPath"] = os.environ["BE_TRAININGS_METADATA_DIRECTORY_PATH"]
           trainings_storage["WorkingDirectoryPath"] = os.environ["BE_TRAININGS_WORKING_DIRECTORY_PATH"]
+
+          sudoku_solve_sessions_storage = config.setdefault("SudokuSolveSessionsStorage", {})
+          sudoku_solve_sessions_storage["MetadataDirectoryPath"] = os.environ["BE_SUDOKU_SOLVE_SESSIONS_METADATA_DIRECTORY_PATH"]
 
           models_registry_storage = config.setdefault("ModelsRegistryStorage", {})
           models_registry_storage["RegistryDirectoryPath"] = os.environ["BE_MODELS_REGISTRY_DIRECTORY_PATH"]

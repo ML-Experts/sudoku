@@ -7,6 +7,7 @@ using Sudoku.Application.Examples;
 using Sudoku.Application.ModelsActive;
 using Sudoku.Application.ModelsRegistry;
 using Sudoku.Application.Sudoku;
+using Sudoku.Application.SudokuSolve;
 using Sudoku.Application.Trainings;
 using Sudoku.Configuration;
 using Sudoku.Hubs;
@@ -156,9 +157,19 @@ builder.Services
     .ValidateOnStart();
 
 builder.Services
+    .AddOptions<SudokuSolveSessionsStorageOptions>()
+    .BindConfiguration(SudokuSolveSessionsStorageOptions.SectionName)
+    .ValidateDataAnnotations()
+    .Validate(
+        options => Path.IsPathRooted(options.MetadataDirectoryPath),
+        $"{SudokuSolveSessionsStorageOptions.SectionName}:MetadataDirectoryPath must be an absolute path.")
+    .ValidateOnStart();
+
+builder.Services
     .AddApplication()
     .AddInfrastructure(builder.Configuration);
 builder.Services.AddSingleton<ITrainingRunEventPublisher, SignalRTrainingRunEventPublisher>();
+builder.Services.AddSingleton<ISudokuSolveEventPublisher, SignalRSudokuSolveEventPublisher>();
 builder.Services.AddAdminAuthentication(builder.Configuration);
 builder.Services.AddControllers();
 builder.Services
@@ -173,6 +184,7 @@ var app = builder.Build();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<SudokuSolveHub>("/ws/sudoku/solving/{solveSessionId}");
 app.MapHub<TrainingRunHub>("/ws/trainings/{runName}");
 
 app.Run();

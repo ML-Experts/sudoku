@@ -28,6 +28,31 @@ export type DigitInferenceApiResponse = {
   digit: number | null;
 };
 
+export type SolveSudokuApiEntry = {
+  grid: (number | null)[][];
+};
+
+export type SolveSessionApiResponse = {
+  solveSessionId: string;
+  status: string;
+  progressChannelUrl: string;
+};
+
+export type CancelSolveSessionApiResponse = {
+  status: string | null;
+  requestDisposition: string;
+};
+
+export type SolveProgressEventApiResponse = {
+  eventType: string;
+  solveSessionId: string;
+  status: string;
+  sequence: number;
+  currentGrid: (number | null)[][];
+  errorType: string | null;
+  message: string | null;
+};
+
 export type AdminLoginApiEntry = {
   password: string;
 };
