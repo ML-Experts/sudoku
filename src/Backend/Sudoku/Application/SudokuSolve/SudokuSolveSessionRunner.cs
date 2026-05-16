@@ -38,20 +38,13 @@ public sealed class SudokuSolveSessionRunner : ISudokuSolveSessionRunner
 
         try
         {
-            metadata = await _solveSessionsGateway.GetBySolveSessionIdAsync(workItem.SolveSessionId, cancellationToken);
-            if (metadata is null)
+            metadata = await PrepareForExecutionAsync(workItem.SolveSessionId, cancellationToken);
+            if (metadata is null || SudokuSolveSessionStatus.IsTerminal(metadata.Status))
             {
                 return;
             }
 
-            if (SudokuSolveSessionStatus.IsTerminal(metadata.Status))
-            {
-                return;
-            }
-
-            metadata = await MarkRunningAsync(metadata, cancellationToken);
-
-            var grid = new SudokuGrid(metadata.InputGrid);
+            var grid = new SudokuGrid(metadata.CurrentGrid);
             var sequence = metadata.LastAcceptedSequence ?? 0L;
 
             var solveResult = await _sudokuBacktrackingSolver.SolveAsync(
@@ -67,16 +60,15 @@ public sealed class SudokuSolveSessionRunner : ISudokuSolveSessionRunner
                 },
                 cancellationToken);
 
-            metadata = await FinalizeSolveAsync(metadata, grid, solveResult, cancellationToken);
+            metadata = await FinalizeSolveAsync(metadata, grid.ToJaggedArray(), solveResult, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             if (metadata is not null)
             {
                 await TryFinalizeTechnicalFailureAsync(
-                    metadata,
+                    metadata.SolveSessionId,
                     status: SudokuSolveSessionStatus.Cancelled,
-                    eventType: SudokuSolveEventType.Cancelled,
                     errorType: null,
                     message: null);
             }
@@ -86,30 +78,39 @@ public sealed class SudokuSolveSessionRunner : ISudokuSolveSessionRunner
             if (metadata is not null)
             {
                 await TryFinalizeTechnicalFailureAsync(
-                    metadata,
+                    metadata.SolveSessionId,
                     status: SudokuSolveSessionStatus.Failed,
-                    eventType: SudokuSolveEventType.Failed,
                     errorType: SolveSudokuErrorTypes.SolveExecutionFailed,
                     message: "Nie udało się wykonać sesji rozwiązywania sudoku.");
             }
         }
     }
 
-    private async Task<SolveSessionMetadataDto> MarkRunningAsync(
-        SolveSessionMetadataDto metadata,
+    private async Task<SolveSessionMetadataDto?> PrepareForExecutionAsync(
+        string solveSessionId,
         CancellationToken cancellationToken)
     {
-        var runningMetadata = metadata with
-        {
-            Status = SudokuSolveSessionStatus.Running,
-            UpdatedAtUtc = _timeProvider.GetUtcNow(),
-            StartedAtUtc = metadata.StartedAtUtc ?? _timeProvider.GetUtcNow(),
-            LastEventType = SudokuSolveEventType.Snapshot,
-            FailureErrorType = null,
-            FailureMessage = null
-        };
+        await using var solveSessionLock = await _solveSessionLockProvider.AcquireAsync(
+            solveSessionId,
+            cancellationToken);
 
-        await SaveAndPublishAsync(runningMetadata, cancellationToken);
+        var latestMetadata = await _solveSessionsGateway.GetBySolveSessionIdAsync(solveSessionId, cancellationToken);
+        if (latestMetadata is null || SudokuSolveSessionStatus.IsTerminal(latestMetadata.Status))
+        {
+            return latestMetadata;
+        }
+
+        var nowUtc = _timeProvider.GetUtcNow();
+        if (string.Equals(latestMetadata.Status, SudokuSolveSessionStatus.Cancelling, StringComparison.OrdinalIgnoreCase)
+            || cancellationToken.IsCancellationRequested)
+        {
+            var cancelledMetadata = SolveSessionStateTransitions.ToCancelled(latestMetadata, nowUtc);
+            await SaveAndPublishLockedAsync(cancelledMetadata, cancellationToken);
+            return cancelledMetadata;
+        }
+
+        var runningMetadata = SolveSessionStateTransitions.ToRunning(latestMetadata, nowUtc);
+        await SaveAndPublishLockedAsync(runningMetadata, cancellationToken);
 
         return runningMetadata;
     }
@@ -120,101 +121,114 @@ public sealed class SudokuSolveSessionRunner : ISudokuSolveSessionRunner
         long sequence,
         CancellationToken cancellationToken)
     {
-        var nextMetadata = metadata with
+        await using var solveSessionLock = await _solveSessionLockProvider.AcquireAsync(
+            metadata.SolveSessionId,
+            cancellationToken);
+
+        var latestMetadata = await _solveSessionsGateway.GetBySolveSessionIdAsync(
+            metadata.SolveSessionId,
+            cancellationToken);
+        if (latestMetadata is null
+            || SudokuSolveSessionStatus.IsTerminal(latestMetadata.Status)
+            || string.Equals(latestMetadata.Status, SudokuSolveSessionStatus.Cancelling, StringComparison.OrdinalIgnoreCase)
+            || cancellationToken.IsCancellationRequested)
+        {
+            return latestMetadata ?? metadata;
+        }
+
+        var nextMetadata = latestMetadata with
         {
             CurrentGrid = CopyGrid(step.CurrentGrid),
             UpdatedAtUtc = _timeProvider.GetUtcNow(),
             LastAcceptedSequence = sequence,
-            LastEventType = step.EventType
+            LastEventType = step.EventType,
+            FailureErrorType = null,
+            FailureMessage = null
         };
 
-        await SaveAndPublishAsync(nextMetadata, cancellationToken);
+        await SaveAndPublishLockedAsync(nextMetadata, cancellationToken);
         return nextMetadata;
     }
 
     private async Task<SolveSessionMetadataDto> FinalizeSolveAsync(
         SolveSessionMetadataDto metadata,
-        SudokuGrid grid,
+        int?[][] finalGrid,
         SudokuBacktrackingSolveResultDto solveResult,
-        CancellationToken cancellationToken)
-    {
-        var finishedAtUtc = _timeProvider.GetUtcNow();
-        var finalGrid = grid.ToJaggedArray();
-        var terminalSequence = GetNextTerminalSequence(metadata);
-
-        var finalMetadata = solveResult.Outcome switch
-        {
-            SudokuBacktrackingSolveResultDto.Completed => metadata with
-            {
-                Status = SudokuSolveSessionStatus.Completed,
-                CurrentGrid = finalGrid,
-                UpdatedAtUtc = finishedAtUtc,
-                FinishedAtUtc = finishedAtUtc,
-                LastAcceptedSequence = terminalSequence,
-                LastEventType = SudokuSolveEventType.Completed,
-                FailureErrorType = null,
-                FailureMessage = null
-            },
-            SudokuBacktrackingSolveResultDto.Cancelled => metadata with
-            {
-                Status = SudokuSolveSessionStatus.Cancelled,
-                CurrentGrid = finalGrid,
-                UpdatedAtUtc = finishedAtUtc,
-                FinishedAtUtc = finishedAtUtc,
-                LastAcceptedSequence = terminalSequence,
-                LastEventType = SudokuSolveEventType.Cancelled
-            },
-            _ => metadata with
-            {
-                Status = SudokuSolveSessionStatus.Failed,
-                CurrentGrid = finalGrid,
-                UpdatedAtUtc = finishedAtUtc,
-                FinishedAtUtc = finishedAtUtc,
-                LastAcceptedSequence = terminalSequence,
-                LastEventType = SudokuSolveEventType.Failed,
-                FailureErrorType = SolveSudokuErrorTypes.Unsolvable,
-                FailureMessage = "Sudoku nie ma poprawnego rozwiązania."
-            }
-        };
-
-        await SaveAndPublishAsync(finalMetadata, cancellationToken);
-        return finalMetadata;
-    }
-
-    private async Task SaveAndPublishAsync(
-        SolveSessionMetadataDto metadata,
         CancellationToken cancellationToken)
     {
         await using var solveSessionLock = await _solveSessionLockProvider.AcquireAsync(
             metadata.SolveSessionId,
             cancellationToken);
 
+        var latestMetadata = await _solveSessionsGateway.GetBySolveSessionIdAsync(
+            metadata.SolveSessionId,
+            cancellationToken);
+        if (latestMetadata is null || SudokuSolveSessionStatus.IsTerminal(latestMetadata.Status))
+        {
+            return latestMetadata ?? metadata;
+        }
+
+        var finishedAtUtc = _timeProvider.GetUtcNow();
+        var finalMetadata = string.Equals(latestMetadata.Status, SudokuSolveSessionStatus.Cancelling, StringComparison.OrdinalIgnoreCase)
+                            || cancellationToken.IsCancellationRequested
+                            || string.Equals(
+                                solveResult.Outcome,
+                                SudokuBacktrackingSolveResultDto.Cancelled,
+                                StringComparison.Ordinal)
+            ? SolveSessionStateTransitions.ToCancelled(latestMetadata, finishedAtUtc)
+            : string.Equals(
+                solveResult.Outcome,
+                SudokuBacktrackingSolveResultDto.Completed,
+                StringComparison.Ordinal)
+                ? SolveSessionStateTransitions.ToCompleted(latestMetadata, finalGrid, finishedAtUtc)
+                : SolveSessionStateTransitions.ToFailed(
+                    latestMetadata,
+                    finalGrid,
+                    finishedAtUtc,
+                    SolveSudokuErrorTypes.Unsolvable,
+                    "Sudoku nie ma poprawnego rozwiązania.");
+
+        await SaveAndPublishLockedAsync(finalMetadata, cancellationToken);
+        return finalMetadata;
+    }
+
+    private async Task SaveAndPublishLockedAsync(
+        SolveSessionMetadataDto metadata,
+        CancellationToken cancellationToken)
+    {
         await _solveSessionsGateway.UpdateAsync(metadata, cancellationToken);
         await _sudokuSolveEventPublisher.PublishAsync(ToSnapshot(metadata), cancellationToken);
     }
 
     private async Task TryFinalizeTechnicalFailureAsync(
-        SolveSessionMetadataDto metadata,
+        string solveSessionId,
         string status,
-        string eventType,
         string? errorType,
         string? message)
     {
-        var finalMetadata = metadata with
-        {
-            Status = status,
-            UpdatedAtUtc = _timeProvider.GetUtcNow(),
-            FinishedAtUtc = _timeProvider.GetUtcNow(),
-            LastAcceptedSequence = GetNextTerminalSequence(metadata),
-            LastEventType = eventType,
-            FailureErrorType = errorType,
-            FailureMessage = message,
-            CurrentGrid = metadata.CurrentGrid
-        };
-
         try
         {
-            await SaveAndPublishAsync(finalMetadata, CancellationToken.None);
+            await using var solveSessionLock = await _solveSessionLockProvider.AcquireAsync(
+                solveSessionId,
+                CancellationToken.None);
+            var latestMetadata = await _solveSessionsGateway.GetBySolveSessionIdAsync(solveSessionId, CancellationToken.None);
+            if (latestMetadata is null || SudokuSolveSessionStatus.IsTerminal(latestMetadata.Status))
+            {
+                return;
+            }
+
+            var nowUtc = _timeProvider.GetUtcNow();
+            var finalMetadata = string.Equals(status, SudokuSolveSessionStatus.Cancelled, StringComparison.OrdinalIgnoreCase)
+                                || string.Equals(latestMetadata.Status, SudokuSolveSessionStatus.Cancelling, StringComparison.OrdinalIgnoreCase)
+                ? SolveSessionStateTransitions.ToCancelled(latestMetadata, nowUtc)
+                : SolveSessionStateTransitions.ToFailed(
+                    latestMetadata,
+                    latestMetadata.CurrentGrid,
+                    nowUtc,
+                    errorType,
+                    message);
+
+            await SaveAndPublishLockedAsync(finalMetadata, CancellationToken.None);
         }
         catch (Exception exception) when (exception is IOException
                                          or UnauthorizedAccessException
@@ -223,11 +237,6 @@ public sealed class SudokuSolveSessionRunner : ISudokuSolveSessionRunner
         {
             _ = exception;
         }
-    }
-
-    private static long GetNextTerminalSequence(SolveSessionMetadataDto metadata)
-    {
-        return (metadata.LastAcceptedSequence ?? 0L) + 1L;
     }
 
     private static SolveSessionProgressSnapshotDto ToSnapshot(SolveSessionMetadataDto metadata)

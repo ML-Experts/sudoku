@@ -68,6 +68,7 @@ public static class DependencyInjection
         services.AddTransient<ITrainingArtifactsCleanupGateway, TrainingArtifactsCleanupGateway>();
         services.AddTransient<ITrainingEventsPathProvider, MlTrainingEventsPathProvider>();
         services.AddTransient<ISolveSessionsGateway, SolveSessionsGateway>();
+        services.AddSingleton<IBackgroundOperationCancellationRegistry, InMemoryBackgroundOperationCancellationRegistry>();
 
         services.AddSingleton(_ => Channel.CreateUnbounded<SolveSessionWorkItemDto>(
             new UnboundedChannelOptions

@@ -7,6 +7,26 @@ type SolveSessionStatusPanelProps = {
   liveState: SolveLiveState;
 };
 
+function getCancelStatusMessage(state: SolveSessionState): string | null {
+  if (!state.cancelDisposition) {
+    return null;
+  }
+
+  if (state.session === null) {
+    return `Backend przyjal cancel jako no-op (${state.cancelDisposition}). Lokalny kontekst sesji zostal wyczyszczony bez sztucznego eventu cancelled.`;
+  }
+
+  if (state.session.status === "cancelling") {
+    return `Backend przyjal zadanie anulowania (${state.cancelDisposition}). Finalny stan cancelled nadal musi przyjsc przez SignalR.`;
+  }
+
+  if (state.session.status === "queued" || state.session.status === "running") {
+    return `Backend odpowiedzial na cancel requestDisposition = ${state.cancelDisposition}, ale sesja nadal pozostaje w monitoringu live.`;
+  }
+
+  return `Ostatni cancel requestDisposition = ${state.cancelDisposition}.`;
+}
+
 function getPhaseLabel(state: SolveSessionState): string {
   if (
     state.phase === "active" &&
@@ -42,6 +62,8 @@ export function SolveSessionStatusPanel({
   gridReadinessMessage,
   liveState,
 }: SolveSessionStatusPanelProps) {
+  const cancelStatusMessage = getCancelStatusMessage(state);
+
   return (
     <article className="uc05a-panel uc05b-status-panel">
       <h3>Status sesji solve</h3>
@@ -98,9 +120,17 @@ export function SolveSessionStatusPanel({
         </p>
       ) : null}
 
-      {state.cancelDisposition ? (
-        <p className="status-banner status-loading">
-          Ostatni wynik cancel: <code>{state.cancelDisposition}</code>.
+      {cancelStatusMessage ? (
+        <p
+          className={`status-banner ${
+            state.session === null
+              ? "status-warning"
+              : state.session.status === "cancelling"
+                ? "status-loading"
+                : "status-warning"
+          }`}
+        >
+          {cancelStatusMessage}
         </p>
       ) : null}
 

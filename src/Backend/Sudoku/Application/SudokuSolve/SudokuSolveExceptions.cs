@@ -33,6 +33,16 @@ public sealed class SolveSessionStartException : Exception
     public string ErrorType { get; }
 }
 
+public sealed class SolveSessionCancelPersistenceException : Exception
+{
+    public SolveSessionCancelPersistenceException(
+        string message,
+        Exception? innerException = null)
+        : base(message, innerException)
+    {
+    }
+}
+
 public sealed class SolveSessionNotFoundForRealtimeException : Exception
 {
     public SolveSessionNotFoundForRealtimeException(string solveSessionId)

@@ -89,6 +89,14 @@ export function Uc05bSolveSection({
         </button>
       </div>
 
+      {state.phase === "cancelling" || state.session?.status === "cancelling" ? (
+        <p className="muted-copy">
+          HTTP <code>202 Accepted</code> potwierdza tylko przyjecie komendy cancel.
+          Finalny stan <code>cancelled</code> powinien przyjsc asynchronicznie przez
+          live monitoring.
+        </p>
+      ) : null}
+
       <SolveSessionStatusPanel
         state={state}
         gridReadinessMessage={gridReadiness.message}
