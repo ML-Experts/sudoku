@@ -518,6 +518,18 @@ export function useUc05eLiveSolve({
   }, [solveReadyGrid, solveSession, state.inputGrid]);
 
   useEffect(() => {
+    if (solveSession !== null || state.activeSolveSessionId === null) {
+      return;
+    }
+
+    void disconnectRealtime();
+    dispatch({
+      type: "liveStateReset",
+      preserveVisibleGrid: true,
+    });
+  }, [disconnectRealtime, solveSession, state.activeSolveSessionId]);
+
+  useEffect(() => {
     return () => {
       void disconnectRealtime();
     };

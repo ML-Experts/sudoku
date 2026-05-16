@@ -36,6 +36,76 @@ public sealed class SudokuSolveSessionRunnerTests
         Assert.Equal(SolveSudokuErrorTypes.Unsolvable, failedSnapshot.FailureErrorType);
     }
 
+    [Fact]
+    public async Task RunAsync_FinalizesCancelled_WhenTokenIsCancelledBeforeExecution()
+    {
+        using var cancellationTokenSource = new CancellationTokenSource();
+        cancellationTokenSource.Cancel();
+
+        var initialMetadata = CreateMetadata("solve-test-02");
+        var gateway = new InMemorySolveSessionsGateway(initialMetadata);
+        var publisher = new RecordingSudokuSolveEventPublisher();
+        var runner = new SudokuSolveSessionRunner(
+            gateway,
+            new StubSudokuBacktrackingSolver(SudokuBacktrackingSolveResultDto.CompletedResult()),
+            publisher,
+            new NoOpSolveSessionLockProvider(),
+            new FixedTimeProvider(FixedNow));
+
+        await runner.RunAsync(new SolveSessionWorkItemDto("solve-test-02"), cancellationTokenSource.Token);
+
+        var snapshot = Assert.Single(publisher.PublishedSnapshots);
+        Assert.Equal(SudokuSolveSessionStatus.Cancelled, snapshot.Status);
+        Assert.Equal(SudokuSolveEventType.Cancelled, snapshot.EventType);
+        Assert.Equal(1L, snapshot.Sequence);
+    }
+
+    [Fact]
+    public async Task RunAsync_FinalizesCancelled_WhenSessionIsAlreadyCancellingBeforeExecution()
+    {
+        var initialMetadata = CreateMetadata("solve-test-03") with
+        {
+            Status = SudokuSolveSessionStatus.Cancelling
+        };
+        var gateway = new InMemorySolveSessionsGateway(initialMetadata);
+        var publisher = new RecordingSudokuSolveEventPublisher();
+        var runner = new SudokuSolveSessionRunner(
+            gateway,
+            new StubSudokuBacktrackingSolver(SudokuBacktrackingSolveResultDto.CompletedResult()),
+            publisher,
+            new NoOpSolveSessionLockProvider(),
+            new FixedTimeProvider(FixedNow));
+
+        await runner.RunAsync(new SolveSessionWorkItemDto("solve-test-03"), CancellationToken.None);
+
+        var snapshot = Assert.Single(publisher.PublishedSnapshots);
+        Assert.Equal(SudokuSolveSessionStatus.Cancelled, snapshot.Status);
+        Assert.Equal(SudokuSolveEventType.Cancelled, snapshot.EventType);
+        Assert.Equal(1L, snapshot.Sequence);
+    }
+
+    [Fact]
+    public async Task RunAsync_FinalizesCancelled_WhenSolverReturnsCancelled()
+    {
+        var initialMetadata = CreateMetadata("solve-test-04");
+        var gateway = new InMemorySolveSessionsGateway(initialMetadata);
+        var publisher = new RecordingSudokuSolveEventPublisher();
+        var runner = new SudokuSolveSessionRunner(
+            gateway,
+            new StubSudokuBacktrackingSolver(SudokuBacktrackingSolveResultDto.CancelledResult()),
+            publisher,
+            new NoOpSolveSessionLockProvider(),
+            new FixedTimeProvider(FixedNow));
+
+        await runner.RunAsync(new SolveSessionWorkItemDto("solve-test-04"), CancellationToken.None);
+
+        Assert.Equal(2, publisher.PublishedSnapshots.Count);
+        Assert.Equal(SudokuSolveSessionStatus.Running, publisher.PublishedSnapshots[0].Status);
+        Assert.Equal(SudokuSolveSessionStatus.Cancelled, publisher.PublishedSnapshots[1].Status);
+        Assert.Equal(SudokuSolveEventType.Cancelled, publisher.PublishedSnapshots[1].EventType);
+        Assert.Equal(1L, publisher.PublishedSnapshots[1].Sequence);
+    }
+
     private static SolveSessionMetadataDto CreateMetadata(string solveSessionId)
     {
         return new SolveSessionMetadataDto(

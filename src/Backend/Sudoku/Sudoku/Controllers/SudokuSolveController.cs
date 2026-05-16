@@ -164,10 +164,74 @@ public sealed class SudokuSolveController : ControllerBase
         }
     }
 
-    private static IActionResult MapValidationError(ValidationException exception)
+    [HttpPost("solve/{solveSessionId}/cancel")]
+    [ProducesResponseType(typeof(CancelSolveSessionApiResponse), StatusCodes.Status202Accepted)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> CancelAsync(
+        [FromRoute] string? solveSessionId,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation(
+            "Rozpoczęto próbę anulowania sesji solve sudoku. SolveSessionId={SolveSessionId}.",
+            solveSessionId);
+
+        try
+        {
+            var result = await _sender.Send(new CancelSolveSessionCommand(solveSessionId), cancellationToken);
+
+            _logger.LogInformation(
+                "Obsłużono anulowanie sesji solve sudoku. SolveSessionId={SolveSessionId}, Status={Status}, RequestDisposition={RequestDisposition}.",
+                solveSessionId,
+                result.Status,
+                result.RequestDisposition);
+
+            return StatusCode(
+                StatusCodes.Status202Accepted,
+                new CancelSolveSessionApiResponse(
+                    Status: result.Status,
+                    RequestDisposition: result.RequestDisposition));
+        }
+        catch (ValidationException exception)
+        {
+            return MapValidationError(exception, CancelSolveSessionErrorTypes.InvalidSolveSessionId);
+        }
+        catch (SolveSessionCancelPersistenceException exception)
+        {
+            _logger.LogError(
+                exception,
+                "Nie udało się zapisać metadanych anulowania sesji solve sudoku. SolveSessionId={SolveSessionId}, ErrorType={ErrorType}.",
+                solveSessionId,
+                CancelSolveSessionErrorTypes.SolveSessionCancelPersistenceFailed);
+
+            return StatusCode(
+                StatusCodes.Status500InternalServerError,
+                new ErrorApiResponse(
+                    ErrorType: CancelSolveSessionErrorTypes.SolveSessionCancelPersistenceFailed,
+                    Message: "Nie udało się zapisać metadanych anulowania sesji rozwiązywania sudoku."));
+        }
+        catch (InvalidOperationException exception)
+        {
+            _logger.LogError(
+                exception,
+                "Wykryto niespójny stan podczas anulowania sesji solve sudoku. SolveSessionId={SolveSessionId}, ErrorType={ErrorType}.",
+                solveSessionId,
+                CancelSolveSessionErrorTypes.SolveSessionCancelInvariantViolation);
+
+            return StatusCode(
+                StatusCodes.Status500InternalServerError,
+                new ErrorApiResponse(
+                    ErrorType: CancelSolveSessionErrorTypes.SolveSessionCancelInvariantViolation,
+                    Message: "Backend wykrył niespójny stan podczas anulowania sesji rozwiązywania sudoku."));
+        }
+    }
+
+    private static IActionResult MapValidationError(
+        ValidationException exception,
+        string defaultErrorType = SolveSudokuErrorTypes.InvalidRequest)
     {
         var failure = exception.Errors.FirstOrDefault();
-        var errorType = failure?.ErrorCode ?? SolveSudokuErrorTypes.InvalidRequest;
+        var errorType = failure?.ErrorCode ?? defaultErrorType;
         var message = failure?.ErrorMessage ?? "Nieprawidłowe dane wejściowe.";
 
         return new ObjectResult(new ErrorApiResponse(

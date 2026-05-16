@@ -373,6 +373,11 @@ export function useUc05bSolve({
       });
 
       if (response.status === null) {
+        console.warn("[UC-05B] Cancel zwrocil accepted no-op dla niedostepnej sesji.", {
+          solveSessionId: state.session.solveSessionId,
+          requestDisposition: response.requestDisposition,
+        });
+        clearPersistedLiveSolveContext();
         dispatch({
           type: "sessionCleared",
           requestDisposition: response.requestDisposition,
@@ -390,7 +395,14 @@ export function useUc05bSolve({
         requestDisposition: response.requestDisposition,
       });
     } catch (error) {
-      if (
+      if (error instanceof SudokuSolveApiError && error.status === 404) {
+        console.warn("[UC-05B] Backend zwrocil 404 dla cancel mimo kontraktu always-202.");
+      } else if (
+        error instanceof SudokuSolveApiError &&
+        (error.status === 401 || error.status === 403)
+      ) {
+        console.error("[UC-05B] Publiczny cancel solve nieoczekiwanie wymaga autoryzacji.");
+      } else if (
         error instanceof SudokuSolveApiError &&
         error.status >= 500
       ) {
