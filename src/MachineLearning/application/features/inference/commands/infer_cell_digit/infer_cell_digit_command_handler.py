@@ -55,6 +55,10 @@ class CellOccupancyDetector(Protocol):
         image: NDArray[np.float32],
         inner_margin_ratio: float,
         dark_pixel_ratio_threshold: float,
+        center_area_ratio: float,
+        min_component_area_ratio: float,
+        line_artifact_min_span_ratio: float,
+        line_artifact_max_thickness_ratio: float
     ) -> object: ...
 
 
@@ -272,12 +276,12 @@ class InferCellDigitCommandHandler:
         try:
             return self._cell_occupancy_detector.detect(
                 image=occupancy_image,
-                inner_margin_ratio=(
-                    runtime_configuration.empty_cell_inner_margin_ratio
-                ),
-                dark_pixel_ratio_threshold=(
-                    runtime_configuration.empty_cell_dark_pixel_ratio_threshold
-                ),
+                inner_margin_ratio=(runtime_configuration.empty_cell_inner_margin_ratio),
+                dark_pixel_ratio_threshold=(runtime_configuration.empty_cell_dark_pixel_ratio_threshold),
+                center_area_ratio = (runtime_configuration.center_area_ratio),
+                min_component_area_ratio = (runtime_configuration.min_component_area_ratio),
+                line_artifact_min_span_ratio = (runtime_configuration.line_artifact_min_span_ratio),
+                line_artifact_max_thickness_ratio = (runtime_configuration.line_artifact_max_thickness_ratio)
             )
         except ValueError as error:
             raise CellDigitInferenceValidationError(

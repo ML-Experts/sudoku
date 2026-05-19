@@ -4,4 +4,9 @@ namespace Sudoku.Application.Sudoku;
 
 public sealed record InferSudokuCellDigitCommand(
     string? MimeType,
-    string? Base64) : IRequest<InferSudokuCellDigitCommandResultDto>;
+    string? Base64,
+    double CenterAreaRatio,
+    double MinComponentAreaRatio,
+    double LineArtifactMinSpanRatio,
+    double LineArtifactMaxThicknessRatio
+) : IRequest<InferSudokuCellDigitCommandResultDto>;

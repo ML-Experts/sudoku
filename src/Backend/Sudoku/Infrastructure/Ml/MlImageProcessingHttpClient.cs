@@ -130,7 +130,12 @@ public sealed class MlImageProcessingHttpClient : IMlImageProcessingGateway
             ResolvedConfiguration: new DigitInferenceResolvedConfigurationApiContract(
                 InferenceProfileName: request.ResolvedConfiguration.InferenceProfileName,
                 EmptyCellInnerMarginRatio: request.ResolvedConfiguration.EmptyCellInnerMarginRatio,
-                EmptyCellDarkPixelRatioThreshold: request.ResolvedConfiguration.EmptyCellDarkPixelRatioThreshold));
+                EmptyCellDarkPixelRatioThreshold: request.ResolvedConfiguration.EmptyCellDarkPixelRatioThreshold,
+                CenterAreaRatio: request.ResolvedConfiguration.CenterAreaRatio,
+                MinComponentAreaRatio: request.ResolvedConfiguration.MinComponentAreaRatio,
+                LineArtifactMinSpanRatio: request.ResolvedConfiguration.LineArtifactMinSpanRatio,
+                LineArtifactMaxThicknessRatio: request.ResolvedConfiguration.LineArtifactMaxThicknessRatio
+            ));
 
         return SendPayloadAsync<DigitInferenceRequestApiContract, DigitInferenceApiContract>(
             relativePath,
@@ -320,7 +325,12 @@ public sealed class MlImageProcessingHttpClient : IMlImageProcessingGateway
     private sealed record DigitInferenceResolvedConfigurationApiContract(
         string InferenceProfileName,
         double EmptyCellInnerMarginRatio,
-        double EmptyCellDarkPixelRatioThreshold);
+        double EmptyCellDarkPixelRatioThreshold,
+        double CenterAreaRatio,
+        double MinComponentAreaRatio,
+        double LineArtifactMinSpanRatio,
+        double LineArtifactMaxThicknessRatio
+    );
 
     private sealed record DigitInferenceApiContract(int? Digit);
 

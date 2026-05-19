@@ -304,7 +304,7 @@ Dlatego:
 ## Wpływ na UX
 - `UI` może animować wpisanie cyfry i jej usunięcie, wyliczając zmianę przez porównanie dwóch kolejnych snapshotów.
 - Użytkownik widzi, że solver czasem się cofa, co odpowiada realnemu działaniu backtrackingu.
-- Dla bardzo szybkich rozwiązań `FE` może opcjonalnie spowolnić samą animację, ale nie zmienia to kolejności ani semantyki eventów.
+- Dla bardzo szybkich rozwiązań produkt może dodatkowo spowolnić prezentację kroków przez `UC-15`, bez zmiany kolejności ani semantyki eventów.
 
 ## Relacja do `UC-05B`
 - `UC-05B` definiuje logikę rozwiązania i publiczny kontrakt startu asynchronicznego solve.
@@ -312,6 +312,7 @@ Dlatego:
 - Ten sam algorytm powinien dawać taki sam wynik końcowy niezależnie od tego, czy uruchamiamy tryb zwykły, czy live.
 - `UC-05E` aktualizuje w `UI` ten sam grid, który został wcześniej zbudowany po `UC-05A`, ale robi to przez kolejne pełne snapshoty z `sequence`.
 - `UC-05E` obsługuje też odzyskanie aktywnej sesji i zdarzenie końcowe `cancelled`.
+- `UC-15` może regulować tempo emitowania kolejnych kroków, ale nie zmienia samego kontraktu eventów `UC-05E`.
 
 ## Kryteria akceptacji
 - Użytkownik dostaje przez `SignalR` każdą zmianę planszy wykonywaną przez solver.

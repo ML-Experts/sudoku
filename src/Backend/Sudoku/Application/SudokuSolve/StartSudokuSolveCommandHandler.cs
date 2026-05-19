@@ -41,8 +41,13 @@ public sealed class StartSudokuSolveCommandHandler
 
         await EnsureNoActiveSessionAsync(cancellationToken);
 
+        var effectiveParameters = BuildEffectiveParameters(request.SolverStepDelayMs);
         var createdAtUtc = _timeProvider.GetUtcNow();
-        var metadata = await ReserveSolveSessionAsync(inputGrid, createdAtUtc, cancellationToken);
+        var metadata = await ReserveSolveSessionAsync(
+            inputGrid,
+            effectiveParameters,
+            createdAtUtc,
+            cancellationToken);
 
         try
         {
@@ -115,6 +120,7 @@ public sealed class StartSudokuSolveCommandHandler
 
     private async Task<SolveSessionMetadataDto> ReserveSolveSessionAsync(
         int?[][] inputGrid,
+        SudokuSolveEffectiveParametersDto effectiveParameters,
         DateTimeOffset createdAtUtc,
         CancellationToken cancellationToken)
     {
@@ -128,7 +134,8 @@ public sealed class StartSudokuSolveCommandHandler
                 UpdatedAtUtc: createdAtUtc,
                 ProgressChannelUrl: BuildProgressChannelUrl(solveSessionId),
                 InputGrid: CopyGrid(inputGrid),
-                CurrentGrid: CopyGrid(inputGrid));
+                CurrentGrid: CopyGrid(inputGrid),
+                EffectiveParameters: effectiveParameters);
 
             bool created;
             try
@@ -203,6 +210,12 @@ public sealed class StartSudokuSolveCommandHandler
     private static string BuildProgressChannelUrl(string solveSessionId)
     {
         return $"/ws/sudoku/solving/{solveSessionId}";
+    }
+
+    private SudokuSolveEffectiveParametersDto BuildEffectiveParameters(int? requestedSolverStepDelayMs)
+    {
+        var effectiveSolverStepDelayMs = SudokuSolveParameterPolicy.ResolveSolverStepDelayMs(requestedSolverStepDelayMs);
+        return new SudokuSolveEffectiveParametersDto(effectiveSolverStepDelayMs);
     }
 
     private static int?[][] CopyGrid(int?[][] sourceGrid)

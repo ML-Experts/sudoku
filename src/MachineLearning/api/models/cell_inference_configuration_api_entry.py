@@ -11,3 +11,15 @@ class CellInferenceConfigurationApiEntry(BaseModel):
     empty_cell_dark_pixel_ratio_threshold: float = Field(
         alias="emptyCellDarkPixelRatioThreshold"
     )
+    center_area_ratio: float = Field(
+        alias="centerAreaRatio"
+    )
+    min_component_area_ratio: float= Field(
+        alias="minComponentAreaRatio"
+    )
+    line_artifact_min_span_ratio: float= Field(
+        alias="lineArtifactMinSpanRatio"
+    )
+    line_artifact_max_thickness_ratio: float= Field(
+        alias="lineArtifactMaxThicknessRatio"
+    )

@@ -30,6 +30,7 @@ export type DigitInferenceApiResponse = {
 
 export type SolveSudokuApiEntry = {
   grid: (number | null)[][];
+  solverStepDelayMs: number;
 };
 
 export type SolveSessionApiResponse = {

@@ -29,6 +29,8 @@ import {
   type SolveSessionOperation,
 } from "./solveSessionTypes";
 
+const DEFAULT_SOLVER_STEP_DELAY_MS = 50;
+
 type UseUc05bSolveOptions = {
   apiBaseUrl: string;
   recognizedGrid: RecognizedGrid | null;
@@ -280,13 +282,17 @@ export function useUc05bSolve({
 
     try {
       const solveReadyGrid = prepareRecognizedGridForSolve(recognizedGrid);
-      const request = toSolveSudokuApiEntry(solveReadyGrid);
+      const request = toSolveSudokuApiEntry(
+        solveReadyGrid,
+        DEFAULT_SOLVER_STEP_DELAY_MS,
+      );
       const startedGridSignature = createGridSignature(solveReadyGrid);
       const session = await postStartSudokuSolve(apiBaseUrl, request);
 
       console.info("[UC-05B] Backend przyjal start solve.", {
         solveSessionId: session.solveSessionId,
         status: session.status,
+        solverStepDelayMs: DEFAULT_SOLVER_STEP_DELAY_MS,
       });
 
       dispatch({

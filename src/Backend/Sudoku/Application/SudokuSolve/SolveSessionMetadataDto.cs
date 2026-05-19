@@ -13,4 +13,5 @@ public sealed record SolveSessionMetadataDto(
     string? FailureErrorType = null,
     string? FailureMessage = null,
     DateTimeOffset? StartedAtUtc = null,
-    DateTimeOffset? FinishedAtUtc = null);
+    DateTimeOffset? FinishedAtUtc = null,
+    SudokuSolveEffectiveParametersDto? EffectiveParameters = null);

@@ -38,31 +38,16 @@ class CellOccupancyDetector:
     5. If the ratio is <= threshold, the cell is empty.
     """
 
-    # Exact central square:
-    # 50% width and 50% height of the whole cell.
-    _CENTER_AREA_RATIO = 0.50
-
-    # Remove connected components smaller than this fraction
-    # of the central square area.
-    #
-    # For a 28x28 center:
-    # 28 * 28 = 784
-    # 0.015 * 784 = 11.76 -> minimum area = 12 pixels.
-    _MIN_COMPONENT_AREA_RATIO = 0.055
-
-    # Remove long thin line artifacts inside the central square.
-    #
-    # For a 28x28 center:
-    # min span = 0.40 * 28 = 11 px
-    # max thickness = 0.08 * 28 = 2 px
-    _LINE_ARTIFACT_MIN_SPAN_RATIO = 0.40
-    _LINE_ARTIFACT_MAX_THICKNESS_RATIO = 0.08
 
     def detect(
         self,
         image: NDArray[np.float32] | NDArray[np.uint8],
         inner_margin_ratio: float,
         dark_pixel_ratio_threshold: float,
+        center_area_ratio: float,
+        min_component_area_ratio: float,
+        line_artifact_min_span_ratio: float,
+        line_artifact_max_thickness_ratio: float
     ) -> CellOccupancy:
         """
         Parameters
@@ -126,13 +111,19 @@ class CellOccupancyDetector:
 
         center_mask = self._extract_center_square(
             mask=foreground_mask,
-            center_area_ratio=self._CENTER_AREA_RATIO,
+            center_area_ratio=center_area_ratio,
         )
 
         if center_mask.size == 0:
             raise ValueError("Center mask window is empty.")
 
-        filtered_center_mask = self._remove_center_artifacts(center_mask)
+        filtered_center_mask = self._remove_center_artifacts(
+            center_mask,
+            center_area_ratio,
+            min_component_area_ratio,
+            line_artifact_min_span_ratio,
+            line_artifact_max_thickness_ratio
+        )
 
         dark_pixel_ratio = float(np.mean(filtered_center_mask > 0))
 
@@ -209,6 +200,10 @@ class CellOccupancyDetector:
     def _remove_center_artifacts(
         self,
         center_mask: NDArray[np.uint8],
+        center_area_ratio: float,
+        min_component_area_ratio: float,
+        line_artifact_min_span_ratio: float,
+        line_artifact_max_thickness_ratio: float
     ) -> NDArray[np.uint8]:
         """
         Removes central artifacts that are not likely to be a digit:
@@ -235,17 +230,17 @@ class CellOccupancyDetector:
 
         minimum_component_area = max(
             2,
-            int(round(center_area * self._MIN_COMPONENT_AREA_RATIO)),
+            int(round(center_area * min_component_area_ratio)),
         )
 
         minimum_line_span = max(
             2,
-            int(round(reference_size * self._LINE_ARTIFACT_MIN_SPAN_RATIO)),
+            int(round(reference_size * line_artifact_min_span_ratio)),
         )
 
         maximum_line_thickness = max(
             1,
-            int(round(reference_size * self._LINE_ARTIFACT_MAX_THICKNESS_RATIO)),
+            int(round(reference_size * line_artifact_max_thickness_ratio)),
         )
 
         filtered_mask = center_mask.copy()
