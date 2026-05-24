@@ -31,6 +31,10 @@ class TrainingParametersApiEntry(BaseModel):
     learning_rate: float = Field(alias="learningRate")
     batch_size: int = Field(alias="batchSize")
     early_stopping_patience: int = Field(alias="earlyStoppingPatience")
+    early_stopping_min_delta: float = Field(
+        default=0.001, alias="earlyStoppingMinDelta"
+    )
+    warmup_epochs: int = Field(default=0, alias="warmupEpochs")
     lr_scheduler_patience: int = Field(alias="lrSchedulerPatience")
     lr_scheduler_factor: float = Field(alias="lrSchedulerFactor")
     fine_tuning_policy: str = Field(alias="fineTuningPolicy", min_length=1)

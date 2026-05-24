@@ -29,6 +29,8 @@ class TrainingParametersDto:
     lr_scheduler_patience: int
     lr_scheduler_factor: float
     fine_tuning_policy: str
+    early_stopping_min_delta: float = 0.001
+    warmup_epochs: int = 0
     use_best_checkpoint: bool = True
 
 

@@ -371,6 +371,8 @@ public sealed class CreateTrainingRunCommandHandler
                 "CreateTrainingRunCommand must include batchSize."),
             EarlyStoppingPatience: requestedParameters.EarlyStoppingPatience ?? throw new InvalidOperationException(
                 "CreateTrainingRunCommand must include earlyStoppingPatience."),
+            EarlyStoppingMinDelta: requestedParameters.EarlyStoppingMinDelta ?? 0.001,
+            WarmupEpochs: requestedParameters.WarmupEpochs ?? 0,
             LrSchedulerPatience: requestedParameters.LrSchedulerPatience ?? throw new InvalidOperationException(
                 "CreateTrainingRunCommand must include lrSchedulerPatience."),
             LrSchedulerFactor: requestedParameters.LrSchedulerFactor ?? throw new InvalidOperationException(

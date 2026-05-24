@@ -262,6 +262,12 @@ class MockTrainingRunner:
             "earlyStoppingPatience": (
                 context.resolved_configuration.training_parameters.early_stopping_patience
             ),
+            "earlyStoppingMinDelta": (
+                context.resolved_configuration.training_parameters.early_stopping_min_delta
+            ),
+            "warmupEpochs": (
+                context.resolved_configuration.training_parameters.warmup_epochs
+            ),
             "lrSchedulerPatience": (
                 context.resolved_configuration.training_parameters.lr_scheduler_patience
             ),

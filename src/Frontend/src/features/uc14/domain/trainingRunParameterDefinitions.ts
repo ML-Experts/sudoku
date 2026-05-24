@@ -5,6 +5,8 @@ export type TrainingRunParameterKey =
   | "learningRate"
   | "batchSize"
   | "earlyStoppingPatience"
+  | "earlyStoppingMinDelta"
+  | "warmupEpochs"
   | "lrSchedulerPatience"
   | "lrSchedulerFactor"
   | "fineTuningPolicy"
@@ -124,6 +126,49 @@ export const trainingRunParameterDefinitions: readonly Uc14ParameterDefinition<T
           "Dobieraj ten parametr razem z liczba epok, bo razem decyduja o realnej dlugosci treningu.",
       },
       min: 1,
+      minInclusive: true,
+      step: 1,
+      integerOnly: true,
+      advanced: true,
+    },
+    {
+      key: "earlyStoppingMinDelta",
+      kind: "number",
+      label: "Early stopping min delta",
+      description:
+        "Minimalna poprawa lossu, ktora runner uznaje za rzeczywisty postep zamiast szumu.",
+      guidance: {
+        purpose:
+          "Oddziela drobne wahania metryki od poprawy na tyle istotnej, by zresetowac licznik early stopping i zapisac lepszy checkpoint.",
+        effect:
+          "Nizsza wartosc uznaje nawet bardzo male spadki lossu za poprawe. Wyzsza wymaga wyrazniejszego postepu, wiec szybciej zlicza epoki bez poprawy.",
+        whenToChange:
+          "Zwiekzaj, gdy walidacja mocno drga i drobny szum stale resetuje early stopping. Zmniejszaj, gdy run zatrzymuje sie mimo stopniowej, ale realnej poprawy.",
+        recommendation:
+          "Traktuj ten parametr jako dopelnienie `earlyStoppingPatience`. Najpierw ustaw cierpliwosc, a dopiero potem kalibruj, jak duza poprawa ma sie liczyc.",
+      },
+      min: 0,
+      minInclusive: true,
+      step: 0.0001,
+      advanced: true,
+    },
+    {
+      key: "warmupEpochs",
+      kind: "number",
+      label: "Warmup epochs",
+      description:
+        "Liczba poczatkowych epok ochronnych, podczas ktorych runner nie uruchamia jeszcze logiki early stopping.",
+      guidance: {
+        purpose:
+          "Daje modelowi czas na wejscie w stabilniejsza faze uczenia, zanim brak poprawy zacznie liczyc sie do zatrzymania runu.",
+        effect:
+          "Wyzsza wartosc opoznia dzialanie early stopping, wiec model dluzej uczy sie bez ryzyka przedwczesnego zatrzymania. Wartosc 0 pozwala liczyc brak poprawy od samego poczatku.",
+        whenToChange:
+          "Zwiekzaj, gdy pierwsze epoki sa naturalnie niestabilne i run zatrzymuje sie za szybko. Zostaw nisko albo na 0, gdy model od startu uczy sie stabilnie i nie potrzebuje dodatkowego rozbiegu.",
+        recommendation:
+          "Traktuj warmup jako uzupelnienie konfiguracji early stopping. Najczesciej wystarczy mala liczba epok, a nie duzy bufor.",
+      },
+      min: 0,
       minInclusive: true,
       step: 1,
       integerOnly: true,

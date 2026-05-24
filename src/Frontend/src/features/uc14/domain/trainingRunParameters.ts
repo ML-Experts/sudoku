@@ -5,6 +5,8 @@ export type TrainingRunParameterFormState = {
   learningRate: string;
   batchSize: string;
   earlyStoppingPatience: string;
+  earlyStoppingMinDelta: string;
+  warmupEpochs: string;
   lrSchedulerPatience: string;
   lrSchedulerFactor: string;
   fineTuningPolicy: string;
@@ -28,13 +30,15 @@ export const trainingRunParameterDefaults: CreateTrainingRunParametersApiEntry =
   learningRate: 0.001,
   batchSize: 32,
   earlyStoppingPatience: 5,
+  earlyStoppingMinDelta: 0.001,
+  warmupEpochs: 0,
   lrSchedulerPatience: 3,
   lrSchedulerFactor: 0.5,
   fineTuningPolicy: "all",
   useBestCheckpoint: true,
 };
 
-const integerFields = [
+const positiveIntegerFields = [
   "epochs",
   "batchSize",
   "earlyStoppingPatience",
@@ -95,6 +99,10 @@ export function createTrainingRunParameterFormState(): TrainingRunParameterFormS
     earlyStoppingPatience: String(
       trainingRunParameterDefaults.earlyStoppingPatience,
     ),
+    earlyStoppingMinDelta: String(
+      trainingRunParameterDefaults.earlyStoppingMinDelta,
+    ),
+    warmupEpochs: String(trainingRunParameterDefaults.warmupEpochs),
     lrSchedulerPatience: String(trainingRunParameterDefaults.lrSchedulerPatience),
     lrSchedulerFactor: String(trainingRunParameterDefaults.lrSchedulerFactor),
     fineTuningPolicy: trainingRunParameterDefaults.fineTuningPolicy,
@@ -108,7 +116,7 @@ export function validateTrainingRunParameterState(
   const errors: TrainingRunParameterErrors = {};
   const parsedValues: Partial<CreateTrainingRunParametersApiEntry> = {};
 
-  for (const field of integerFields) {
+  for (const field of positiveIntegerFields) {
     const parsedValue = parseNumber(state[field]);
     if (parsedValue === null) {
       errors[field] = "Pole jest wymagane.";
@@ -128,6 +136,17 @@ export function validateTrainingRunParameterState(
     parsedValues[field] = parsedValue;
   }
 
+  const warmupEpochs = parseNumber(state.warmupEpochs);
+  if (warmupEpochs === null) {
+    errors.warmupEpochs = "Pole jest wymagane.";
+  } else if (!Number.isInteger(warmupEpochs)) {
+    errors.warmupEpochs = "Pole musi byc liczba calkowita.";
+  } else if (warmupEpochs < 0) {
+    errors.warmupEpochs = "Pole nie moze byc ujemne.";
+  } else {
+    parsedValues.warmupEpochs = warmupEpochs;
+  }
+
   const learningRate = parseNumber(state.learningRate);
   if (learningRate === null) {
     errors.learningRate = "Pole jest wymagane.";
@@ -135,6 +154,15 @@ export function validateTrainingRunParameterState(
     errors.learningRate = "Pole musi byc > 0 i <= 1.";
   } else {
     parsedValues.learningRate = learningRate;
+  }
+
+  const earlyStoppingMinDelta = parseNumber(state.earlyStoppingMinDelta);
+  if (earlyStoppingMinDelta === null) {
+    errors.earlyStoppingMinDelta = "Pole jest wymagane.";
+  } else if (earlyStoppingMinDelta < 0) {
+    errors.earlyStoppingMinDelta = "Pole nie moze byc ujemne.";
+  } else {
+    parsedValues.earlyStoppingMinDelta = earlyStoppingMinDelta;
   }
 
   const lrSchedulerFactor = parseNumber(state.lrSchedulerFactor);

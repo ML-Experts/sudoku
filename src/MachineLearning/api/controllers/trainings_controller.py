@@ -138,6 +138,12 @@ def _to_start_training_run_command(
                 early_stopping_patience=(
                     entry.resolved_configuration.training_parameters.early_stopping_patience
                 ),
+                early_stopping_min_delta=(
+                    entry.resolved_configuration.training_parameters.early_stopping_min_delta
+                ),
+                warmup_epochs=(
+                    entry.resolved_configuration.training_parameters.warmup_epochs
+                ),
                 lr_scheduler_patience=(
                     entry.resolved_configuration.training_parameters.lr_scheduler_patience
                 ),

@@ -52,6 +52,11 @@ class _ProfileCatalog:
             learning_rate=training_parameters.learning_rate,
             optimizer="adam",
             fine_tuning_policy=training_parameters.fine_tuning_policy,
+            early_stopping_patience=training_parameters.early_stopping_patience,
+            early_stopping_min_delta=training_parameters.early_stopping_min_delta,
+            warmup_epochs=training_parameters.warmup_epochs,
+            lr_scheduler_patience=training_parameters.lr_scheduler_patience,
+            lr_scheduler_factor=training_parameters.lr_scheduler_factor,
         )
 
 
@@ -117,6 +122,8 @@ def _context(root_path: Path) -> TrainingRunContextDto:
                 lr_scheduler_patience=1,
                 lr_scheduler_factor=0.5,
                 fine_tuning_policy="all",
+                early_stopping_min_delta=0.01,
+                warmup_epochs=2,
                 use_best_checkpoint=True,
             ),
         ),

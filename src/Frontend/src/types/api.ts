@@ -160,6 +160,8 @@ export type CreateTrainingRunParametersApiEntry = {
   learningRate: number;
   batchSize: number;
   earlyStoppingPatience: number;
+  earlyStoppingMinDelta: number;
+  warmupEpochs: number;
   lrSchedulerPatience: number;
   lrSchedulerFactor: number;
   fineTuningPolicy: string;
@@ -177,6 +179,8 @@ export type TrainingRunEffectiveParametersApiResponse = {
   learningRate: number;
   batchSize: number;
   earlyStoppingPatience: number;
+  earlyStoppingMinDelta: number;
+  warmupEpochs: number;
   lrSchedulerPatience: number;
   lrSchedulerFactor: number;
   fineTuningPolicy: string;

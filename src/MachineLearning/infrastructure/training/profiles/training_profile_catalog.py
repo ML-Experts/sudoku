@@ -22,6 +22,7 @@ class TrainingProfileCatalog:
                 fine_tuning_policy="all",
                 early_stopping_patience=6,
                 early_stopping_min_delta=0.001,
+                warmup_epochs=0,
                 lr_scheduler_patience=3,
                 lr_scheduler_factor=0.5,
             ),
@@ -35,6 +36,7 @@ class TrainingProfileCatalog:
                 fine_tuning_policy="head-only",
                 early_stopping_patience=4,
                 early_stopping_min_delta=0.001,
+                warmup_epochs=0,
                 lr_scheduler_patience=2,
                 lr_scheduler_factor=0.5,
             ),
@@ -73,7 +75,8 @@ class TrainingProfileCatalog:
             optimizer="adam",
             fine_tuning_policy=training_parameters.fine_tuning_policy,
             early_stopping_patience=training_parameters.early_stopping_patience,
-            early_stopping_min_delta=0.001,
+            early_stopping_min_delta=training_parameters.early_stopping_min_delta,
+            warmup_epochs=training_parameters.warmup_epochs,
             lr_scheduler_patience=training_parameters.lr_scheduler_patience,
             lr_scheduler_factor=training_parameters.lr_scheduler_factor,
         )
@@ -96,6 +99,7 @@ class TrainingProfileCatalog:
             fine_tuning_policy=profile.fine_tuning_policy,
             early_stopping_patience=profile.early_stopping_patience,
             early_stopping_min_delta=profile.early_stopping_min_delta,
+            warmup_epochs=profile.warmup_epochs,
             lr_scheduler_patience=profile.lr_scheduler_patience,
             lr_scheduler_factor=profile.lr_scheduler_factor,
         )

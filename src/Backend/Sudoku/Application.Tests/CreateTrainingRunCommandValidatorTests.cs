@@ -64,6 +64,52 @@ public sealed class CreateTrainingRunCommandValidatorTests
         Assert.True(result.IsValid);
     }
 
+    [Fact]
+    public void Validate_ReturnsNoErrors_WhenEarlyStoppingMinDeltaIsMissing()
+    {
+        var result = _validator.Validate(CreateCommand(
+            trainingParameters: CreateTrainingParameters(EarlyStoppingMinDelta: null)));
+
+        Assert.True(result.IsValid);
+    }
+
+    [Fact]
+    public void Validate_ReturnsNoErrors_WhenWarmupEpochsIsMissing()
+    {
+        var result = _validator.Validate(CreateCommand(
+            trainingParameters: CreateTrainingParameters(WarmupEpochs: null)));
+
+        Assert.True(result.IsValid);
+    }
+
+    [Theory]
+    [InlineData(-0.0001)]
+    [InlineData(-1)]
+    public void Validate_ReturnsInvalidRequest_WhenEarlyStoppingMinDeltaIsNegative(
+        double earlyStoppingMinDelta)
+    {
+        var result = _validator.Validate(CreateCommand(
+            trainingParameters: CreateTrainingParameters(
+                EarlyStoppingMinDelta: earlyStoppingMinDelta)));
+
+        var failure = Assert.Single(result.Errors);
+        Assert.Equal(CreateTrainingRunErrorTypes.InvalidRequest, failure.ErrorCode);
+        Assert.Equal("TrainingParameters.EarlyStoppingMinDelta", failure.PropertyName);
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(-3)]
+    public void Validate_ReturnsInvalidRequest_WhenWarmupEpochsIsNegative(int warmupEpochs)
+    {
+        var result = _validator.Validate(CreateCommand(
+            trainingParameters: CreateTrainingParameters(WarmupEpochs: warmupEpochs)));
+
+        var failure = Assert.Single(result.Errors);
+        Assert.Equal(CreateTrainingRunErrorTypes.InvalidRequest, failure.ErrorCode);
+        Assert.Equal("TrainingParameters.WarmupEpochs", failure.PropertyName);
+    }
+
     private static CreateTrainingRunCommand CreateCommand(
         string? baseModelName = "cnn-bootstrap",
         string? processedDatasetName = "digits-v1",
@@ -80,6 +126,8 @@ public sealed class CreateTrainingRunCommandValidatorTests
         double? LearningRate = 0.001,
         int? BatchSize = 32,
         int? EarlyStoppingPatience = 5,
+        double? EarlyStoppingMinDelta = 0.001,
+        int? WarmupEpochs = 0,
         int? LrSchedulerPatience = 3,
         double? LrSchedulerFactor = 0.5,
         string? FineTuningPolicy = "all",
@@ -90,6 +138,8 @@ public sealed class CreateTrainingRunCommandValidatorTests
             LearningRate: LearningRate,
             BatchSize: BatchSize,
             EarlyStoppingPatience: EarlyStoppingPatience,
+            EarlyStoppingMinDelta: EarlyStoppingMinDelta,
+            WarmupEpochs: WarmupEpochs,
             LrSchedulerPatience: LrSchedulerPatience,
             LrSchedulerFactor: LrSchedulerFactor,
             FineTuningPolicy: FineTuningPolicy,

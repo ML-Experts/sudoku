@@ -190,7 +190,7 @@ class PytorchTrainingRunner:
                     best_epoch = epoch
                     epochs_without_improvement = 0
                     self._write_best_checkpoint(context, model)
-                else:
+                elif self._should_count_early_stopping_epoch(profile, epoch):
                     epochs_without_improvement += 1
                 executed_epochs = epoch
                 await self._publish_progress(
@@ -203,6 +203,7 @@ class PytorchTrainingRunner:
                 )
                 if self._should_stop_early(
                     profile,
+                    epoch,
                     epochs_without_improvement,
                 ):
                     stopped_early = True
@@ -468,11 +469,17 @@ class PytorchTrainingRunner:
     def _should_stop_early(
         self,
         profile,
+        epoch: int,
         epochs_without_improvement: int,
     ) -> bool:
         if profile.early_stopping_patience is None:
             return False
+        if not self._should_count_early_stopping_epoch(profile, epoch):
+            return False
         return epochs_without_improvement >= profile.early_stopping_patience
+
+    def _should_count_early_stopping_epoch(self, profile, epoch: int) -> bool:
+        return epoch > profile.warmup_epochs
 
     def _select_evaluation_loader(
         self,
@@ -582,6 +589,12 @@ class PytorchTrainingRunner:
             "batchSize": context.resolved_configuration.training_parameters.batch_size,
             "earlyStoppingPatience": (
                 context.resolved_configuration.training_parameters.early_stopping_patience
+            ),
+            "earlyStoppingMinDelta": (
+                context.resolved_configuration.training_parameters.early_stopping_min_delta
+            ),
+            "warmupEpochs": (
+                context.resolved_configuration.training_parameters.warmup_epochs
             ),
             "lrSchedulerPatience": (
                 context.resolved_configuration.training_parameters.lr_scheduler_patience

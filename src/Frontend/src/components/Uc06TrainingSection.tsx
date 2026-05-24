@@ -1230,6 +1230,14 @@ export function Uc06TrainingSection({
               <dd>{activeRun.effectiveParameters?.batchSize ?? "-"}</dd>
             </div>
             <div>
+              <dt>Early stopping min delta</dt>
+              <dd>{activeRun.effectiveParameters?.earlyStoppingMinDelta ?? "-"}</dd>
+            </div>
+            <div>
+              <dt>Warmup epochs</dt>
+              <dd>{activeRun.effectiveParameters?.warmupEpochs ?? "-"}</dd>
+            </div>
+            <div>
               <dt>Fine-tuning policy</dt>
               <dd>{activeRun.effectiveParameters?.fineTuningPolicy ?? "-"}</dd>
             </div>

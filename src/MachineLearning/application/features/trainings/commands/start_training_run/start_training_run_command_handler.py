@@ -157,6 +157,18 @@ class StartTrainingRunCommandHandler:
                 "Parametr earlyStoppingPatience musi być większy od zera.",
             )
 
+        if parameters.early_stopping_min_delta < 0:
+            raise TrainingRunValidationError(
+                "invalid_training_parameters",
+                "Parametr earlyStoppingMinDelta nie może być ujemny.",
+            )
+
+        if parameters.warmup_epochs < 0:
+            raise TrainingRunValidationError(
+                "invalid_training_parameters",
+                "Parametr warmupEpochs nie może być ujemny.",
+            )
+
         if parameters.lr_scheduler_patience <= 0:
             raise TrainingRunValidationError(
                 "invalid_training_parameters",

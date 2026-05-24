@@ -29,6 +29,8 @@ public sealed class CreateTrainingRunCommandHandlerTests
         Assert.Equal(0.001, result.EffectiveParameters.LearningRate);
         Assert.Equal(32, result.EffectiveParameters.BatchSize);
         Assert.Equal(5, result.EffectiveParameters.EarlyStoppingPatience);
+        Assert.Equal(0.001, result.EffectiveParameters.EarlyStoppingMinDelta);
+        Assert.Equal(0, result.EffectiveParameters.WarmupEpochs);
         Assert.Equal(3, result.EffectiveParameters.LrSchedulerPatience);
         Assert.Equal(0.5, result.EffectiveParameters.LrSchedulerFactor);
         Assert.Equal("all", result.EffectiveParameters.FineTuningPolicy);
@@ -37,6 +39,8 @@ public sealed class CreateTrainingRunCommandHandlerTests
         var metadata = Assert.Single(trainingRunsGateway.Items.Values);
         Assert.NotNull(metadata.EffectiveParameters);
         Assert.Equal(20, metadata.EffectiveParameters!.Epochs);
+        Assert.Equal(0.001, metadata.EffectiveParameters.EarlyStoppingMinDelta);
+        Assert.Equal(0, metadata.EffectiveParameters.WarmupEpochs);
         Assert.Equal("all", metadata.EffectiveParameters.FineTuningPolicy);
         Assert.True(metadata.EffectiveParameters.UseBestCheckpoint);
 
@@ -53,6 +57,12 @@ public sealed class CreateTrainingRunCommandHandlerTests
         Assert.Equal(
             5,
             mlTrainingsGateway.LastRequest.ResolvedConfiguration.TrainingParameters.EarlyStoppingPatience);
+        Assert.Equal(
+            0.001,
+            mlTrainingsGateway.LastRequest.ResolvedConfiguration.TrainingParameters.EarlyStoppingMinDelta);
+        Assert.Equal(
+            0,
+            mlTrainingsGateway.LastRequest.ResolvedConfiguration.TrainingParameters.WarmupEpochs);
         Assert.Equal(
             3,
             mlTrainingsGateway.LastRequest.ResolvedConfiguration.TrainingParameters.LrSchedulerPatience);
@@ -91,6 +101,62 @@ public sealed class CreateTrainingRunCommandHandlerTests
         Assert.NotNull(mlTrainingsGateway.LastRequest);
         Assert.False(
             mlTrainingsGateway.LastRequest!.ResolvedConfiguration.TrainingParameters.UseBestCheckpoint);
+    }
+
+    [Fact]
+    public async Task Handle_UsesDefaultEarlyStoppingMinDelta_WhenParameterIsMissing()
+    {
+        var trainingRunsGateway = new InMemoryTrainingRunsGateway();
+        var mlTrainingsGateway = new StubMlTrainingsGateway();
+        var handler = CreateHandler(
+            trainingRunsGateway: trainingRunsGateway,
+            mlTrainingsGateway: mlTrainingsGateway,
+            modelsRegistryGateway: new StubModelsRegistryGateway(CreateBaseModel(architectureFamily: "cnn")),
+            processedDatasetsGateway: new StubProcessedDatasetsGateway(CreateProcessedDataset()));
+
+        var result = await handler.Handle(
+            CreateCommand(trainingParameters: CreateTrainingParameters(EarlyStoppingMinDelta: null)),
+            CancellationToken.None);
+
+        Assert.NotNull(result.EffectiveParameters);
+        Assert.Equal(0.001, result.EffectiveParameters!.EarlyStoppingMinDelta);
+
+        var metadata = Assert.Single(trainingRunsGateway.Items.Values);
+        Assert.NotNull(metadata.EffectiveParameters);
+        Assert.Equal(0.001, metadata.EffectiveParameters!.EarlyStoppingMinDelta);
+
+        Assert.NotNull(mlTrainingsGateway.LastRequest);
+        Assert.Equal(
+            0.001,
+            mlTrainingsGateway.LastRequest!.ResolvedConfiguration.TrainingParameters.EarlyStoppingMinDelta);
+    }
+
+    [Fact]
+    public async Task Handle_UsesDefaultWarmupEpochs_WhenParameterIsMissing()
+    {
+        var trainingRunsGateway = new InMemoryTrainingRunsGateway();
+        var mlTrainingsGateway = new StubMlTrainingsGateway();
+        var handler = CreateHandler(
+            trainingRunsGateway: trainingRunsGateway,
+            mlTrainingsGateway: mlTrainingsGateway,
+            modelsRegistryGateway: new StubModelsRegistryGateway(CreateBaseModel(architectureFamily: "cnn")),
+            processedDatasetsGateway: new StubProcessedDatasetsGateway(CreateProcessedDataset()));
+
+        var result = await handler.Handle(
+            CreateCommand(trainingParameters: CreateTrainingParameters(WarmupEpochs: null)),
+            CancellationToken.None);
+
+        Assert.NotNull(result.EffectiveParameters);
+        Assert.Equal(0, result.EffectiveParameters!.WarmupEpochs);
+
+        var metadata = Assert.Single(trainingRunsGateway.Items.Values);
+        Assert.NotNull(metadata.EffectiveParameters);
+        Assert.Equal(0, metadata.EffectiveParameters!.WarmupEpochs);
+
+        Assert.NotNull(mlTrainingsGateway.LastRequest);
+        Assert.Equal(
+            0,
+            mlTrainingsGateway.LastRequest!.ResolvedConfiguration.TrainingParameters.WarmupEpochs);
     }
 
     [Fact]
@@ -220,6 +286,8 @@ public sealed class CreateTrainingRunCommandHandlerTests
         double? LearningRate = 0.001,
         int? BatchSize = 32,
         int? EarlyStoppingPatience = 5,
+        double? EarlyStoppingMinDelta = 0.001,
+        int? WarmupEpochs = 0,
         int? LrSchedulerPatience = 3,
         double? LrSchedulerFactor = 0.5,
         string? FineTuningPolicy = "all",
@@ -230,6 +298,8 @@ public sealed class CreateTrainingRunCommandHandlerTests
             LearningRate: LearningRate,
             BatchSize: BatchSize,
             EarlyStoppingPatience: EarlyStoppingPatience,
+            EarlyStoppingMinDelta: EarlyStoppingMinDelta,
+            WarmupEpochs: WarmupEpochs,
             LrSchedulerPatience: LrSchedulerPatience,
             LrSchedulerFactor: LrSchedulerFactor,
             FineTuningPolicy: FineTuningPolicy,

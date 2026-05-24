@@ -25,6 +25,8 @@ export function isTrainingRunEffectiveParametersApiResponse(
     typeof record.learningRate === "number" &&
     typeof record.batchSize === "number" &&
     typeof record.earlyStoppingPatience === "number" &&
+    typeof record.earlyStoppingMinDelta === "number" &&
+    typeof record.warmupEpochs === "number" &&
     typeof record.lrSchedulerPatience === "number" &&
     typeof record.lrSchedulerFactor === "number" &&
     typeof record.fineTuningPolicy === "string" &&

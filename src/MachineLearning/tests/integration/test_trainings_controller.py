@@ -117,6 +117,8 @@ class TrainingsControllerTests(unittest.TestCase):
                         "learningRate": 0.001,
                         "batchSize": 16,
                         "earlyStoppingPatience": 3,
+                        "earlyStoppingMinDelta": 0.01,
+                        "warmupEpochs": 2,
                         "lrSchedulerPatience": 2,
                         "lrSchedulerFactor": 0.5,
                         "fineTuningPolicy": "all",

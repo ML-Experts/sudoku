@@ -52,6 +52,14 @@ public sealed class CreateTrainingRunCommandValidator : AbstractValidator<Create
             trainingParameters.EarlyStoppingPatience,
             $"{nameof(CreateTrainingRunCommand.TrainingParameters)}.{nameof(TrainingRunRequestedParametersDto.EarlyStoppingPatience)}",
             context);
+        ValidateNonNegativeDouble(
+            trainingParameters.EarlyStoppingMinDelta,
+            $"{nameof(CreateTrainingRunCommand.TrainingParameters)}.{nameof(TrainingRunRequestedParametersDto.EarlyStoppingMinDelta)}",
+            context);
+        ValidateNonNegativeInt(
+            trainingParameters.WarmupEpochs,
+            $"{nameof(CreateTrainingRunCommand.TrainingParameters)}.{nameof(TrainingRunRequestedParametersDto.WarmupEpochs)}",
+            context);
         ValidatePositiveInt(
             trainingParameters.LrSchedulerPatience,
             $"{nameof(CreateTrainingRunCommand.TrainingParameters)}.{nameof(TrainingRunRequestedParametersDto.LrSchedulerPatience)}",
@@ -153,6 +161,38 @@ public sealed class CreateTrainingRunCommandValidator : AbstractValidator<Create
             context.AddFailure(CreateFailure(
                 propertyName,
                 $"Pole musi być mniejsze niż {maxExclusive.Value}."));
+        }
+    }
+
+    private static void ValidateNonNegativeDouble(
+        double? value,
+        string propertyName,
+        ValidationContext<CreateTrainingRunCommand> context)
+    {
+        if (!value.HasValue)
+        {
+            return;
+        }
+
+        if (value.Value < 0)
+        {
+            context.AddFailure(CreateFailure(propertyName, "Pole nie może być ujemne."));
+        }
+    }
+
+    private static void ValidateNonNegativeInt(
+        int? value,
+        string propertyName,
+        ValidationContext<CreateTrainingRunCommand> context)
+    {
+        if (!value.HasValue)
+        {
+            return;
+        }
+
+        if (value.Value < 0)
+        {
+            context.AddFailure(CreateFailure(propertyName, "Pole nie może być ujemne."));
         }
     }
 
