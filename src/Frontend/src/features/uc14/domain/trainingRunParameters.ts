@@ -8,6 +8,7 @@ export type TrainingRunParameterFormState = {
   lrSchedulerPatience: string;
   lrSchedulerFactor: string;
   fineTuningPolicy: string;
+  useBestCheckpoint: string;
 };
 
 export type TrainingRunParameterErrors = Partial<
@@ -30,6 +31,7 @@ export const trainingRunParameterDefaults: CreateTrainingRunParametersApiEntry =
   lrSchedulerPatience: 3,
   lrSchedulerFactor: 0.5,
   fineTuningPolicy: "all",
+  useBestCheckpoint: true,
 };
 
 const integerFields = [
@@ -65,7 +67,7 @@ function countOverrides(
       continue;
     }
 
-    if (key === "fineTuningPolicy") {
+    if (key === "fineTuningPolicy" || key === "useBestCheckpoint") {
       if (parsedValue !== defaultValue) {
         overrides += 1;
       }
@@ -96,6 +98,7 @@ export function createTrainingRunParameterFormState(): TrainingRunParameterFormS
     lrSchedulerPatience: String(trainingRunParameterDefaults.lrSchedulerPatience),
     lrSchedulerFactor: String(trainingRunParameterDefaults.lrSchedulerFactor),
     fineTuningPolicy: trainingRunParameterDefaults.fineTuningPolicy,
+    useBestCheckpoint: String(trainingRunParameterDefaults.useBestCheckpoint),
   };
 }
 
@@ -148,6 +151,13 @@ export function validateTrainingRunParameterState(
     errors.fineTuningPolicy = "Wybierz obslugiwana polityke fine-tuningu.";
   } else {
     parsedValues.fineTuningPolicy = fineTuningPolicy;
+  }
+
+  const useBestCheckpoint = state.useBestCheckpoint.trim().toLowerCase();
+  if (useBestCheckpoint !== "true" && useBestCheckpoint !== "false") {
+    errors.useBestCheckpoint = "Wybierz, czy finalny model ma pochodzic z najlepszego checkpointu.";
+  } else {
+    parsedValues.useBestCheckpoint = useBestCheckpoint === "true";
   }
 
   const errorCount = Object.keys(errors).length;

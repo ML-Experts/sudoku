@@ -77,6 +77,7 @@ class TrainingProfileCatalogTests(unittest.TestCase):
                 lr_scheduler_patience=2,
                 lr_scheduler_factor=0.4,
                 fine_tuning_policy="all",
+                use_best_checkpoint=True,
             ),
             profile_name="runtime-cnn",
         )

@@ -143,6 +143,8 @@ const defaultCancelState: RequestState<CancelTrainingRunApiResponse> = {
 
 const activeStatuses = ["queued", "starting", "running", "cancelling"];
 const terminalStatuses = ["succeeded", "failed", "cancelled"];
+const activeRunRefreshIntervalMs = 10_000;
+const degradedActiveRunRefreshIntervalMs = 4_000;
 
 function isTerminalStatus(status: string): boolean {
   return terminalStatuses.includes(status);
@@ -193,6 +195,14 @@ function toSyntheticStage(status: string): string {
 function normalizeSocketEvent(
   payload: unknown,
 ): TrainingRunSocketEventApiResponse | null {
+  if (Array.isArray(payload)) {
+    if (payload.length !== 1) {
+      return null;
+    }
+
+    return normalizeSocketEvent(payload[0]);
+  }
+
   if (!payload || typeof payload !== "object") {
     return null;
   }
@@ -351,6 +361,49 @@ function toCancelDispositionHint(response: CancelTrainingRunApiResponse): string
   return dispositionCopy[response.requestDisposition] ?? "Backend przyjal zadanie cancel.";
 }
 
+function toActiveRunBlockingCopy(status: string | null): string | null {
+  if (status === null) {
+    return null;
+  }
+
+  const copy: Record<string, string> = {
+    queued: "Inny run jest zakolejkowany. Mozesz juz wybrac model i dataset, ale start kolejnego runu pozostanie zablokowany do zakonczenia biezacego.",
+    starting: "Backend uruchamia run. Mozesz przygotowac kolejny wybor, ale start pozostanie zablokowany do czasu zejscia biezacego runu z aktywnego statusu.",
+    running: "Run jest w trakcie treningu. Mozesz zmienic wybor modelu i datasetu, ale kolejny start bedzie mozliwy dopiero po zakonczeniu albo anulowaniu biezacego runu.",
+    cancelling: "Run jest w trakcie anulowania. Mozesz juz ustawic model i dataset dla kolejnej proby, ale start odblokuje sie dopiero, gdy backend potwierdzi status terminalny.",
+  };
+
+  return copy[status] ?? null;
+}
+
+function getStaleActivityWarning(
+  status: string | null,
+  occurredAtUtc: string | null,
+): string | null {
+  if (status === null || occurredAtUtc === null) {
+    return null;
+  }
+
+  const parsedTimestamp = new Date(occurredAtUtc);
+  if (Number.isNaN(parsedTimestamp.getTime())) {
+    return null;
+  }
+
+  if (Date.now() - parsedTimestamp.getTime() < 60_000) {
+    return null;
+  }
+
+  if (status === "cancelling") {
+    return "Brak swiezego eventu dla statusu cancelling. Run moze byc zablokowany po stronie backendu albo ML.";
+  }
+
+  if (status === "queued" || status === "starting" || status === "running") {
+    return "Brak swiezych eventow SignalR dla aktywnego runu. Odswiez stan treningu, aby sprawdzic, czy backend nadal widzi go jako aktywny.";
+  }
+
+  return null;
+}
+
 export function Uc06TrainingSection({
   apiBaseUrl,
   accessToken,
@@ -372,6 +425,8 @@ export function Uc06TrainingSection({
   const [socketEvents, setSocketEvents] = useState<TrainingRunSocketEventApiResponse[]>([]);
   const connectionRef = useRef<HubConnection | null>(null);
   const latestSequenceRef = useRef<number>(-1);
+  const hadActiveRunRef = useRef(false);
+  const activeRunRefreshInFlightRef = useRef(false);
 
   const disconnectRealtime = useCallback(async () => {
     const connection = connectionRef.current;
@@ -486,34 +541,37 @@ export function Uc06TrainingSection({
     selectedModelName,
   ]);
 
-  const ingestSocketPayload = useCallback((payload: unknown) => {
-    const event = normalizeSocketEvent(payload);
-    if (!event) {
-      return;
-    }
-
-    if (event.sequence < latestSequenceRef.current) {
-      return;
-    }
-    latestSequenceRef.current = event.sequence;
-
-    setSocketEvents((previous) => [event, ...previous.slice(0, 49)]);
-    if (terminalStatuses.includes(event.status)) {
-      setConnectionState("completed");
-    } else {
-      setConnectionState("connected");
-    }
-    setActiveRun((previous) => {
-      if (!previous || previous.runName !== event.runName) {
-        return previous;
+  const ingestSocketPayload = useCallback(
+    (payload: unknown) => {
+      const event = normalizeSocketEvent(payload);
+      if (!event) {
+        return;
       }
 
-      return {
-        ...previous,
-        status: event.status,
-      };
-    });
-  }, []);
+      if (event.sequence < latestSequenceRef.current) {
+        return;
+      }
+      latestSequenceRef.current = event.sequence;
+
+      setSocketEvents((previous) => [event, ...previous.slice(0, 49)]);
+      if (terminalStatuses.includes(event.status)) {
+        setConnectionState("completed");
+      } else {
+        setConnectionState("connected");
+      }
+      setActiveRun((previous) => {
+        if (!previous || previous.runName !== event.runName) {
+          return previous;
+        }
+
+        return {
+          ...previous,
+          status: event.status,
+        };
+      });
+    },
+    [],
+  );
 
   const connectRealtime = useCallback(
     async (run: TrainingRunApiResponse) => {
@@ -645,6 +703,19 @@ export function Uc06TrainingSection({
     handleUnauthorizedIfNeeded,
     loadSelectionData,
   ]);
+
+  const recoverFromActiveRunSafely = useCallback(async () => {
+    if (activeRunRefreshInFlightRef.current) {
+      return;
+    }
+
+    activeRunRefreshInFlightRef.current = true;
+    try {
+      await recoverFromActiveRun();
+    } finally {
+      activeRunRefreshInFlightRef.current = false;
+    }
+  }, [recoverFromActiveRun]);
 
   const startTraining = useCallback(async () => {
     if (!accessToken) {
@@ -823,6 +894,7 @@ export function Uc06TrainingSection({
 
   useEffect(() => {
     if (!accessToken) {
+      hadActiveRunRef.current = false;
       setActiveRun(null);
       setSocketEvents([]);
       setStartState(defaultStartState);
@@ -833,6 +905,14 @@ export function Uc06TrainingSection({
 
     void recoverFromActiveRun();
   }, [accessToken, disconnectRealtime, recoverFromActiveRun]);
+
+  useEffect(() => {
+    if (!accessToken) {
+      return;
+    }
+
+    void loadSelectionData();
+  }, [accessToken, loadSelectionData]);
 
   useEffect(() => {
     return () => {
@@ -846,15 +926,82 @@ export function Uc06TrainingSection({
   const latestEvent = socketEvents[0] ?? null;
   const latestStatus = latestEvent?.status ?? activeRun?.status ?? null;
   const isActiveRunPresent = latestStatus ? activeStatuses.includes(latestStatus) : false;
+  const shouldShowStartForm = Boolean(accessToken);
   const canCancel =
     Boolean(activeRun) &&
     latestStatus !== null &&
-    !isTerminalStatus(latestStatus) &&
-    latestStatus !== "cancelling";
+    !isTerminalStatus(latestStatus);
   const trainableModels = (modelsState.data ?? []).filter((model) => model.canStartTraining);
   const availableDatasets = datasetsState.data ?? [];
   const startErrorHint =
     startState.kind === "error" ? toStartErrorHint(startState.httpStatus) : null;
+  const activeRunBlockingCopy = toActiveRunBlockingCopy(latestStatus);
+  const latestActivityAtUtc = latestEvent?.occurredAtUtc ?? activeRun?.createdAtUtc ?? null;
+  const staleActivityWarning = getStaleActivityWarning(latestStatus, latestActivityAtUtc);
+
+  useEffect(() => {
+    if (!accessToken) {
+      hadActiveRunRef.current = false;
+      return;
+    }
+
+    if (isActiveRunPresent) {
+      hadActiveRunRef.current = true;
+      return;
+    }
+
+    if (!hadActiveRunRef.current) {
+      return;
+    }
+
+    hadActiveRunRef.current = false;
+    void loadSelectionData();
+  }, [accessToken, isActiveRunPresent, loadSelectionData]);
+
+  useEffect(() => {
+    if (!accessToken || !activeRun || latestStatus === null || isTerminalStatus(latestStatus)) {
+      return;
+    }
+
+    const refreshDelay =
+      connectionState === "disconnected" ||
+      connectionState === "reconnecting" ||
+      staleActivityWarning
+        ? degradedActiveRunRefreshIntervalMs
+        : activeRunRefreshIntervalMs;
+    const timeoutId = window.setTimeout(() => {
+      void recoverFromActiveRunSafely();
+    }, refreshDelay);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [
+    accessToken,
+    activeRun,
+    connectionState,
+    latestStatus,
+    recoverFromActiveRunSafely,
+    staleActivityWarning,
+  ]);
+
+  useEffect(() => {
+    if (
+      cancelState.kind !== "success" ||
+      !activeRun ||
+      cancelState.response.runName !== activeRun.runName
+    ) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void recoverFromActiveRunSafely();
+    }, 1_500);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [activeRun, cancelState, recoverFromActiveRunSafely]);
 
   return (
     <section className="hero-card uc06-section">
@@ -896,12 +1043,24 @@ export function Uc06TrainingSection({
         <p className="status-banner status-error">{activeRunState.error}</p>
       ) : null}
 
-      {accessToken && activeRun === null ? (
+      {shouldShowStartForm ? (
         <article className="uc12-panel">
           <h3>Formularz startu runu</h3>
           <p className="muted-copy">
             Wybierz dokladnie jeden model bazowy i jeden dataset processed.
           </p>
+          {isActiveRunPresent && activeRunBlockingCopy ? (
+            <p className="status-banner status-loading">{activeRunBlockingCopy}</p>
+          ) : null}
+          {isActiveRunPresent && staleActivityWarning ? (
+            <p className="status-banner status-error">{staleActivityWarning}</p>
+          ) : null}
+          {activeRun && latestStatus && isTerminalStatus(latestStatus) ? (
+            <p className="status-banner status-success">
+              Poprzedni run ma status <code>{latestStatus}</code>. Mozesz od razu uruchomic
+              kolejny trening.
+            </p>
+          ) : null}
 
           <div className="uc05b-parameter-summary">
             <span className="app-chip">
@@ -960,7 +1119,7 @@ export function Uc06TrainingSection({
             <select
               value={selectedModelName}
               onChange={(event) => setSelectedModelName(event.target.value)}
-              disabled={trainableModels.length === 0}
+              disabled={modelsState.kind === "loading" || trainableModels.length === 0}
             >
               <option value="">-- wybierz model --</option>
               {trainableModels.map((model) => (
@@ -976,7 +1135,7 @@ export function Uc06TrainingSection({
             <select
               value={selectedDatasetName}
               onChange={(event) => setSelectedDatasetName(event.target.value)}
-              disabled={availableDatasets.length === 0}
+              disabled={datasetsState.kind === "loading" || availableDatasets.length === 0}
             >
               <option value="">-- wybierz dataset --</option>
               {availableDatasets.map((dataset) => (
@@ -992,6 +1151,7 @@ export function Uc06TrainingSection({
             type="button"
             disabled={
               startState.kind === "loading" ||
+              isActiveRunPresent ||
               !selectedModelName ||
               !selectedDatasetName ||
               !trainingParametersValid ||
@@ -1073,6 +1233,16 @@ export function Uc06TrainingSection({
               <dt>Fine-tuning policy</dt>
               <dd>{activeRun.effectiveParameters?.fineTuningPolicy ?? "-"}</dd>
             </div>
+            <div>
+              <dt>Najlepszy checkpoint</dt>
+              <dd>
+                {typeof activeRun.effectiveParameters?.useBestCheckpoint === "boolean"
+                  ? activeRun.effectiveParameters.useBestCheckpoint
+                    ? "tak"
+                    : "nie"
+                  : "-"}
+              </dd>
+            </div>
           </dl>
           <div className="examples-row-actions">
             <button
@@ -1096,7 +1266,11 @@ export function Uc06TrainingSection({
               disabled={!canCancel || cancelState.kind === "loading"}
               onClick={() => void cancelTraining()}
             >
-              {cancelState.kind === "loading" ? "Anulowanie..." : "Anuluj run"}
+              {cancelState.kind === "loading"
+                ? "Anulowanie..."
+                : latestStatus === "cancelling"
+                  ? "Ponow cancel"
+                  : "Anuluj run"}
             </button>
           </div>
         </div>
@@ -1160,6 +1334,11 @@ export function Uc06TrainingSection({
             ))}
           </ul>
         </div>
+      ) : activeRun ? (
+        <p className="muted-copy">
+          SignalR nie dostarczyl jeszcze zdarzenia do UI. Widoczny status runu pochodzi na razie
+          z <code>GET /api/trainings/active</code>, a FE bedzie dalej probowal odzyskac stan.
+        </p>
       ) : (
         <p className="muted-copy">Brak odebranych komunikatow SignalR.</p>
       )}

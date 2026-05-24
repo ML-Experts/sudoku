@@ -36,12 +36,38 @@ public sealed class TrainingRunHub : Hub
             return;
         }
 
-        GetTrainingRunRealtimeSnapshotResultDto result;
         try
         {
-            result = await _sender.Send(
+            var result = await _sender.Send(
                 new GetTrainingRunRealtimeSnapshotQuery(runName),
                 Context.ConnectionAborted);
+            var groupName = TrainingRunHubGroups.ForRun(result.Snapshot.RunName);
+            await Groups.AddToGroupAsync(Context.ConnectionId, groupName, Context.ConnectionAborted);
+            await Clients.Caller.SendAsync(
+                TrainingSnapshotClientMethod,
+                TrainingRunRealtimeResponseMapper.ToSnapshotApiResponse(result.Snapshot),
+                Context.ConnectionAborted);
+
+            if (TrainingRunStatus.IsTerminal(result.Snapshot.Status))
+            {
+                _logger.LogInformation(
+                    "Sent terminal training snapshot for run {RunName}.",
+                    result.Snapshot.RunName);
+            }
+            else
+            {
+                _logger.LogInformation(
+                    "Sent training snapshot for run {RunName}.",
+                    result.Snapshot.RunName);
+            }
+
+            await base.OnConnectedAsync();
+        }
+        catch (OperationCanceledException) when (Context.ConnectionAborted.IsCancellationRequested)
+        {
+            _logger.LogDebug(
+                "SignalR training connection aborted during startup for run {RunName}.",
+                runName);
         }
         catch (ValidationException exception)
         {
@@ -49,7 +75,6 @@ public sealed class TrainingRunHub : Hub
                 exception,
                 "SignalR training connection rejected for invalid runName.");
             Context.Abort();
-            return;
         }
         catch (TrainingRunNotFoundForRealtimeException)
         {
@@ -57,7 +82,6 @@ public sealed class TrainingRunHub : Hub
                 "SignalR training connection rejected for unknown run {RunName}.",
                 runName);
             Context.Abort();
-            return;
         }
         catch (Exception exception) when (exception is IOException
                                          or UnauthorizedAccessException
@@ -70,30 +94,7 @@ public sealed class TrainingRunHub : Hub
                 "Could not read realtime training snapshot for run {RunName}.",
                 runName);
             Context.Abort();
-            return;
         }
-
-        var groupName = TrainingRunHubGroups.ForRun(result.Snapshot.RunName);
-        await Groups.AddToGroupAsync(Context.ConnectionId, groupName, Context.ConnectionAborted);
-        await Clients.Caller.SendAsync(
-            TrainingSnapshotClientMethod,
-            TrainingRunRealtimeResponseMapper.ToSnapshotApiResponse(result.Snapshot),
-            Context.ConnectionAborted);
-
-        if (TrainingRunStatus.IsTerminal(result.Snapshot.Status))
-        {
-            _logger.LogInformation(
-                "Sent terminal training snapshot for run {RunName}.",
-                result.Snapshot.RunName);
-        }
-        else
-        {
-            _logger.LogInformation(
-                "Sent training snapshot for run {RunName}.",
-                result.Snapshot.RunName);
-        }
-
-        await base.OnConnectedAsync();
     }
 
     private string? ResolveRunName()

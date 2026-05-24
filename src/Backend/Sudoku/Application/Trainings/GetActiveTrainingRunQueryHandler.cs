@@ -15,16 +15,21 @@ public sealed class GetActiveTrainingRunQueryHandler
     };
 
     private readonly ITrainingRunsGateway _trainingRunsGateway;
+    private readonly ITrainingRunCancellationRecovery _trainingRunCancellationRecovery;
 
-    public GetActiveTrainingRunQueryHandler(ITrainingRunsGateway trainingRunsGateway)
+    public GetActiveTrainingRunQueryHandler(
+        ITrainingRunsGateway trainingRunsGateway,
+        ITrainingRunCancellationRecovery trainingRunCancellationRecovery)
     {
         _trainingRunsGateway = trainingRunsGateway;
+        _trainingRunCancellationRecovery = trainingRunCancellationRecovery;
     }
 
     public async Task<GetActiveTrainingRunQueryResultDto> Handle(
         GetActiveTrainingRunQuery request,
         CancellationToken cancellationToken)
     {
+        await _trainingRunCancellationRecovery.RecoverAsync(cancellationToken);
         var runs = await _trainingRunsGateway.ListAsync(cancellationToken);
         var activeRuns = runs
             .Where(run => ActiveStatuses.Contains(run.Status))

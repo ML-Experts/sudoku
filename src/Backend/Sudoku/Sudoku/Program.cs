@@ -157,6 +157,12 @@ builder.Services
     .ValidateOnStart();
 
 builder.Services
+    .AddOptions<TrainingRecoveryOptions>()
+    .BindConfiguration(TrainingRecoveryOptions.SectionName)
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+builder.Services
     .AddOptions<SudokuSolveSessionsStorageOptions>()
     .BindConfiguration(SudokuSolveSessionsStorageOptions.SectionName)
     .ValidateDataAnnotations()

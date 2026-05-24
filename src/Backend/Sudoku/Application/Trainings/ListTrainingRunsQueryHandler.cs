@@ -7,16 +7,21 @@ public sealed class ListTrainingRunsQueryHandler
     : IRequestHandler<ListTrainingRunsQuery, ListTrainingRunsQueryResultDto>
 {
     private readonly ITrainingRunsGateway _trainingRunsGateway;
+    private readonly ITrainingRunCancellationRecovery _trainingRunCancellationRecovery;
 
-    public ListTrainingRunsQueryHandler(ITrainingRunsGateway trainingRunsGateway)
+    public ListTrainingRunsQueryHandler(
+        ITrainingRunsGateway trainingRunsGateway,
+        ITrainingRunCancellationRecovery trainingRunCancellationRecovery)
     {
         _trainingRunsGateway = trainingRunsGateway;
+        _trainingRunCancellationRecovery = trainingRunCancellationRecovery;
     }
 
     public async Task<ListTrainingRunsQueryResultDto> Handle(
         ListTrainingRunsQuery request,
         CancellationToken cancellationToken)
     {
+        await _trainingRunCancellationRecovery.RecoverAsync(cancellationToken);
         var metadataItems = await _trainingRunsGateway.ListAsync(cancellationToken);
 
         EnsureNoDuplicateRunNames(metadataItems);

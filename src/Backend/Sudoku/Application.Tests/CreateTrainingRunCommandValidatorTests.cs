@@ -55,6 +55,15 @@ public sealed class CreateTrainingRunCommandValidatorTests
         Assert.Equal("TrainingParameters.FineTuningPolicy", failure.PropertyName);
     }
 
+    [Fact]
+    public void Validate_ReturnsNoErrors_WhenUseBestCheckpointIsMissing()
+    {
+        var result = _validator.Validate(CreateCommand(
+            trainingParameters: CreateTrainingParameters(UseBestCheckpoint: null)));
+
+        Assert.True(result.IsValid);
+    }
+
     private static CreateTrainingRunCommand CreateCommand(
         string? baseModelName = "cnn-bootstrap",
         string? processedDatasetName = "digits-v1",
@@ -73,7 +82,8 @@ public sealed class CreateTrainingRunCommandValidatorTests
         int? EarlyStoppingPatience = 5,
         int? LrSchedulerPatience = 3,
         double? LrSchedulerFactor = 0.5,
-        string? FineTuningPolicy = "all")
+        string? FineTuningPolicy = "all",
+        bool? UseBestCheckpoint = true)
     {
         return new TrainingRunRequestedParametersDto(
             Epochs: Epochs,
@@ -82,6 +92,7 @@ public sealed class CreateTrainingRunCommandValidatorTests
             EarlyStoppingPatience: EarlyStoppingPatience,
             LrSchedulerPatience: LrSchedulerPatience,
             LrSchedulerFactor: LrSchedulerFactor,
-            FineTuningPolicy: FineTuningPolicy);
+            FineTuningPolicy: FineTuningPolicy,
+            UseBestCheckpoint: UseBestCheckpoint);
     }
 }

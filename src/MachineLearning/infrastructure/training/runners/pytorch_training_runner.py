@@ -150,12 +150,14 @@ class PytorchTrainingRunner:
                     optimizer,
                     criterion,
                     device,
+                    cancellation_token=cancellation_token,
                 )
                 val_metrics = self._evaluate_loss_accuracy(
                     model,
                     dataloaders["val"],
                     criterion,
                     device,
+                    cancellation_token=cancellation_token,
                 )
                 history.append(
                     {
@@ -207,7 +209,10 @@ class PytorchTrainingRunner:
                     break
 
             cancellation_token.throw_if_cancelled()
-            if best_epoch > 0:
+            if (
+                context.resolved_configuration.training_parameters.use_best_checkpoint
+                and best_epoch > 0
+            ):
                 model.load_state_dict(best_model_state)
             stage = TrainingRunStage.EVALUATION.value
             evaluation_message = "Training evaluation started."
@@ -228,7 +233,9 @@ class PytorchTrainingRunner:
                 model,
                 evaluation_loader,
                 device,
+                cancellation_token=cancellation_token,
             )
+            cancellation_token.throw_if_cancelled()
             metrics = self._metrics_calculator.calculate(
                 y_true,
                 y_pred,
@@ -336,12 +343,15 @@ class PytorchTrainingRunner:
         optimizer: torch.optim.Optimizer,
         criterion: nn.Module,
         device: torch.device,
+        cancellation_token: CancellationToken | None = None,
     ) -> dict:
         model.train()
         total_loss = 0.0
         total_count = 0
         correct_count = 0
         for images, labels in dataloader:
+            if cancellation_token is not None:
+                cancellation_token.throw_if_cancelled()
             images = images.to(device)
             labels = labels.to(device)
             optimizer.zero_grad()
@@ -361,6 +371,7 @@ class PytorchTrainingRunner:
         dataloader: DataLoader,
         criterion: nn.Module,
         device: torch.device,
+        cancellation_token: CancellationToken | None = None,
     ) -> dict:
         if len(dataloader.dataset) == 0:
             return {"loss": None, "accuracy": None}
@@ -370,6 +381,8 @@ class PytorchTrainingRunner:
         correct_count = 0
         with torch.no_grad():
             for images, labels in dataloader:
+                if cancellation_token is not None:
+                    cancellation_token.throw_if_cancelled()
                 images = images.to(device)
                 labels = labels.to(device)
                 logits = model(images)
@@ -476,6 +489,7 @@ class PytorchTrainingRunner:
         model: nn.Module,
         dataloader: DataLoader,
         device: torch.device,
+        cancellation_token: CancellationToken | None = None,
     ) -> tuple[np.ndarray, np.ndarray, float | None]:
         model.eval()
         y_true = []
@@ -484,6 +498,8 @@ class PytorchTrainingRunner:
         inference_count = 0
         with torch.no_grad():
             for images, labels in dataloader:
+                if cancellation_token is not None:
+                    cancellation_token.throw_if_cancelled()
                 device_images = images.to(device)
                 batch_started_at = perf_counter()
                 logits = model(device_images)
@@ -575,6 +591,9 @@ class PytorchTrainingRunner:
             ),
             "fineTuningPolicy": (
                 context.resolved_configuration.training_parameters.fine_tuning_policy
+            ),
+            "useBestCheckpoint": (
+                context.resolved_configuration.training_parameters.use_best_checkpoint
             ),
             "epochs": epoch_total,
             "executedEpochs": executed_epochs,

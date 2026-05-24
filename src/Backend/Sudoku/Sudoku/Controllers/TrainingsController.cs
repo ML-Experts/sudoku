@@ -187,7 +187,8 @@ public sealed class TrainingsController : ControllerBase
                     EarlyStoppingPatience: entry.TrainingParameters.EarlyStoppingPatience,
                     LrSchedulerPatience: entry.TrainingParameters.LrSchedulerPatience,
                     LrSchedulerFactor: entry.TrainingParameters.LrSchedulerFactor,
-                    FineTuningPolicy: entry.TrainingParameters.FineTuningPolicy));
+                    FineTuningPolicy: entry.TrainingParameters.FineTuningPolicy,
+                    UseBestCheckpoint: entry.TrainingParameters.UseBestCheckpoint));
 
         try
         {
@@ -555,7 +556,8 @@ public sealed class TrainingsController : ControllerBase
             EarlyStoppingPatience: effectiveParameters.EarlyStoppingPatience,
             LrSchedulerPatience: effectiveParameters.LrSchedulerPatience,
             LrSchedulerFactor: effectiveParameters.LrSchedulerFactor,
-            FineTuningPolicy: effectiveParameters.FineTuningPolicy);
+            FineTuningPolicy: effectiveParameters.FineTuningPolicy,
+            UseBestCheckpoint: effectiveParameters.UseBestCheckpoint);
     }
 
     private static TrainingRunProgressApiResponse? ToTrainingRunProgressApiResponse(

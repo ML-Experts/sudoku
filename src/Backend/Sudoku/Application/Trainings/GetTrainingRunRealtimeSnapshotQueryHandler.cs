@@ -7,10 +7,14 @@ public sealed class GetTrainingRunRealtimeSnapshotQueryHandler
     : IRequestHandler<GetTrainingRunRealtimeSnapshotQuery, GetTrainingRunRealtimeSnapshotResultDto>
 {
     private readonly ITrainingRunsGateway _trainingRunsGateway;
+    private readonly ITrainingRunCancellationRecovery _trainingRunCancellationRecovery;
 
-    public GetTrainingRunRealtimeSnapshotQueryHandler(ITrainingRunsGateway trainingRunsGateway)
+    public GetTrainingRunRealtimeSnapshotQueryHandler(
+        ITrainingRunsGateway trainingRunsGateway,
+        ITrainingRunCancellationRecovery trainingRunCancellationRecovery)
     {
         _trainingRunsGateway = trainingRunsGateway;
+        _trainingRunCancellationRecovery = trainingRunCancellationRecovery;
     }
 
     public async Task<GetTrainingRunRealtimeSnapshotResultDto> Handle(
@@ -22,6 +26,7 @@ public sealed class GetTrainingRunRealtimeSnapshotQueryHandler
             throw new InvalidOperationException("GetTrainingRunRealtimeSnapshotQuery must be validated before handler execution.");
         }
 
+        await _trainingRunCancellationRecovery.RecoverAsync(cancellationToken);
         var runName = request.RunName.Trim();
         var metadata = await _trainingRunsGateway.GetByRunNameAsync(runName, cancellationToken);
         if (metadata is null)

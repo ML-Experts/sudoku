@@ -7,4 +7,5 @@ public sealed record TrainingRunEffectiveParametersDto(
     int EarlyStoppingPatience,
     int LrSchedulerPatience,
     double LrSchedulerFactor,
-    string FineTuningPolicy);
+    string FineTuningPolicy,
+    bool UseBestCheckpoint);

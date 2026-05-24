@@ -25,7 +25,7 @@ type Uc14TrainingRunParametersPanelProps = {
 
 type TrainingRunNumberParameterKey = Exclude<
   TrainingRunParameterKey,
-  "fineTuningPolicy"
+  "fineTuningPolicy" | "useBestCheckpoint"
 >;
 
 function parseNumber(rawValue: string): number | null {
@@ -42,10 +42,9 @@ function isFieldDirty(
   key: TrainingRunParameterKey,
   state: TrainingRunParameterFormState,
 ): boolean {
-  if (key === "fineTuningPolicy") {
+  if (key === "fineTuningPolicy" || key === "useBestCheckpoint") {
     return (
-      state.fineTuningPolicy.trim().toLowerCase() !==
-      trainingRunParameterDefaults.fineTuningPolicy
+      state[key].trim().toLowerCase() !== String(trainingRunParameterDefaults[key])
     );
   }
 
@@ -78,14 +77,15 @@ function createNumberFieldState(
 }
 
 function createSelectFieldState(
+  key: Extract<TrainingRunParameterKey, "fineTuningPolicy" | "useBestCheckpoint">,
   state: TrainingRunParameterFormState,
   errors: TrainingRunParameterErrors,
 ) {
   return {
-    rawValue: state.fineTuningPolicy,
-    defaultValue: trainingRunParameterDefaults.fineTuningPolicy,
-    isDirty: isFieldDirty("fineTuningPolicy", state),
-    error: errors.fineTuningPolicy ?? null,
+    rawValue: state[key],
+    defaultValue: String(trainingRunParameterDefaults[key]),
+    isDirty: isFieldDirty(key, state),
+    error: errors[key] ?? null,
   };
 }
 
@@ -182,11 +182,16 @@ export function Uc14TrainingRunParametersPanel({
               );
             }
 
+            const selectKey = activeDefinition.key as Extract<
+              TrainingRunParameterKey,
+              "fineTuningPolicy" | "useBestCheckpoint"
+            >;
+
             return (
               <Uc14ParameterSelectField
                 definition={activeDefinition}
-                state={createSelectFieldState(state, errors)}
-                onChange={(rawValue) => onFieldChange("fineTuningPolicy", rawValue)}
+                state={createSelectFieldState(selectKey, state, errors)}
+                onChange={(rawValue) => onFieldChange(selectKey, rawValue)}
               />
             );
           }}

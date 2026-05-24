@@ -30,6 +30,7 @@ public sealed class CreateTrainingRunCommandHandler
     private readonly IModelsRegistryGateway _modelsRegistryGateway;
     private readonly IProcessedDatasetsGateway _processedDatasetsGateway;
     private readonly IMlTrainingsGateway _mlTrainingsGateway;
+    private readonly ITrainingRunCancellationRecovery _trainingRunCancellationRecovery;
     private readonly ITrainingEventsPathProvider _trainingEventsPathProvider;
     private readonly ITrainingRunNameGenerator _trainingRunNameGenerator;
     private readonly TrainingDefaultsOptions _trainingDefaultsOptions;
@@ -43,6 +44,7 @@ public sealed class CreateTrainingRunCommandHandler
         IModelsRegistryGateway modelsRegistryGateway,
         IProcessedDatasetsGateway processedDatasetsGateway,
         IMlTrainingsGateway mlTrainingsGateway,
+        ITrainingRunCancellationRecovery trainingRunCancellationRecovery,
         ITrainingEventsPathProvider trainingEventsPathProvider,
         ITrainingRunNameGenerator trainingRunNameGenerator,
         IOptions<TrainingDefaultsOptions> trainingDefaultsOptions,
@@ -55,6 +57,7 @@ public sealed class CreateTrainingRunCommandHandler
         _modelsRegistryGateway = modelsRegistryGateway;
         _processedDatasetsGateway = processedDatasetsGateway;
         _mlTrainingsGateway = mlTrainingsGateway;
+        _trainingRunCancellationRecovery = trainingRunCancellationRecovery;
         _trainingEventsPathProvider = trainingEventsPathProvider;
         _trainingRunNameGenerator = trainingRunNameGenerator;
         _trainingDefaultsOptions = trainingDefaultsOptions.Value;
@@ -79,6 +82,7 @@ public sealed class CreateTrainingRunCommandHandler
         var processedDatasetName = request.ProcessedDatasetName.Trim();
         var effectiveParameters = BuildEffectiveParameters(request.TrainingParameters);
 
+        await _trainingRunCancellationRecovery.RecoverAsync(cancellationToken);
         await EnsureNoActiveRunAsync(cancellationToken);
 
         var baseModel = await ResolveBaseModelAsync(baseModelName, cancellationToken);
@@ -371,7 +375,8 @@ public sealed class CreateTrainingRunCommandHandler
                 "CreateTrainingRunCommand must include lrSchedulerPatience."),
             LrSchedulerFactor: requestedParameters.LrSchedulerFactor ?? throw new InvalidOperationException(
                 "CreateTrainingRunCommand must include lrSchedulerFactor."),
-            FineTuningPolicy: NormalizeFineTuningPolicy(requestedParameters.FineTuningPolicy));
+            FineTuningPolicy: NormalizeFineTuningPolicy(requestedParameters.FineTuningPolicy),
+            UseBestCheckpoint: requestedParameters.UseBestCheckpoint ?? true);
     }
 
     private static string NormalizeFineTuningPolicy(string? fineTuningPolicy)

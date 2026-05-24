@@ -24,6 +24,37 @@ export function DatasetsView({
   onUnauthorized,
   trainingRunParameterValidation,
 }: DatasetsViewProps) {
+  const activeSection =
+    datasetsStep === "uc11" ? (
+      <Uc11RawCandidatesSection
+        apiBaseUrl={apiBaseUrl}
+        accessToken={accessToken}
+        onUnauthorized={onUnauthorized}
+      />
+    ) : datasetsStep === "uc12" ? (
+      <Uc12DatasetPreparationSection
+        apiBaseUrl={apiBaseUrl}
+        accessToken={accessToken}
+        onUnauthorized={onUnauthorized}
+      />
+    ) : datasetsStep === "uc06" ? (
+      <Uc06TrainingSection
+        apiBaseUrl={apiBaseUrl}
+        accessToken={accessToken}
+        onUnauthorized={onUnauthorized}
+        trainingParameters={trainingRunParameterValidation.apiEntry}
+        trainingParametersValid={trainingRunParameterValidation.isValid}
+        trainingParameterErrorCount={trainingRunParameterValidation.errorCount}
+        trainingParameterOverrideCount={trainingRunParameterValidation.overrideCount}
+      />
+    ) : (
+      <Uc08CatalogSection
+        apiBaseUrl={apiBaseUrl}
+        accessToken={accessToken}
+        onUnauthorized={onUnauthorized}
+      />
+    );
+
   return (
     <>
       <section className="hero-card datasets-module-header">
@@ -57,39 +88,7 @@ export function DatasetsView({
           />
         </div>
       </section>
-
-      <div hidden={datasetsStep !== "uc11"} aria-hidden={datasetsStep !== "uc11"}>
-        <Uc11RawCandidatesSection
-          apiBaseUrl={apiBaseUrl}
-          accessToken={accessToken}
-          onUnauthorized={onUnauthorized}
-        />
-      </div>
-      <div hidden={datasetsStep !== "uc12"} aria-hidden={datasetsStep !== "uc12"}>
-        <Uc12DatasetPreparationSection
-          apiBaseUrl={apiBaseUrl}
-          accessToken={accessToken}
-          onUnauthorized={onUnauthorized}
-        />
-      </div>
-      <div hidden={datasetsStep !== "uc06"} aria-hidden={datasetsStep !== "uc06"}>
-        <Uc06TrainingSection
-          apiBaseUrl={apiBaseUrl}
-          accessToken={accessToken}
-          onUnauthorized={onUnauthorized}
-          trainingParameters={trainingRunParameterValidation.apiEntry}
-          trainingParametersValid={trainingRunParameterValidation.isValid}
-          trainingParameterErrorCount={trainingRunParameterValidation.errorCount}
-          trainingParameterOverrideCount={trainingRunParameterValidation.overrideCount}
-        />
-      </div>
-      <div hidden={datasetsStep !== "uc08"} aria-hidden={datasetsStep !== "uc08"}>
-        <Uc08CatalogSection
-          apiBaseUrl={apiBaseUrl}
-          accessToken={accessToken}
-          onUnauthorized={onUnauthorized}
-        />
-      </div>
+      {activeSection}
     </>
   );
 }

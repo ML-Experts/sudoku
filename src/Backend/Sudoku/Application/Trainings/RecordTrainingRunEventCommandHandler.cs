@@ -280,7 +280,9 @@ public sealed class RecordTrainingRunEventCommandHandler
                     or TrainingRunStatus.Failed
                     or TrainingRunStatus.Cancelled
             || string.Equals(currentStatus, TrainingRunStatus.Cancelling, StringComparison.Ordinal)
-                && nextStatus is TrainingRunStatus.Cancelled or TrainingRunStatus.Failed)
+                && nextStatus is TrainingRunStatus.Cancelled
+                    or TrainingRunStatus.Failed
+                    or TrainingRunStatus.Succeeded)
         {
             return;
         }

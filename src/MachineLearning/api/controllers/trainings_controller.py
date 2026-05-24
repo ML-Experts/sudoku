@@ -147,6 +147,9 @@ def _to_start_training_run_command(
                 fine_tuning_policy=(
                     entry.resolved_configuration.training_parameters.fine_tuning_policy
                 ),
+                use_best_checkpoint=(
+                    entry.resolved_configuration.training_parameters.use_best_checkpoint
+                ),
             ),
         ),
         output_model=OutputRegistryModelDto(

@@ -22,6 +22,7 @@ public static class DependencyInjection
         services.AddTransient<IActiveModelResolver, ActiveModelResolver>();
         services.AddTransient<ISudokuBacktrackingSolver, SudokuBacktrackingSolver>();
         services.AddTransient<ISudokuSolveSessionRunner, SudokuSolveSessionRunner>();
+        services.AddTransient<ITrainingRunCancellationRecovery, TrainingRunCancellationRecovery>();
         services.AddSingleton<ITrainingRunNameGenerator, TrainingRunNameGenerator>();
         services.AddSingleton<ITrainingRunEventLockProvider, InMemoryTrainingRunEventLockProvider>();
         services.AddSingleton<ITrainingRunEventPublisher, NoOpTrainingRunEventPublisher>();

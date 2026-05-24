@@ -27,7 +27,8 @@ export function isTrainingRunEffectiveParametersApiResponse(
     typeof record.earlyStoppingPatience === "number" &&
     typeof record.lrSchedulerPatience === "number" &&
     typeof record.lrSchedulerFactor === "number" &&
-    typeof record.fineTuningPolicy === "string"
+    typeof record.fineTuningPolicy === "string" &&
+    typeof record.useBestCheckpoint === "boolean"
   );
 }
 

@@ -163,6 +163,7 @@ export type CreateTrainingRunParametersApiEntry = {
   lrSchedulerPatience: number;
   lrSchedulerFactor: number;
   fineTuningPolicy: string;
+  useBestCheckpoint: boolean;
 };
 
 export type CreateTrainingRunApiEntry = {
@@ -179,6 +180,7 @@ export type TrainingRunEffectiveParametersApiResponse = {
   lrSchedulerPatience: number;
   lrSchedulerFactor: number;
   fineTuningPolicy: string;
+  useBestCheckpoint: boolean;
 };
 
 export type RegistryModelListItemApiResponse = {

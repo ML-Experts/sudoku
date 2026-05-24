@@ -7,7 +7,8 @@ export type TrainingRunParameterKey =
   | "earlyStoppingPatience"
   | "lrSchedulerPatience"
   | "lrSchedulerFactor"
-  | "fineTuningPolicy";
+  | "fineTuningPolicy"
+  | "useBestCheckpoint";
 
 export const trainingRunParameterDefinitions: readonly Uc14ParameterDefinition<TrainingRunParameterKey>[] =
   [
@@ -53,6 +54,37 @@ export const trainingRunParameterDefinitions: readonly Uc14ParameterDefinition<T
       minInclusive: false,
       maxInclusive: true,
       step: 0.0001,
+    },
+    {
+      key: "useBestCheckpoint",
+      kind: "select",
+      label: "Najlepszy checkpoint",
+      description:
+        "Decyduje, czy finalny artefakt modelu ma powstac z najlepszego checkpointu walidacyjnego, czy z ostatniej wykonanej epoki.",
+      guidance: {
+        purpose:
+          "Pozwala sterowac tym, z ktorego momentu treningu zostana wziete finalne wagi modelu wynikowego.",
+        effect:
+          "Opcja wlaczona preferuje checkpoint z najlepsza metryka monitorowana podczas walidacji. Opcja wylaczona zachowuje stan modelu z konca ostatniej wykonanej epoki.",
+        whenToChange:
+          "Wylacz, gdy chcesz swiadomie analizowac wynik koncowej epoki albo porownac zachowanie runnera bez wyboru najlepszego checkpointu. Zostaw wlaczone, gdy zalezy Ci na bezpieczniejszym wyborze finalnego modelu.",
+        recommendation:
+          "Dla standardowego treningu trzymaj te opcje wlaczona. Wylaczaj ja glownie do celowych eksperymentow i porownan.",
+      },
+      options: [
+        {
+          value: "true",
+          label: "tak",
+          description:
+            "Finalny model powstaje z najlepszego checkpointu walidacyjnego. To domyslne i rekomendowane zachowanie.",
+        },
+        {
+          value: "false",
+          label: "nie",
+          description:
+            "Finalny model zachowuje stan z ostatniej wykonanej epoki, nawet jesli wczesniejszy checkpoint byl lepszy.",
+        },
+      ],
     },
     {
       key: "batchSize",

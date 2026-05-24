@@ -117,6 +117,7 @@ def _context(root_path: Path) -> TrainingRunContextDto:
                 lr_scheduler_patience=1,
                 lr_scheduler_factor=0.5,
                 fine_tuning_policy="all",
+                use_best_checkpoint=True,
             ),
         ),
         output_model=OutputRegistryModelDto(

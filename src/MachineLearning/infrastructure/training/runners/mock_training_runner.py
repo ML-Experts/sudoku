@@ -271,6 +271,9 @@ class MockTrainingRunner:
             "fineTuningPolicy": (
                 context.resolved_configuration.training_parameters.fine_tuning_policy
             ),
+            "useBestCheckpoint": (
+                context.resolved_configuration.training_parameters.use_best_checkpoint
+            ),
             "epochs": epoch_total,
             "device": "mock",
             "runner": "mock",

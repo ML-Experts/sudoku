@@ -32,11 +32,13 @@ public sealed class CreateTrainingRunCommandHandlerTests
         Assert.Equal(3, result.EffectiveParameters.LrSchedulerPatience);
         Assert.Equal(0.5, result.EffectiveParameters.LrSchedulerFactor);
         Assert.Equal("all", result.EffectiveParameters.FineTuningPolicy);
+        Assert.True(result.EffectiveParameters.UseBestCheckpoint);
 
         var metadata = Assert.Single(trainingRunsGateway.Items.Values);
         Assert.NotNull(metadata.EffectiveParameters);
         Assert.Equal(20, metadata.EffectiveParameters!.Epochs);
         Assert.Equal("all", metadata.EffectiveParameters.FineTuningPolicy);
+        Assert.True(metadata.EffectiveParameters.UseBestCheckpoint);
 
         Assert.NotNull(mlTrainingsGateway.LastRequest);
         Assert.Equal(
@@ -60,6 +62,84 @@ public sealed class CreateTrainingRunCommandHandlerTests
         Assert.Equal(
             "all",
             mlTrainingsGateway.LastRequest.ResolvedConfiguration.TrainingParameters.FineTuningPolicy);
+        Assert.True(
+            mlTrainingsGateway.LastRequest.ResolvedConfiguration.TrainingParameters.UseBestCheckpoint);
+    }
+
+    [Fact]
+    public async Task Handle_ForwardsUseBestCheckpointFalseToMl()
+    {
+        var trainingRunsGateway = new InMemoryTrainingRunsGateway();
+        var mlTrainingsGateway = new StubMlTrainingsGateway();
+        var handler = CreateHandler(
+            trainingRunsGateway: trainingRunsGateway,
+            mlTrainingsGateway: mlTrainingsGateway,
+            modelsRegistryGateway: new StubModelsRegistryGateway(CreateBaseModel(architectureFamily: "cnn")),
+            processedDatasetsGateway: new StubProcessedDatasetsGateway(CreateProcessedDataset()));
+
+        var result = await handler.Handle(
+            CreateCommand(trainingParameters: CreateTrainingParameters(UseBestCheckpoint: false)),
+            CancellationToken.None);
+
+        Assert.NotNull(result.EffectiveParameters);
+        Assert.False(result.EffectiveParameters!.UseBestCheckpoint);
+
+        var metadata = Assert.Single(trainingRunsGateway.Items.Values);
+        Assert.NotNull(metadata.EffectiveParameters);
+        Assert.False(metadata.EffectiveParameters!.UseBestCheckpoint);
+
+        Assert.NotNull(mlTrainingsGateway.LastRequest);
+        Assert.False(
+            mlTrainingsGateway.LastRequest!.ResolvedConfiguration.TrainingParameters.UseBestCheckpoint);
+    }
+
+    [Fact]
+    public async Task Handle_AllowsStart_WhenCancellingRunExceededRecoveryTimeout()
+    {
+        var trainingRunsGateway = new InMemoryTrainingRunsGateway();
+        trainingRunsGateway.Items["stale-run"] = new TrainingRunMetadataDto(
+            RunName: "stale-run",
+            Status: "cancelling",
+            CreatedAtUtc: FixedNow.AddMinutes(-30),
+            BaseModelName: "cnn-bootstrap",
+            ProducedModelName: "stale-model",
+            ProcessedDatasetName: "digits",
+            TrainingMode: "fineTuning",
+            TrainingProfileName: "internal-default-v1",
+            AugmentationProfileName: "digits-light-v1",
+            BenchmarkName: "sudoku-benchmark-v1",
+            Seed: 1234,
+            ProgressChannelUrl: "/ws/trainings/stale-run",
+            UpdatedAtUtc: FixedNow.AddMinutes(-20),
+            Stage: "evaluation",
+            LastAcceptedSequence: 10,
+            LastEventType: "statusChanged",
+            LastEventMessage: "Training evaluation started.",
+            LastEventOccurredAtUtc: FixedNow.AddMinutes(-20));
+
+        var recovery = new TrainingRunCancellationRecovery(
+            trainingRunsGateway,
+            new StubTrainingArtifactsCleanupGateway(),
+            new RecordingTrainingRunEventPublisher(),
+            new InMemoryTrainingRunEventLockProvider(),
+            Options.Create(new TrainingRecoveryOptions
+            {
+                StaleCancellingTimeoutSeconds = 300
+            }),
+            new FixedTimeProvider(FixedNow));
+        var handler = CreateHandler(
+            trainingRunsGateway: trainingRunsGateway,
+            trainingRunCancellationRecovery: recovery);
+
+        var result = await handler.Handle(CreateCommand(), CancellationToken.None);
+
+        Assert.Equal("train-cnn-bootstrap-digits", result.RunName);
+        Assert.Equal("cancelled", trainingRunsGateway.Items["stale-run"].Status);
+        Assert.Equal("finished", trainingRunsGateway.Items["stale-run"].Stage);
+        Assert.Equal(11L, trainingRunsGateway.Items["stale-run"].LastAcceptedSequence);
+        Assert.Contains(
+            "stale_cancelling_auto_cancelled",
+            trainingRunsGateway.Items["stale-run"].Warnings ?? Array.Empty<string>());
     }
 
     [Fact]
@@ -82,13 +162,15 @@ public sealed class CreateTrainingRunCommandHandlerTests
         InMemoryTrainingRunsGateway? trainingRunsGateway = null,
         StubMlTrainingsGateway? mlTrainingsGateway = null,
         StubModelsRegistryGateway? modelsRegistryGateway = null,
-        StubProcessedDatasetsGateway? processedDatasetsGateway = null)
+        StubProcessedDatasetsGateway? processedDatasetsGateway = null,
+        ITrainingRunCancellationRecovery? trainingRunCancellationRecovery = null)
     {
         return new CreateTrainingRunCommandHandler(
             trainingRunsGateway ?? new InMemoryTrainingRunsGateway(),
             modelsRegistryGateway ?? new StubModelsRegistryGateway(CreateBaseModel(architectureFamily: "cnn")),
             processedDatasetsGateway ?? new StubProcessedDatasetsGateway(CreateProcessedDataset()),
             mlTrainingsGateway ?? new StubMlTrainingsGateway(),
+            trainingRunCancellationRecovery ?? new StubTrainingRunCancellationRecovery(),
             new StubTrainingEventsPathProvider(),
             new StubTrainingRunNameGenerator("train-cnn-bootstrap-digits"),
             Options.Create(new TrainingDefaultsOptions
@@ -140,7 +222,8 @@ public sealed class CreateTrainingRunCommandHandlerTests
         int? EarlyStoppingPatience = 5,
         int? LrSchedulerPatience = 3,
         double? LrSchedulerFactor = 0.5,
-        string? FineTuningPolicy = "all")
+        string? FineTuningPolicy = "all",
+        bool? UseBestCheckpoint = true)
     {
         return new TrainingRunRequestedParametersDto(
             Epochs: Epochs,
@@ -149,7 +232,8 @@ public sealed class CreateTrainingRunCommandHandlerTests
             EarlyStoppingPatience: EarlyStoppingPatience,
             LrSchedulerPatience: LrSchedulerPatience,
             LrSchedulerFactor: LrSchedulerFactor,
-            FineTuningPolicy: FineTuningPolicy);
+            FineTuningPolicy: FineTuningPolicy,
+            UseBestCheckpoint: UseBestCheckpoint);
     }
 
     private static RegistryModelManifestDto CreateBaseModel(string architectureFamily)
@@ -190,6 +274,37 @@ public sealed class CreateTrainingRunCommandHandlerTests
             SampleCounts: new SplitSampleCountsDto(Train: 10, Val: 4, Test: 2),
             SourceReports: Array.Empty<ProcessedDatasetSourceReportDto>(),
             Warnings: Array.Empty<string>());
+    }
+
+    private sealed class StubTrainingRunCancellationRecovery : ITrainingRunCancellationRecovery
+    {
+        public Task RecoverAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class StubTrainingArtifactsCleanupGateway : ITrainingArtifactsCleanupGateway
+    {
+        public Task<IReadOnlyList<string>> CleanupFailedOrCancelledRunAsync(
+            TrainingRunMetadataDto metadata,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
+        }
+    }
+
+    private sealed class RecordingTrainingRunEventPublisher : ITrainingRunEventPublisher
+    {
+        public List<TrainingRunMetadataDto> PublishedMetadata { get; } = [];
+
+        public Task PublishAsync(
+            TrainingRunMetadataDto metadata,
+            CancellationToken cancellationToken = default)
+        {
+            PublishedMetadata.Add(metadata);
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class InMemoryTrainingRunsGateway : ITrainingRunsGateway

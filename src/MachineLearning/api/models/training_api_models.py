@@ -34,6 +34,7 @@ class TrainingParametersApiEntry(BaseModel):
     lr_scheduler_patience: int = Field(alias="lrSchedulerPatience")
     lr_scheduler_factor: float = Field(alias="lrSchedulerFactor")
     fine_tuning_policy: str = Field(alias="fineTuningPolicy", min_length=1)
+    use_best_checkpoint: bool = Field(default=True, alias="useBestCheckpoint")
 
 
 class ResolvedTrainingConfigurationApiEntry(BaseModel):

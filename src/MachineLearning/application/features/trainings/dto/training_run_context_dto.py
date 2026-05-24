@@ -29,6 +29,7 @@ class TrainingParametersDto:
     lr_scheduler_patience: int
     lr_scheduler_factor: float
     fine_tuning_policy: str
+    use_best_checkpoint: bool = True
 
 
 @dataclass(frozen=True)
