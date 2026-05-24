@@ -18,6 +18,7 @@ from api.controllers.trainings_controller import trainings_controller
 def create_app() -> FastAPI:
     runtime_settings = load_runtime_environment()
 
+    # Centralize app construction here so routers share one runtime configuration.
     app = FastAPI(
         title=runtime_settings.service_name,
         version=runtime_settings.service_version,
