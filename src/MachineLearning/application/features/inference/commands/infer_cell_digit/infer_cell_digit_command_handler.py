@@ -155,6 +155,18 @@ class InferCellDigitCommandHandler:
                 empty_cell_dark_pixel_ratio_threshold=(
                     command.resolved_configuration.empty_cell_dark_pixel_ratio_threshold
                 ),
+                center_area_ratio=(
+                    command.resolved_configuration.center_area_ratio
+                ),
+                min_component_area_ratio=(
+                    command.resolved_configuration.min_component_area_ratio
+                ),
+                line_artifact_min_span_ratio=(
+                    command.resolved_configuration.line_artifact_min_span_ratio
+                ),
+                line_artifact_max_thickness_ratio=(
+                    command.resolved_configuration.line_artifact_max_thickness_ratio
+                ),
             )
         except ValueError as error:
             raise CellDigitInferenceValidationError(

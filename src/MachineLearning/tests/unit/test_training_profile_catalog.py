@@ -1,5 +1,8 @@
 import unittest
 
+from application.features.trainings.dto.training_run_context_dto import (
+    TrainingParametersDto,
+)
 from infrastructure.training.profiles.training_profile_catalog import (
     TrainingProfileCatalog,
 )
@@ -60,6 +63,33 @@ class TrainingProfileCatalogTests(unittest.TestCase):
 
         with self.assertRaises(Exception):
             catalog.get("cnn-default-v1", _manifest(family="resnet"))
+
+    def test_create_effective_profile_should_use_runtime_parameters(self) -> None:
+        catalog = TrainingProfileCatalog(max_epochs_override=3)
+
+        profile = catalog.create_effective_profile(
+            _manifest(),
+            TrainingParametersDto(
+                epochs=5,
+                learning_rate=0.002,
+                batch_size=16,
+                early_stopping_patience=4,
+                lr_scheduler_patience=2,
+                lr_scheduler_factor=0.4,
+                fine_tuning_policy="all",
+            ),
+            profile_name="runtime-cnn",
+        )
+
+        self.assertEqual(profile.name, "runtime-cnn")
+        self.assertEqual(profile.architecture_family, "cnn")
+        self.assertEqual(profile.epochs, 3)
+        self.assertEqual(profile.learning_rate, 0.002)
+        self.assertEqual(profile.batch_size, 16)
+        self.assertEqual(profile.early_stopping_patience, 4)
+        self.assertEqual(profile.lr_scheduler_patience, 2)
+        self.assertEqual(profile.lr_scheduler_factor, 0.4)
+        self.assertEqual(profile.fine_tuning_policy, "all")
 
 
 if __name__ == "__main__":

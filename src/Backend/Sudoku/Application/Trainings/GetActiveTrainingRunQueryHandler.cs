@@ -59,6 +59,7 @@ public sealed class GetActiveTrainingRunQueryHandler
                 AugmentationProfileName: activeRun.AugmentationProfileName,
                 BenchmarkName: activeRun.BenchmarkName,
                 Seed: activeRun.Seed,
+                EffectiveParameters: activeRun.EffectiveParameters,
                 ProgressChannelUrl: activeRun.ProgressChannelUrl));
     }
 }

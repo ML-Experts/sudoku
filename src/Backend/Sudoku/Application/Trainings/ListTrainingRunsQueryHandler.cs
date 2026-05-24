@@ -50,6 +50,7 @@ public sealed class ListTrainingRunsQueryHandler
             TrainingProfileName: metadata.TrainingProfileName,
             AugmentationProfileName: metadata.AugmentationProfileName,
             BenchmarkName: metadata.BenchmarkName,
+            EffectiveParameters: metadata.EffectiveParameters,
             ReportStatus: metadata.ReportStatus,
             Progress: metadata.Progress,
             MetricsSummary: metadata.MetricsSummary,

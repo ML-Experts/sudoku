@@ -41,6 +41,7 @@ public sealed record TrainingRunConfigurationDto(
     string AugmentationProfileName,
     string BenchmarkName,
     int Seed,
+    TrainingRunEffectiveParametersDto? EffectiveParameters,
     string? SourceRevision);
 
 public sealed record TrainingRunReportDto(

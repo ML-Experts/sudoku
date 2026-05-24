@@ -12,4 +12,5 @@ public sealed record ActiveTrainingRunDto(
     string AugmentationProfileName,
     string BenchmarkName,
     int Seed,
+    TrainingRunEffectiveParametersDto? EffectiveParameters,
     string ProgressChannelUrl);

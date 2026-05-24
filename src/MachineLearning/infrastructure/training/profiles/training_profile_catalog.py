@@ -1,3 +1,6 @@
+from application.features.trainings.dto.training_run_context_dto import (
+    TrainingParametersDto,
+)
 from application.features.trainings.errors.training_run_errors import (
     TrainingRunValidationError,
 )
@@ -53,8 +56,36 @@ class TrainingProfileCatalog:
                 "training_profile_architecture_mismatch",
                 "Profil treningowy nie pasuje do rodziny architektury modelu.",
             )
+        return self._apply_max_epochs_override(profile)
+
+    def create_effective_profile(
+        self,
+        manifest: ModelManifest,
+        training_parameters: TrainingParametersDto,
+        profile_name: str | None = None,
+    ) -> TrainingProfile:
+        profile = TrainingProfile(
+            name=profile_name or f"{manifest.architecture.family}-runtime",
+            architecture_family=manifest.architecture.family,
+            epochs=training_parameters.epochs,
+            batch_size=training_parameters.batch_size,
+            learning_rate=training_parameters.learning_rate,
+            optimizer="adam",
+            fine_tuning_policy=training_parameters.fine_tuning_policy,
+            early_stopping_patience=training_parameters.early_stopping_patience,
+            early_stopping_min_delta=0.001,
+            lr_scheduler_patience=training_parameters.lr_scheduler_patience,
+            lr_scheduler_factor=training_parameters.lr_scheduler_factor,
+        )
+        return self._apply_max_epochs_override(profile)
+
+    def _apply_max_epochs_override(
+        self,
+        profile: TrainingProfile,
+    ) -> TrainingProfile:
         if self._max_epochs_override is None or self._max_epochs_override <= 0:
             return profile
+
         return TrainingProfile(
             name=profile.name,
             architecture_family=profile.architecture_family,

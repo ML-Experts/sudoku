@@ -51,8 +51,10 @@ public sealed class InferSudokuCellDigitCommandHandler
             MimeType: request.MimeType,
             Content: imageBytes);
         var mlRequest = BuildMlRequest(
-            image, 
+            image,
             resolvedActiveModel,
+            request.EmptyCellDarkPixelRatioThreshold,
+            request.EmptyCellInnerMarginRatio,
             request.CenterAreaRatio,
             request.MinComponentAreaRatio,
             request.LineArtifactMinSpanRatio,
@@ -79,6 +81,8 @@ public sealed class InferSudokuCellDigitCommandHandler
     private InferSudokuCellDigitMlRequestDto BuildMlRequest(
         ImageContent image,
         ResolvedActiveModelDto resolvedActiveModel,
+        double emptyCellDarkPixelRatioThreshold,
+        double emptyCellInnerMarginRatio,
         double centerAreaRatio,
         double minComponentAreaRatio,
         double lineArtifactMinSpanRatio,
@@ -94,8 +98,8 @@ public sealed class InferSudokuCellDigitCommandHandler
                 resolvedActiveModel.Manifest.InputProfile),
             ResolvedConfiguration: new InferSudokuCellDigitMlResolvedConfigurationDto(
                 _options.InferenceProfileName,
-                _options.EmptyCellInnerMarginRatio,
-                _options.EmptyCellDarkPixelRatioThreshold,
+                emptyCellInnerMarginRatio,
+                emptyCellDarkPixelRatioThreshold,
                 centerAreaRatio,
                 minComponentAreaRatio,
                 lineArtifactMinSpanRatio,

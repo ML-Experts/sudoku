@@ -41,6 +41,7 @@ public sealed record TrainingRunConfigurationApiResponse(
     string AugmentationProfileName,
     string BenchmarkName,
     int Seed,
+    TrainingRunEffectiveParametersApiResponse? EffectiveParameters,
     string? SourceRevision);
 
 public sealed record TrainingRunReportApiResponse(

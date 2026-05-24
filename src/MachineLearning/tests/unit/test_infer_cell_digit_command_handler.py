@@ -52,13 +52,26 @@ class _CellPreprocessingPipeline:
 class _CellOccupancyDetector:
     def __init__(self, is_empty: bool) -> None:
         self._is_empty = is_empty
+        self.last_kwargs: dict[str, float] | None = None
 
     def detect(
         self,
         image: np.ndarray,
         inner_margin_ratio: float,
         dark_pixel_ratio_threshold: float,
+        center_area_ratio: float,
+        min_component_area_ratio: float,
+        line_artifact_min_span_ratio: float,
+        line_artifact_max_thickness_ratio: float,
     ) -> CellOccupancy:
+        self.last_kwargs = {
+            "inner_margin_ratio": inner_margin_ratio,
+            "dark_pixel_ratio_threshold": dark_pixel_ratio_threshold,
+            "center_area_ratio": center_area_ratio,
+            "min_component_area_ratio": min_component_area_ratio,
+            "line_artifact_min_span_ratio": line_artifact_min_span_ratio,
+            "line_artifact_max_thickness_ratio": line_artifact_max_thickness_ratio,
+        }
         return CellOccupancy(
             is_empty=self._is_empty,
             dark_pixel_ratio=0.0 if self._is_empty else 0.1,
@@ -99,8 +112,9 @@ class _PredictingModel(torch.nn.Module):
 class InferCellDigitCommandHandlerTests(unittest.TestCase):
     def test_handle_should_return_digit_when_cell_is_not_empty(self) -> None:
         runtime_model_loader = _RuntimeModelLoader(predicted_digit=7)
+        occupancy_detector = _CellOccupancyDetector(is_empty=False)
         handler = self._create_handler(
-            occupancy_detector=_CellOccupancyDetector(is_empty=False),
+            occupancy_detector=occupancy_detector,
             runtime_model_loader=runtime_model_loader,
         )
 
@@ -108,6 +122,17 @@ class InferCellDigitCommandHandlerTests(unittest.TestCase):
 
         self.assertEqual(result.digit, 7)
         self.assertTrue(runtime_model_loader.was_called)
+        self.assertEqual(
+            occupancy_detector.last_kwargs,
+            {
+                "inner_margin_ratio": 0.12,
+                "dark_pixel_ratio_threshold": 0.02,
+                "center_area_ratio": 0.5,
+                "min_component_area_ratio": 0.02,
+                "line_artifact_min_span_ratio": 0.5,
+                "line_artifact_max_thickness_ratio": 0.07,
+            },
+        )
 
     def test_handle_should_return_null_without_loading_model_for_empty_cell(
         self,
@@ -195,6 +220,10 @@ class InferCellDigitCommandHandlerTests(unittest.TestCase):
                 inference_profile_name="default-28x28-v1",
                 empty_cell_inner_margin_ratio=0.12,
                 empty_cell_dark_pixel_ratio_threshold=0.02,
+                center_area_ratio=0.5,
+                min_component_area_ratio=0.02,
+                line_artifact_min_span_ratio=0.5,
+                line_artifact_max_thickness_ratio=0.07,
             ),
         )
 

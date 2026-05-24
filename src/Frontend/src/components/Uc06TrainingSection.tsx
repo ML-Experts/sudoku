@@ -17,6 +17,7 @@ import { buildHubUrl } from "../shared/realtime/buildHubUrl";
 import { getProcessedDatasets } from "../api/datasets";
 import type {
   CancelTrainingRunApiResponse,
+  CreateTrainingRunParametersApiEntry,
   ProcessedDatasetListItemApiResponse,
   RegistryModelListItemApiResponse,
   TrainingRunApiResponse,
@@ -27,6 +28,10 @@ type Uc06TrainingSectionProps = {
   apiBaseUrl: string;
   accessToken?: string | null;
   onUnauthorized?: () => void;
+  trainingParameters: CreateTrainingRunParametersApiEntry | null;
+  trainingParametersValid: boolean;
+  trainingParameterErrorCount: number;
+  trainingParameterOverrideCount: number;
 };
 
 type RemoteDataState<T> =
@@ -350,6 +355,10 @@ export function Uc06TrainingSection({
   apiBaseUrl,
   accessToken,
   onUnauthorized,
+  trainingParameters,
+  trainingParametersValid,
+  trainingParameterErrorCount,
+  trainingParameterOverrideCount,
 }: Uc06TrainingSectionProps) {
   const [modelsState, setModelsState] = useState(defaultModelsState);
   const [datasetsState, setDatasetsState] = useState(defaultDatasetsState);
@@ -652,6 +661,17 @@ export function Uc06TrainingSection({
       });
       return;
     }
+    if (!trainingParametersValid || trainingParameters === null) {
+      setStartState({
+        kind: "error",
+        response: null,
+        error:
+          "Parametry treningu z panelu UC-14 zawieraja bledy. Popraw je przed startem runu.",
+        errorType: null,
+        httpStatus: null,
+      });
+      return;
+    }
 
     setStartState((previous) => ({
       kind: "loading",
@@ -667,6 +687,7 @@ export function Uc06TrainingSection({
         {
           baseModelName: selectedModelName,
           processedDatasetName: selectedDatasetName,
+          trainingParameters,
         },
         accessToken,
       );
@@ -726,6 +747,8 @@ export function Uc06TrainingSection({
     recoverFromActiveRun,
     selectedDatasetName,
     selectedModelName,
+    trainingParameters,
+    trainingParametersValid,
   ]);
 
   const cancelTraining = useCallback(async () => {
@@ -880,6 +903,25 @@ export function Uc06TrainingSection({
             Wybierz dokladnie jeden model bazowy i jeden dataset processed.
           </p>
 
+          <div className="uc05b-parameter-summary">
+            <span className="app-chip">
+              Override&apos;y parametrow: {trainingParameterOverrideCount}
+            </span>
+            <span
+              className={`app-chip ${
+                trainingParametersValid ? "app-chip-muted" : "uc14-chip-error"
+              }`}
+            >
+              {trainingParametersValid
+                ? "Panel parametrow gotowy"
+                : `Panel parametrow: ${trainingParameterErrorCount} bledy`}
+            </span>
+          </div>
+          <p className="muted-copy">
+            Parametry runu sa konfigurowane w panelu po prawej stronie i trafiaja do
+            requestu jako <code>trainingParameters</code>.
+          </p>
+
           <div className="examples-row-actions">
             <button
               className="secondary-button"
@@ -951,7 +993,9 @@ export function Uc06TrainingSection({
             disabled={
               startState.kind === "loading" ||
               !selectedModelName ||
-              !selectedDatasetName
+              !selectedDatasetName ||
+              !trainingParametersValid ||
+              trainingParameters === null
             }
             onClick={() => void startTraining()}
           >
@@ -1012,6 +1056,22 @@ export function Uc06TrainingSection({
             <div>
               <dt>Utworzono (UTC)</dt>
               <dd>{formatTimestamp(activeRun.createdAtUtc)}</dd>
+            </div>
+            <div>
+              <dt>Epoki</dt>
+              <dd>{activeRun.effectiveParameters?.epochs ?? "-"}</dd>
+            </div>
+            <div>
+              <dt>Learning rate</dt>
+              <dd>{activeRun.effectiveParameters?.learningRate ?? "-"}</dd>
+            </div>
+            <div>
+              <dt>Batch size</dt>
+              <dd>{activeRun.effectiveParameters?.batchSize ?? "-"}</dd>
+            </div>
+            <div>
+              <dt>Fine-tuning policy</dt>
+              <dd>{activeRun.effectiveParameters?.fineTuningPolicy ?? "-"}</dd>
             </div>
           </dl>
           <div className="examples-row-actions">

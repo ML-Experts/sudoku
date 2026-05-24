@@ -8,6 +8,7 @@ from application.features.trainings.dto.training_run_context_dto import (
     OutputRegistryModelDto,
     ProcessedDatasetReferenceDto,
     ResolvedTrainingConfigurationDto,
+    TrainingParametersDto,
     TrainingOutputPathsDto,
     TrainingRunContextDto,
 )
@@ -37,15 +38,20 @@ class _ProfileCatalog:
     def __init__(self, epochs: int) -> None:
         self._epochs = epochs
 
-    def get(self, profile_name: str, manifest: ModelManifest) -> TrainingProfile:
+    def create_effective_profile(
+        self,
+        manifest: ModelManifest,
+        training_parameters: TrainingParametersDto,
+        profile_name: str | None = None,
+    ) -> TrainingProfile:
         return TrainingProfile(
-            name=profile_name,
+            name=profile_name or "runtime",
             architecture_family=manifest.architecture.family,
             epochs=self._epochs,
-            batch_size=1,
-            learning_rate=0.001,
+            batch_size=training_parameters.batch_size,
+            learning_rate=training_parameters.learning_rate,
             optimizer="adam",
-            fine_tuning_policy="all",
+            fine_tuning_policy=training_parameters.fine_tuning_policy,
         )
 
 
@@ -103,6 +109,15 @@ def _context(root_path: Path) -> TrainingRunContextDto:
             augmentation_profile_name="digits-light-v1",
             benchmark_name="sudoku-benchmark-v1",
             seed=1234,
+            training_parameters=TrainingParametersDto(
+                epochs=3,
+                learning_rate=0.001,
+                batch_size=1,
+                early_stopping_patience=2,
+                lr_scheduler_patience=1,
+                lr_scheduler_factor=0.5,
+                fine_tuning_policy="all",
+            ),
         ),
         output_model=OutputRegistryModelDto(
             name="mock-run",

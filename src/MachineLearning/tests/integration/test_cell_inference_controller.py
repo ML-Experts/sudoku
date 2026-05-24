@@ -120,6 +120,10 @@ class CellInferenceControllerTests(unittest.TestCase):
                 "inferenceProfileName": "default-28x28-v1",
                 "emptyCellInnerMarginRatio": 0.12,
                 "emptyCellDarkPixelRatioThreshold": 0.02,
+                "centerAreaRatio": 0.5,
+                "minComponentAreaRatio": 0.02,
+                "lineArtifactMinSpanRatio": 0.5,
+                "lineArtifactMaxThicknessRatio": 0.07,
             },
         }
 

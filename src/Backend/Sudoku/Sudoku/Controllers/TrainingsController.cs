@@ -177,7 +177,17 @@ public sealed class TrainingsController : ControllerBase
     {
         var command = new CreateTrainingRunCommand(
             BaseModelName: entry?.BaseModelName,
-            ProcessedDatasetName: entry?.ProcessedDatasetName);
+            ProcessedDatasetName: entry?.ProcessedDatasetName,
+            TrainingParameters: entry?.TrainingParameters is null
+                ? null
+                : new TrainingRunRequestedParametersDto(
+                    Epochs: entry.TrainingParameters.Epochs,
+                    LearningRate: entry.TrainingParameters.LearningRate,
+                    BatchSize: entry.TrainingParameters.BatchSize,
+                    EarlyStoppingPatience: entry.TrainingParameters.EarlyStoppingPatience,
+                    LrSchedulerPatience: entry.TrainingParameters.LrSchedulerPatience,
+                    LrSchedulerFactor: entry.TrainingParameters.LrSchedulerFactor,
+                    FineTuningPolicy: entry.TrainingParameters.FineTuningPolicy));
 
         try
         {
@@ -376,6 +386,9 @@ public sealed class TrainingsController : ControllerBase
                 AugmentationProfileName: result.Run.AugmentationProfileName,
                 BenchmarkName: result.Run.BenchmarkName,
                 Seed: result.Run.Seed,
+                EffectiveParameters: result.Run.EffectiveParameters is null
+                    ? null
+                    : ToTrainingRunEffectiveParametersApiResponse(result.Run.EffectiveParameters),
                 ProgressChannelUrl: result.Run.ProgressChannelUrl));
         }
         catch (InvalidOperationException)
@@ -428,6 +441,9 @@ public sealed class TrainingsController : ControllerBase
                 AugmentationProfileName: details.Configuration.AugmentationProfileName,
                 BenchmarkName: details.Configuration.BenchmarkName,
                 Seed: details.Configuration.Seed,
+                EffectiveParameters: details.Configuration.EffectiveParameters is null
+                    ? null
+                    : ToTrainingRunEffectiveParametersApiResponse(details.Configuration.EffectiveParameters),
                 SourceRevision: details.Configuration.SourceRevision),
             Progress: ToTrainingRunProgressApiResponse(details.Progress),
             Report: ToTrainingRunReportApiResponse(details.Report),
@@ -498,6 +514,9 @@ public sealed class TrainingsController : ControllerBase
             AugmentationProfileName: result.AugmentationProfileName,
             BenchmarkName: result.BenchmarkName,
             Seed: result.Seed,
+            EffectiveParameters: result.EffectiveParameters is null
+                ? null
+                : ToTrainingRunEffectiveParametersApiResponse(result.EffectiveParameters),
             ProgressChannelUrl: result.ProgressChannelUrl);
     }
 
@@ -517,10 +536,26 @@ public sealed class TrainingsController : ControllerBase
             TrainingProfileName: item.TrainingProfileName,
             AugmentationProfileName: item.AugmentationProfileName,
             BenchmarkName: item.BenchmarkName,
+            EffectiveParameters: item.EffectiveParameters is null
+                ? null
+                : ToTrainingRunEffectiveParametersApiResponse(item.EffectiveParameters),
             ReportStatus: item.ReportStatus,
             Progress: ToTrainingRunProgressApiResponse(item.Progress),
             MetricsSummary: ToTrainingMetricsSummaryApiResponse(item.MetricsSummary),
             Warnings: item.Warnings);
+    }
+
+    private static TrainingRunEffectiveParametersApiResponse ToTrainingRunEffectiveParametersApiResponse(
+        TrainingRunEffectiveParametersDto effectiveParameters)
+    {
+        return new TrainingRunEffectiveParametersApiResponse(
+            Epochs: effectiveParameters.Epochs,
+            LearningRate: effectiveParameters.LearningRate,
+            BatchSize: effectiveParameters.BatchSize,
+            EarlyStoppingPatience: effectiveParameters.EarlyStoppingPatience,
+            LrSchedulerPatience: effectiveParameters.LrSchedulerPatience,
+            LrSchedulerFactor: effectiveParameters.LrSchedulerFactor,
+            FineTuningPolicy: effectiveParameters.FineTuningPolicy);
     }
 
     private static TrainingRunProgressApiResponse? ToTrainingRunProgressApiResponse(

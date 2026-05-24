@@ -1,5 +1,6 @@
 import { fetchJson, JsonApiError } from "./shared/fetchJson";
 import type {
+  DigitInferenceApiEntry,
   DigitInferenceApiResponse,
   ImageApiEntry,
 } from "../types/api";
@@ -29,11 +30,25 @@ function isDigitInferenceApiResponse(
   );
 }
 
+const DEFAULT_DIGIT_INFERENCE_ENTRY: Omit<DigitInferenceApiEntry, "image"> = {
+  emptyCellDarkPixelRatioThreshold: 0.02,
+  emptyCellInnerMarginRatio: 0.12,
+  centerAreaRatio: 0.5,
+  minComponentAreaRatio: 0.055,
+  lineArtifactMinSpanRatio: 0.4,
+  lineArtifactMaxThicknessRatio: 0.08,
+};
+
 export async function putSudokuCellInference(
   apiBaseUrl: string,
   entry: ImageApiEntry,
   signal?: AbortSignal,
 ): Promise<DigitInferenceApiResponse> {
+  const request: DigitInferenceApiEntry = {
+    image: entry,
+    ...DEFAULT_DIGIT_INFERENCE_ENTRY,
+  };
+
   return fetchJson({
     url: `${apiBaseUrl}/sudoku/cells/inference`,
     init: {
@@ -42,7 +57,7 @@ export async function putSudokuCellInference(
         Accept: "application/json",
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(entry),
+      body: JSON.stringify(request),
       signal,
     },
     expectedStatus: 200,

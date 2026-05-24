@@ -26,7 +26,8 @@ public sealed record ResolvedTrainingConfigurationDto(
     string TrainingProfileName,
     string AugmentationProfileName,
     string BenchmarkName,
-    int Seed);
+    int Seed,
+    TrainingRunEffectiveParametersDto TrainingParameters);
 
 public sealed record OutputRegistryModelDto(
     string Name,

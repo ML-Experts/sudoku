@@ -21,12 +21,24 @@ class ProcessedDatasetReferenceDto:
 
 
 @dataclass(frozen=True)
+class TrainingParametersDto:
+    epochs: int
+    learning_rate: float
+    batch_size: int
+    early_stopping_patience: int
+    lr_scheduler_patience: int
+    lr_scheduler_factor: float
+    fine_tuning_policy: str
+
+
+@dataclass(frozen=True)
 class ResolvedTrainingConfigurationDto:
     training_mode: str
     training_profile_name: str
     augmentation_profile_name: str
     benchmark_name: str
     seed: int
+    training_parameters: TrainingParametersDto
 
 
 @dataclass(frozen=True)

@@ -68,6 +68,7 @@ public sealed class GetTrainingRunDetailsQueryHandler
                     AugmentationProfileName: metadata.AugmentationProfileName,
                     BenchmarkName: metadata.BenchmarkName,
                     Seed: metadata.Seed,
+                    EffectiveParameters: metadata.EffectiveParameters,
                     SourceRevision: metadata.SourceRevision),
                 Progress: metadata.Progress,
                 Report: report,

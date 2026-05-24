@@ -39,6 +39,8 @@ public sealed class SudokuCellsController : ControllerBase
         var command = new InferSudokuCellDigitCommand(
             entry.Image.MimeType,
             entry.Image.Base64,
+            entry.EmptyCellDarkPixelRatioThreshold,
+            entry.EmptyCellInnerMarginRatio,
             entry.CenterAreaRatio,
             entry.MinComponentAreaRatio,
             entry.LineArtifactMinSpanRatio,

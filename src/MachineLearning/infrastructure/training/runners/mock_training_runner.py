@@ -57,9 +57,10 @@ class MockTrainingRunner:
         cancellation_token: CancellationToken,
     ) -> None:
         sequence = TrainingEventSequence()
-        profile = self._profile_catalog.get(
-            context.resolved_configuration.training_profile_name,
+        profile = self._profile_catalog.create_effective_profile(
             context.model_manifest,
+            context.resolved_configuration.training_parameters,
+            profile_name=context.resolved_configuration.training_profile_name,
         )
         try:
             self._cancellation_registry.mark_running(context.run_name)
@@ -256,6 +257,20 @@ class MockTrainingRunner:
             ),
             "benchmarkName": context.resolved_configuration.benchmark_name,
             "seed": context.resolved_configuration.seed,
+            "learningRate": context.resolved_configuration.training_parameters.learning_rate,
+            "batchSize": context.resolved_configuration.training_parameters.batch_size,
+            "earlyStoppingPatience": (
+                context.resolved_configuration.training_parameters.early_stopping_patience
+            ),
+            "lrSchedulerPatience": (
+                context.resolved_configuration.training_parameters.lr_scheduler_patience
+            ),
+            "lrSchedulerFactor": (
+                context.resolved_configuration.training_parameters.lr_scheduler_factor
+            ),
+            "fineTuningPolicy": (
+                context.resolved_configuration.training_parameters.fine_tuning_policy
+            ),
             "epochs": epoch_total,
             "device": "mock",
             "runner": "mock",

@@ -83,9 +83,10 @@ class PytorchTrainingRunner:
     ) -> None:
         training_started_at = perf_counter()
         sequence = TrainingEventSequence()
-        profile = self._profile_catalog.get(
-            context.resolved_configuration.training_profile_name,
+        profile = self._profile_catalog.create_effective_profile(
             context.model_manifest,
+            context.resolved_configuration.training_parameters,
+            profile_name=context.resolved_configuration.training_profile_name,
         )
         stage = TrainingRunStage.TRAINING.value
         try:
@@ -561,6 +562,20 @@ class PytorchTrainingRunner:
             ),
             "benchmarkName": context.resolved_configuration.benchmark_name,
             "seed": context.resolved_configuration.seed,
+            "learningRate": context.resolved_configuration.training_parameters.learning_rate,
+            "batchSize": context.resolved_configuration.training_parameters.batch_size,
+            "earlyStoppingPatience": (
+                context.resolved_configuration.training_parameters.early_stopping_patience
+            ),
+            "lrSchedulerPatience": (
+                context.resolved_configuration.training_parameters.lr_scheduler_patience
+            ),
+            "lrSchedulerFactor": (
+                context.resolved_configuration.training_parameters.lr_scheduler_factor
+            ),
+            "fineTuningPolicy": (
+                context.resolved_configuration.training_parameters.fine_tuning_policy
+            ),
             "epochs": epoch_total,
             "executedEpochs": executed_epochs,
             "bestEpoch": best_epoch,

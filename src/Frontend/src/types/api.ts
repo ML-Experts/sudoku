@@ -28,6 +28,16 @@ export type DigitInferenceApiResponse = {
   digit: number | null;
 };
 
+export type DigitInferenceApiEntry = {
+  image: ImageApiEntry;
+  emptyCellDarkPixelRatioThreshold: number;
+  emptyCellInnerMarginRatio: number;
+  centerAreaRatio: number;
+  minComponentAreaRatio: number;
+  lineArtifactMinSpanRatio: number;
+  lineArtifactMaxThicknessRatio: number;
+};
+
 export type SolveSudokuApiEntry = {
   grid: (number | null)[][];
   solverStepDelayMs: number;
@@ -130,9 +140,30 @@ export type TrainingMetricsSummaryApiResponse = {
   macroF1: number | null;
 };
 
+export type CreateTrainingRunParametersApiEntry = {
+  epochs: number;
+  learningRate: number;
+  batchSize: number;
+  earlyStoppingPatience: number;
+  lrSchedulerPatience: number;
+  lrSchedulerFactor: number;
+  fineTuningPolicy: string;
+};
+
 export type CreateTrainingRunApiEntry = {
   baseModelName: string;
   processedDatasetName: string;
+  trainingParameters: CreateTrainingRunParametersApiEntry;
+};
+
+export type TrainingRunEffectiveParametersApiResponse = {
+  epochs: number;
+  learningRate: number;
+  batchSize: number;
+  earlyStoppingPatience: number;
+  lrSchedulerPatience: number;
+  lrSchedulerFactor: number;
+  fineTuningPolicy: string;
 };
 
 export type RegistryModelListItemApiResponse = {
@@ -183,6 +214,7 @@ export type TrainingRunApiResponse = {
   augmentationProfileName: string;
   benchmarkName: string;
   seed: number;
+  effectiveParameters: TrainingRunEffectiveParametersApiResponse | null;
   progressChannelUrl: string;
 };
 
@@ -218,6 +250,7 @@ export type TrainingRunListItemApiResponse = {
   trainingProfileName: string;
   augmentationProfileName: string;
   benchmarkName: string;
+  effectiveParameters: TrainingRunEffectiveParametersApiResponse | null;
   reportStatus: string | null;
   progress: TrainingRunProgressApiResponse | null;
   metricsSummary: TrainingMetricsSummaryApiResponse | null;
@@ -258,6 +291,7 @@ export type TrainingRunConfigurationApiResponse = {
   augmentationProfileName: string;
   benchmarkName: string;
   seed: number;
+  effectiveParameters: TrainingRunEffectiveParametersApiResponse | null;
   sourceRevision: string | null;
 };
 

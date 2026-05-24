@@ -28,6 +28,7 @@ from application.features.trainings.dto.training_run_context_dto import (
     OutputRegistryModelDto,
     ProcessedDatasetReferenceDto,
     ResolvedTrainingConfigurationDto,
+    TrainingParametersDto,
     TrainingOutputPathsDto,
 )
 from application.features.trainings.errors.training_run_errors import (
@@ -126,6 +127,27 @@ def _to_start_training_run_command(
             ),
             benchmark_name=entry.resolved_configuration.benchmark_name,
             seed=entry.resolved_configuration.seed,
+            training_parameters=TrainingParametersDto(
+                epochs=entry.resolved_configuration.training_parameters.epochs,
+                learning_rate=(
+                    entry.resolved_configuration.training_parameters.learning_rate
+                ),
+                batch_size=(
+                    entry.resolved_configuration.training_parameters.batch_size
+                ),
+                early_stopping_patience=(
+                    entry.resolved_configuration.training_parameters.early_stopping_patience
+                ),
+                lr_scheduler_patience=(
+                    entry.resolved_configuration.training_parameters.lr_scheduler_patience
+                ),
+                lr_scheduler_factor=(
+                    entry.resolved_configuration.training_parameters.lr_scheduler_factor
+                ),
+                fine_tuning_policy=(
+                    entry.resolved_configuration.training_parameters.fine_tuning_policy
+                ),
+            ),
         ),
         output_model=OutputRegistryModelDto(
             name=entry.output_model.name,

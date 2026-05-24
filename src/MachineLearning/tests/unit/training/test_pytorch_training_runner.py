@@ -13,6 +13,7 @@ from application.features.trainings.dto.training_run_context_dto import (
     OutputRegistryModelDto,
     ProcessedDatasetReferenceDto,
     ResolvedTrainingConfigurationDto,
+    TrainingParametersDto,
     TrainingOutputPathsDto,
     TrainingRunContextDto,
 )
@@ -47,19 +48,24 @@ class _Clock:
 
 
 class _ProfileCatalog:
-    def get(self, profile_name: str, manifest: ModelManifest) -> TrainingProfile:
+    def create_effective_profile(
+        self,
+        manifest: ModelManifest,
+        training_parameters: TrainingParametersDto,
+        profile_name: str | None = None,
+    ) -> TrainingProfile:
         return TrainingProfile(
-            name=profile_name,
+            name=profile_name or "runtime",
             architecture_family=manifest.architecture.family,
-            epochs=5,
-            batch_size=2,
-            learning_rate=0.1,
+            epochs=training_parameters.epochs,
+            batch_size=training_parameters.batch_size,
+            learning_rate=training_parameters.learning_rate,
             optimizer="adam",
-            fine_tuning_policy="all",
-            early_stopping_patience=2,
+            fine_tuning_policy=training_parameters.fine_tuning_policy,
+            early_stopping_patience=training_parameters.early_stopping_patience,
             early_stopping_min_delta=0.001,
-            lr_scheduler_patience=1,
-            lr_scheduler_factor=0.5,
+            lr_scheduler_patience=training_parameters.lr_scheduler_patience,
+            lr_scheduler_factor=training_parameters.lr_scheduler_factor,
         )
 
 
@@ -300,6 +306,15 @@ def _context(root_path: Path) -> TrainingRunContextDto:
             augmentation_profile_name="digits-light-v1",
             benchmark_name="sudoku-benchmark-v1",
             seed=1234,
+            training_parameters=TrainingParametersDto(
+                epochs=5,
+                learning_rate=0.1,
+                batch_size=2,
+                early_stopping_patience=2,
+                lr_scheduler_patience=1,
+                lr_scheduler_factor=0.5,
+                fine_tuning_policy="all",
+            ),
         ),
         output_model=OutputRegistryModelDto(
             name="pytorch-run",

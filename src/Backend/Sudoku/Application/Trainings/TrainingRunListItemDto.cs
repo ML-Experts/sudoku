@@ -14,6 +14,7 @@ public sealed record TrainingRunListItemDto(
     string TrainingProfileName,
     string AugmentationProfileName,
     string BenchmarkName,
+    TrainingRunEffectiveParametersDto? EffectiveParameters,
     string? ReportStatus,
     TrainingRunProgressDto? Progress,
     TrainingMetricsSummaryDto? MetricsSummary,
