@@ -49,8 +49,6 @@ jobs:
       BE_ML_TIMEOUT_SECONDS: ${{ vars.BE_ML_TIMEOUT_SECONDS }}
       BE_SUDOKU_CELLS_INFERENCE_MAX_INLINE_IMAGE_SIZE_BYTES: ${{ vars.BE_SUDOKU_CELLS_INFERENCE_MAX_INLINE_IMAGE_SIZE_BYTES }}
       BE_SUDOKU_CELLS_INFERENCE_PROFILE_NAME: ${{ vars.BE_SUDOKU_CELLS_INFERENCE_PROFILE_NAME }}
-      BE_SUDOKU_CELLS_INFERENCE_EMPTY_CELL_INNER_MARGIN_RATIO: ${{ vars.BE_SUDOKU_CELLS_INFERENCE_EMPTY_CELL_INNER_MARGIN_RATIO }}
-      BE_SUDOKU_CELLS_INFERENCE_EMPTY_CELL_DARK_PIXEL_RATIO_THRESHOLD: ${{ vars.BE_SUDOKU_CELLS_INFERENCE_EMPTY_CELL_DARK_PIXEL_RATIO_THRESHOLD }}
       BE_RAW_DATASETS_BOARDS_SUBDIRECTORY: ${{ vars.BE_RAW_DATASETS_BOARDS_SUBDIRECTORY }}
       BE_RAW_DATASETS_DIGITS_SUBDIRECTORY: ${{ vars.BE_RAW_DATASETS_DIGITS_SUBDIRECTORY }}
       BE_DATASETS_PREP_BOARDS_SUBDIRECTORY: ${{ vars.BE_DATASETS_PREP_BOARDS_SUBDIRECTORY }}
@@ -125,16 +123,6 @@ jobs:
 
           if [ -z "$BE_SUDOKU_CELLS_INFERENCE_PROFILE_NAME" ]; then
             echo "Missing BE_SUDOKU_CELLS_INFERENCE_PROFILE_NAME variable for the selected GitHub environment."
-            exit 1
-          fi
-
-          if [ -z "$BE_SUDOKU_CELLS_INFERENCE_EMPTY_CELL_INNER_MARGIN_RATIO" ]; then
-            echo "Missing BE_SUDOKU_CELLS_INFERENCE_EMPTY_CELL_INNER_MARGIN_RATIO variable for the selected GitHub environment."
-            exit 1
-          fi
-
-          if [ -z "$BE_SUDOKU_CELLS_INFERENCE_EMPTY_CELL_DARK_PIXEL_RATIO_THRESHOLD" ]; then
-            echo "Missing BE_SUDOKU_CELLS_INFERENCE_EMPTY_CELL_DARK_PIXEL_RATIO_THRESHOLD variable for the selected GitHub environment."
             exit 1
           fi
 
@@ -287,8 +275,6 @@ jobs:
               "BE_ML_TIMEOUT_SECONDS",
               "BE_SUDOKU_CELLS_INFERENCE_MAX_INLINE_IMAGE_SIZE_BYTES",
               "BE_SUDOKU_CELLS_INFERENCE_PROFILE_NAME",
-              "BE_SUDOKU_CELLS_INFERENCE_EMPTY_CELL_INNER_MARGIN_RATIO",
-              "BE_SUDOKU_CELLS_INFERENCE_EMPTY_CELL_DARK_PIXEL_RATIO_THRESHOLD",
               "BE_RAW_DATASETS_BOARDS_SUBDIRECTORY",
               "BE_RAW_DATASETS_DIGITS_SUBDIRECTORY",
               "BE_DATASETS_PREP_BOARDS_SUBDIRECTORY",
@@ -335,18 +321,6 @@ jobs:
               ) from exc
 
           try:
-              sudoku_cells_empty_cell_inner_margin_ratio = float(
-                  os.environ["BE_SUDOKU_CELLS_INFERENCE_EMPTY_CELL_INNER_MARGIN_RATIO"]
-              )
-              sudoku_cells_empty_cell_dark_pixel_ratio_threshold = float(
-                  os.environ["BE_SUDOKU_CELLS_INFERENCE_EMPTY_CELL_DARK_PIXEL_RATIO_THRESHOLD"]
-              )
-          except ValueError as exc:
-              raise SystemExit(
-                  "BE_SUDOKU_CELLS_INFERENCE_EMPTY_CELL_* values must be numeric."
-              ) from exc
-
-          try:
               mix_train_ratio = float(os.environ["BE_DATASETS_PREP_DEFAULT_MIX_TRAIN_RATIO"])
               mix_val_ratio = float(os.environ["BE_DATASETS_PREP_DEFAULT_MIX_VAL_RATIO"])
               mix_test_ratio = float(os.environ["BE_DATASETS_PREP_DEFAULT_MIX_TEST_RATIO"])
@@ -373,13 +347,14 @@ jobs:
           ml_service["PingPath"] = os.environ["BE_ML_PING_PATH"]
           ml_service["CellInferencePath"] = os.environ["BE_ML_CELL_INFERENCE_PATH"]
           ml_service["PrepareDatasetPath"] = os.environ["BE_ML_PREPARE_DATASET_PATH"]
+          ml_service["StartTrainingPath"] = "/ml/trainings"
+          ml_service["CancelTrainingPathTemplate"] = "/ml/trainings/{runName}/cancel"
+          ml_service["TrainingEventsPathTemplate"] = "/internal/ml/trainings/{runName}/events"
           ml_service["TimeoutSeconds"] = ml_timeout_seconds
 
           sudoku_cells_inference = config.setdefault("SudokuCellsInference", {})
           sudoku_cells_inference["MaxInlineImageSizeBytes"] = sudoku_cells_max_inline_image_size_bytes
           sudoku_cells_inference["InferenceProfileName"] = os.environ["BE_SUDOKU_CELLS_INFERENCE_PROFILE_NAME"]
-          sudoku_cells_inference["EmptyCellInnerMarginRatio"] = sudoku_cells_empty_cell_inner_margin_ratio
-          sudoku_cells_inference["EmptyCellDarkPixelRatioThreshold"] = sudoku_cells_empty_cell_dark_pixel_ratio_threshold
 
           raw_datasets_storage = config.setdefault("RawDatasetsStorage", {})
           raw_datasets_storage["BoardsSubdirectory"] = os.environ["BE_RAW_DATASETS_BOARDS_SUBDIRECTORY"]
@@ -411,6 +386,14 @@ jobs:
 
           models_active_storage = config.setdefault("ModelsActiveStorage", {})
           models_active_storage["ActiveDirectoryPath"] = os.environ["BE_MODELS_ACTIVE_DIRECTORY_PATH"]
+
+          training_defaults = config.setdefault("TrainingDefaults", {})
+          training_defaults["RunNamePrefix"] = "train"
+          training_defaults["TrainingMode"] = "fineTuning"
+          training_defaults["TrainingProfileName"] = "cnn-default-v1"
+          training_defaults["AugmentationProfileName"] = "digits-light-v1"
+          training_defaults["BenchmarkName"] = "sudoku-benchmark-v1"
+          training_defaults["Seed"] = 1234
 
           admin_auth = config.setdefault("AdminAuth", {})
           admin_auth["SharedPassword"] = os.environ["BE_ADMIN_SHARED_PASSWORD"]

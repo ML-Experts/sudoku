@@ -37,9 +37,6 @@ jobs:
       )
     runs-on: ubuntu-latest
     environment: main
-    env:
-      ML_RELEASES_DIR: ${{ vars.ML_RELEASES_DIR }}
-      ML_DEPLOY_COMMAND: ${{ vars.ML_DEPLOY_COMMAND }}
 
     steps:
       - name: Checkout
@@ -49,12 +46,12 @@ jobs:
         shell: bash
         run: |
           if [ -z "$ML_RELEASES_DIR" ]; then
-            echo "Missing ML_RELEASES_DIR variable for the selected GitHub environment."
+            echo "Missing ML_RELEASES_DIR workflow configuration."
             exit 1
           fi
 
           if [ -z "$ML_DEPLOY_COMMAND" ]; then
-            echo "Missing ML_DEPLOY_COMMAND variable for the selected GitHub environment."
+            echo "Missing ML_DEPLOY_COMMAND workflow configuration."
             exit 1
           fi
 
