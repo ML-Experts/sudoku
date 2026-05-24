@@ -1,3 +1,4 @@
+/* Keep a top-level entry stylesheet for Vite imports. */
 @import "./styles/base.css";
 @import "./styles/layout.css";
 @import "./styles/examples.css";
