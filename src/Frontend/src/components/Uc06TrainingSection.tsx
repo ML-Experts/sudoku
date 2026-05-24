@@ -752,7 +752,25 @@ export function Uc06TrainingSection({
       }
       latestSequenceRef.current = event.sequence;
 
-      setSocketEvents((previous) => [event, ...previous.slice(0, 49)]);
+      setSocketEvents((previous) => {
+        const existingIndex = previous.findIndex(
+          (item) => item.sequence === event.sequence,
+        );
+        if (existingIndex >= 0) {
+          const existingEvent = previous[existingIndex];
+          const shouldReplaceExistingSnapshot =
+            existingEvent.eventType === "snapshot" && event.eventType !== "snapshot";
+          if (!shouldReplaceExistingSnapshot) {
+            return previous;
+          }
+
+          const next = [...previous];
+          next[existingIndex] = event;
+          return next;
+        }
+
+        return [event, ...previous.slice(0, 49)];
+      });
       if (terminalStatuses.includes(event.status)) {
         setConnectionState("completed");
       } else {
@@ -779,6 +797,21 @@ export function Uc06TrainingSection({
       }
 
       const sameRun = realtimeRunNameRef.current === run.runName;
+      const existingConnection = connectionRef.current;
+      if (
+        sameRun &&
+        existingConnection &&
+        existingConnection.state !== HubConnectionState.Disconnected &&
+        existingConnection.state !== HubConnectionState.Disconnecting
+      ) {
+        setConnectionState(
+          existingConnection.state === HubConnectionState.Reconnecting
+            ? "reconnecting"
+            : "connected",
+        );
+        return;
+      }
+
       await disconnectRealtime();
       realtimeRunNameRef.current = run.runName;
       if (!sameRun) {
