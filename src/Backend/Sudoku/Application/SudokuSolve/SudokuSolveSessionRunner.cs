@@ -51,6 +51,7 @@ public sealed class SudokuSolveSessionRunner : ISudokuSolveSessionRunner
                 grid,
                 async (step, stepCancellationToken) =>
                 {
+                    await ApplyInterStepDelayIfNeededAsync(metadata, sequence, stepCancellationToken);
                     sequence++;
                     metadata = await PersistProgressAsync(
                         metadata,
@@ -200,6 +201,28 @@ public sealed class SudokuSolveSessionRunner : ISudokuSolveSessionRunner
         await _sudokuSolveEventPublisher.PublishAsync(ToSnapshot(metadata), cancellationToken);
     }
 
+    private async Task ApplyInterStepDelayIfNeededAsync(
+        SolveSessionMetadataDto? metadata,
+        long acceptedSequence,
+        CancellationToken cancellationToken)
+    {
+        if (metadata is null || acceptedSequence <= 0)
+        {
+            return;
+        }
+
+        var solverStepDelayMs = ResolveStoredSolverStepDelayMs(metadata);
+        if (solverStepDelayMs <= 0)
+        {
+            return;
+        }
+
+        await Task.Delay(
+            TimeSpan.FromMilliseconds(solverStepDelayMs),
+            _timeProvider,
+            cancellationToken);
+    }
+
     private async Task TryFinalizeTechnicalFailureAsync(
         string solveSessionId,
         string status,
@@ -255,6 +278,11 @@ public sealed class SudokuSolveSessionRunner : ISudokuSolveSessionRunner
             UpdatedAtUtc: metadata.UpdatedAtUtc,
             StartedAtUtc: metadata.StartedAtUtc,
             FinishedAtUtc: metadata.FinishedAtUtc);
+    }
+
+    private static int ResolveStoredSolverStepDelayMs(SolveSessionMetadataDto metadata)
+    {
+        return metadata.EffectiveParameters?.SolverStepDelayMs ?? 0;
     }
 
     private static int?[][] CopyGrid(int?[][] sourceGrid)

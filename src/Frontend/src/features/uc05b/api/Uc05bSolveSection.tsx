@@ -12,6 +12,9 @@ type Uc05bSolveSectionProps = {
   canRecoverActiveSolve: boolean;
   canCancelSolve: boolean;
   canResumeLiveMonitoring: boolean;
+  solveParameterOverrideCount: number;
+  solveParametersValid: boolean;
+  solveParameterErrorCount: number;
   onStartSolve: () => void | Promise<void>;
   onRecoverActiveSolve: () => void | Promise<void>;
   onCancelSolve: () => void | Promise<void>;
@@ -26,6 +29,9 @@ export function Uc05bSolveSection({
   canRecoverActiveSolve,
   canCancelSolve,
   canResumeLiveMonitoring,
+  solveParameterOverrideCount,
+  solveParametersValid,
+  solveParameterErrorCount,
   onStartSolve,
   onRecoverActiveSolve,
   onCancelSolve,
@@ -44,6 +50,19 @@ export function Uc05bSolveSection({
         <code> POST /api/sudoku/solve/{"{solveSessionId}"}/cancel</code>.
       </p>
 
+      <div className="uc05b-parameter-summary">
+        <span className="app-chip">
+          Override&apos;y startu solve: {solveParameterOverrideCount}
+        </span>
+        <span
+          className={`app-chip ${solveParametersValid ? "app-chip-muted" : "uc14-chip-error"}`}
+        >
+          {solveParametersValid
+            ? "Parametry solve live: OK"
+            : `Parametry solve live: ${solveParameterErrorCount} bledy`}
+        </span>
+      </div>
+
       <p
         className={`status-banner ${
           gridReadiness.isReady ? "status-success" : "status-loading"
@@ -51,6 +70,20 @@ export function Uc05bSolveSection({
       >
         {gridReadiness.message}
       </p>
+
+      {!solveParametersValid ? (
+        <p className="status-banner status-error">
+          Start solve jest zablokowany, dopoki formularz `Solve / live` nie
+          przejdzie lokalnej walidacji.
+        </p>
+      ) : null}
+
+      {state.session ? (
+        <p className="status-banner status-warning">
+          Aktywna sesja korzysta ze snapshotu parametrow z chwili startu. Zmiany
+          w panelu `UC-14` nie propaguje sie automatycznie do biezacej sesji.
+        </p>
+      ) : null}
 
       <div className="examples-row-actions">
         <button

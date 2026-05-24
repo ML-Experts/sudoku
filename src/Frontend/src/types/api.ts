@@ -28,9 +28,35 @@ export type DigitInferenceApiResponse = {
   digit: number | null;
 };
 
+export type DigitInferenceApiEntry = {
+  image: ImageApiEntry;
+  emptyCellDarkPixelRatioThreshold: number;
+  emptyCellInnerMarginRatio: number;
+  centerAreaRatio: number;
+  minComponentAreaRatio: number;
+  lineArtifactMinSpanRatio: number;
+  lineArtifactMaxThicknessRatio: number;
+};
+
+export type SudokuCellInferenceParametersApiEntry = Pick<
+  DigitInferenceApiEntry,
+  | "emptyCellDarkPixelRatioThreshold"
+  | "emptyCellInnerMarginRatio"
+  | "centerAreaRatio"
+  | "minComponentAreaRatio"
+  | "lineArtifactMinSpanRatio"
+  | "lineArtifactMaxThicknessRatio"
+>;
+
 export type SolveSudokuApiEntry = {
   grid: (number | null)[][];
+  solverStepDelayMs: number;
 };
+
+export type SolveSudokuParametersApiEntry = Pick<
+  SolveSudokuApiEntry,
+  "solverStepDelayMs"
+>;
 
 export type SolveSessionApiResponse = {
   solveSessionId: string;
@@ -129,9 +155,36 @@ export type TrainingMetricsSummaryApiResponse = {
   macroF1: number | null;
 };
 
+export type CreateTrainingRunParametersApiEntry = {
+  epochs: number;
+  learningRate: number;
+  batchSize: number;
+  earlyStoppingPatience: number;
+  earlyStoppingMinDelta: number;
+  warmupEpochs: number;
+  lrSchedulerPatience: number;
+  lrSchedulerFactor: number;
+  fineTuningPolicy: string;
+  useBestCheckpoint: boolean;
+};
+
 export type CreateTrainingRunApiEntry = {
   baseModelName: string;
   processedDatasetName: string;
+  trainingParameters: CreateTrainingRunParametersApiEntry;
+};
+
+export type TrainingRunEffectiveParametersApiResponse = {
+  epochs: number;
+  learningRate: number;
+  batchSize: number;
+  earlyStoppingPatience: number;
+  earlyStoppingMinDelta: number;
+  warmupEpochs: number;
+  lrSchedulerPatience: number;
+  lrSchedulerFactor: number;
+  fineTuningPolicy: string;
+  useBestCheckpoint: boolean;
 };
 
 export type RegistryModelListItemApiResponse = {
@@ -182,6 +235,7 @@ export type TrainingRunApiResponse = {
   augmentationProfileName: string;
   benchmarkName: string;
   seed: number;
+  effectiveParameters: TrainingRunEffectiveParametersApiResponse | null;
   progressChannelUrl: string;
 };
 
@@ -217,6 +271,7 @@ export type TrainingRunListItemApiResponse = {
   trainingProfileName: string;
   augmentationProfileName: string;
   benchmarkName: string;
+  effectiveParameters: TrainingRunEffectiveParametersApiResponse | null;
   reportStatus: string | null;
   progress: TrainingRunProgressApiResponse | null;
   metricsSummary: TrainingMetricsSummaryApiResponse | null;
@@ -257,6 +312,7 @@ export type TrainingRunConfigurationApiResponse = {
   augmentationProfileName: string;
   benchmarkName: string;
   seed: number;
+  effectiveParameters: TrainingRunEffectiveParametersApiResponse | null;
   sourceRevision: string | null;
 };
 

@@ -14,6 +14,7 @@ public sealed record TrainingRunListItemApiResponse(
     string TrainingProfileName,
     string AugmentationProfileName,
     string BenchmarkName,
+    TrainingRunEffectiveParametersApiResponse? EffectiveParameters,
     string? ReportStatus,
     TrainingRunProgressApiResponse? Progress,
     TrainingMetricsSummaryApiResponse? MetricsSummary,

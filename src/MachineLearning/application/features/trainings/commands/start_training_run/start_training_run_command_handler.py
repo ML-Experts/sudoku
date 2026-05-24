@@ -66,6 +66,7 @@ class StartTrainingRunCommandHandler:
 
         manifest = self._manifest_reader.read(command.base_model.manifest_path)
         self._validate_manifest(command, manifest)
+        self._validate_training_parameters(command, manifest)
 
         context = TrainingRunContextDto(
             run_name=command.run_name,
@@ -127,4 +128,73 @@ class StartTrainingRunCommandHandler:
             raise TrainingRunValidationError(
                 "unsupported_model_architecture",
                 "Rodzina architektury modelu nie jest obsługiwana.",
+            )
+
+    def _validate_training_parameters(self, command: StartTrainingRunCommand, manifest) -> None:
+        parameters = command.resolved_configuration.training_parameters
+
+        if parameters.epochs <= 0:
+            raise TrainingRunValidationError(
+                "invalid_training_parameters",
+                "Parametr epochs musi być większy od zera.",
+            )
+
+        if parameters.learning_rate <= 0 or parameters.learning_rate > 1:
+            raise TrainingRunValidationError(
+                "invalid_training_parameters",
+                "Parametr learningRate musi być większy od zera i nie większy niż 1.",
+            )
+
+        if parameters.batch_size <= 0:
+            raise TrainingRunValidationError(
+                "invalid_training_parameters",
+                "Parametr batchSize musi być większy od zera.",
+            )
+
+        if parameters.early_stopping_patience <= 0:
+            raise TrainingRunValidationError(
+                "invalid_training_parameters",
+                "Parametr earlyStoppingPatience musi być większy od zera.",
+            )
+
+        if parameters.early_stopping_min_delta < 0:
+            raise TrainingRunValidationError(
+                "invalid_training_parameters",
+                "Parametr earlyStoppingMinDelta nie może być ujemny.",
+            )
+
+        if parameters.warmup_epochs < 0:
+            raise TrainingRunValidationError(
+                "invalid_training_parameters",
+                "Parametr warmupEpochs nie może być ujemny.",
+            )
+
+        if parameters.lr_scheduler_patience <= 0:
+            raise TrainingRunValidationError(
+                "invalid_training_parameters",
+                "Parametr lrSchedulerPatience musi być większy od zera.",
+            )
+
+        if (
+            parameters.lr_scheduler_factor <= 0
+            or parameters.lr_scheduler_factor >= 1
+        ):
+            raise TrainingRunValidationError(
+                "invalid_training_parameters",
+                "Parametr lrSchedulerFactor musi być większy od zera i mniejszy niż 1.",
+            )
+
+        if parameters.fine_tuning_policy not in {"all", "head-only"}:
+            raise TrainingRunValidationError(
+                "invalid_training_parameters",
+                "Parametr fineTuningPolicy nie jest obsługiwany.",
+            )
+
+        if (
+            parameters.fine_tuning_policy == "head-only"
+            and manifest.architecture.family != "resnet"
+        ):
+            raise TrainingRunValidationError(
+                "invalid_training_parameters",
+                "Polityka head-only jest obsługiwana wyłącznie dla modeli rodziny resnet.",
             )

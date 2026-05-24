@@ -4,6 +4,7 @@ using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
+using System.Text.Json;
 using Sudoku.Application.SudokuSolve;
 using Sudoku.Controllers;
 using Sudoku.Contracts;
@@ -12,6 +13,28 @@ namespace Application.Tests;
 
 public sealed class SudokuSolveControllerTests
 {
+    [Fact]
+    public async Task SolveAsync_PassesSolverStepDelayMsToCommand()
+    {
+        var sender = new StubSender(new StartSudokuSolveCommandResultDto(
+            SolveSessionId: "solve-01",
+            Status: "queued",
+            ProgressChannelUrl: "/ws/sudoku/solving/solve-01"));
+        var controller = CreateController(sender);
+
+        var result = await controller.SolveAsync(
+            new SolveSudokuApiEntry(
+                Grid: JsonSerializer.SerializeToElement(CreateValidGrid()),
+                SolverStepDelayMs: 120),
+            CancellationToken.None);
+
+        var acceptedResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status202Accepted, acceptedResult.StatusCode);
+
+        var request = Assert.IsType<StartSudokuSolveCommand>(sender.LastRequest);
+        Assert.Equal(120, request.SolverStepDelayMs);
+    }
+
     [Fact]
     public async Task CancelAsync_ReturnsAccepted_WhenCancellationIsAccepted()
     {
@@ -144,10 +167,28 @@ public sealed class SudokuSolveControllerTests
             NullLogger<SudokuSolveController>.Instance);
     }
 
+    private static int?[][] CreateValidGrid()
+    {
+        return
+        [
+            [5, 3, null, null, 7, null, null, null, null],
+            [6, null, null, 1, 9, 5, null, null, null],
+            [null, 9, 8, null, null, null, null, 6, null],
+            [8, null, null, null, 6, null, null, null, 3],
+            [4, null, null, 8, null, 3, null, null, 1],
+            [7, null, null, null, 2, null, null, null, 6],
+            [null, 6, null, null, null, null, 2, 8, null],
+            [null, null, null, 4, 1, 9, null, null, 5],
+            [null, null, null, null, 8, null, null, 7, 9]
+        ];
+    }
+
     private sealed class StubSender : ISender
     {
         private readonly object? _response;
         private readonly Exception? _exception;
+
+        public object? LastRequest { get; private set; }
 
         public StubSender(object response)
         {
@@ -163,6 +204,8 @@ public sealed class SudokuSolveControllerTests
             IRequest<TResponse> request,
             CancellationToken cancellationToken = default)
         {
+            LastRequest = request;
+
             if (_exception is not null)
             {
                 throw _exception;
@@ -174,6 +217,8 @@ public sealed class SudokuSolveControllerTests
         public Task Send<TRequest>(TRequest request, CancellationToken cancellationToken = default)
             where TRequest : IRequest
         {
+            LastRequest = request;
+
             if (_exception is not null)
             {
                 throw _exception;
@@ -198,6 +243,8 @@ public sealed class SudokuSolveControllerTests
 
         public Task<object?> Send(object request, CancellationToken cancellationToken = default)
         {
+            LastRequest = request;
+
             if (_exception is not null)
             {
                 throw _exception;

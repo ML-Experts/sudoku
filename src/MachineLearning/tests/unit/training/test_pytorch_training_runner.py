@@ -13,6 +13,7 @@ from application.features.trainings.dto.training_run_context_dto import (
     OutputRegistryModelDto,
     ProcessedDatasetReferenceDto,
     ResolvedTrainingConfigurationDto,
+    TrainingParametersDto,
     TrainingOutputPathsDto,
     TrainingRunContextDto,
 )
@@ -47,19 +48,25 @@ class _Clock:
 
 
 class _ProfileCatalog:
-    def get(self, profile_name: str, manifest: ModelManifest) -> TrainingProfile:
+    def create_effective_profile(
+        self,
+        manifest: ModelManifest,
+        training_parameters: TrainingParametersDto,
+        profile_name: str | None = None,
+    ) -> TrainingProfile:
         return TrainingProfile(
-            name=profile_name,
+            name=profile_name or "runtime",
             architecture_family=manifest.architecture.family,
-            epochs=5,
-            batch_size=2,
-            learning_rate=0.1,
+            epochs=training_parameters.epochs,
+            batch_size=training_parameters.batch_size,
+            learning_rate=training_parameters.learning_rate,
             optimizer="adam",
-            fine_tuning_policy="all",
-            early_stopping_patience=2,
-            early_stopping_min_delta=0.001,
-            lr_scheduler_patience=1,
-            lr_scheduler_factor=0.5,
+            fine_tuning_policy=training_parameters.fine_tuning_policy,
+            early_stopping_patience=training_parameters.early_stopping_patience,
+            early_stopping_min_delta=training_parameters.early_stopping_min_delta,
+            warmup_epochs=training_parameters.warmup_epochs,
+            lr_scheduler_patience=training_parameters.lr_scheduler_patience,
+            lr_scheduler_factor=training_parameters.lr_scheduler_factor,
         )
 
 
@@ -224,6 +231,7 @@ class _DeterministicPytorchTrainingRunner(PytorchTrainingRunner):
         optimizer: torch.optim.Optimizer,
         criterion: nn.Module,
         device: torch.device,
+        cancellation_token: CancellationToken | None = None,
     ) -> dict:
         self._epoch_index += 1
         model.epoch_marker.fill_(float(self._epoch_index))
@@ -235,6 +243,7 @@ class _DeterministicPytorchTrainingRunner(PytorchTrainingRunner):
         dataloader: DataLoader,
         criterion: nn.Module,
         device: torch.device,
+        cancellation_token: CancellationToken | None = None,
     ) -> dict:
         return self._val_metrics[self._epoch_index - 1]
 
@@ -243,11 +252,32 @@ class _DeterministicPytorchTrainingRunner(PytorchTrainingRunner):
         model: nn.Module,
         dataloader: DataLoader,
         device: torch.device,
+        cancellation_token: CancellationToken | None = None,
     ) -> tuple[np.ndarray, np.ndarray, float | None]:
         return (
             np.array([0], dtype=np.int64),
             np.array([0], dtype=np.int64),
             0.1,
+        )
+
+
+class _CancellingDuringPredictRunner(_DeterministicPytorchTrainingRunner):
+    def _predict(
+        self,
+        model: nn.Module,
+        dataloader: DataLoader,
+        device: torch.device,
+        cancellation_token: CancellationToken | None = None,
+    ) -> tuple[np.ndarray, np.ndarray, float | None]:
+        if cancellation_token is not None:
+            cancellation_token.request_cancel()
+            cancellation_token.throw_if_cancelled()
+
+        return super()._predict(
+            model,
+            dataloader,
+            device,
+            cancellation_token=cancellation_token,
         )
 
 
@@ -274,7 +304,13 @@ def _manifest() -> ModelManifest:
     )
 
 
-def _context(root_path: Path) -> TrainingRunContextDto:
+def _context(
+    root_path: Path,
+    *,
+    use_best_checkpoint: bool = True,
+    early_stopping_patience: int = 2,
+    warmup_epochs: int = 0,
+) -> TrainingRunContextDto:
     base_model_directory = root_path / "base"
     base_model_directory.mkdir(parents=True, exist_ok=True)
     base_artifact_path = base_model_directory / "model.pt"
@@ -300,6 +336,18 @@ def _context(root_path: Path) -> TrainingRunContextDto:
             augmentation_profile_name="digits-light-v1",
             benchmark_name="sudoku-benchmark-v1",
             seed=1234,
+            training_parameters=TrainingParametersDto(
+                epochs=5,
+                learning_rate=0.1,
+                batch_size=2,
+                early_stopping_patience=early_stopping_patience,
+                lr_scheduler_patience=1,
+                lr_scheduler_factor=0.5,
+                fine_tuning_policy="all",
+                early_stopping_min_delta=0.01,
+                warmup_epochs=warmup_epochs,
+                use_best_checkpoint=use_best_checkpoint,
+            ),
         ),
         output_model=OutputRegistryModelDto(
             name="pytorch-run",
@@ -359,6 +407,9 @@ class PytorchTrainingRunnerTests(unittest.IsolatedAsyncioTestCase):
                 report_writer.summary["bestCheckpointMetricName"],
                 "validationLoss",
             )
+            self.assertEqual(report_writer.summary["earlyStoppingMinDelta"], 0.01)
+            self.assertEqual(report_writer.summary["warmupEpochs"], 0)
+            self.assertTrue(report_writer.summary["useBestCheckpoint"])
             self.assertTrue(
                 (
                     root_path
@@ -372,6 +423,124 @@ class PytorchTrainingRunnerTests(unittest.IsolatedAsyncioTestCase):
                 optimizer_factory.optimizer.param_groups[0]["lr"],
                 0.05,
             )
+
+    async def test_start_should_keep_last_epoch_model_when_best_checkpoint_disabled(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_directory:
+            root_path = Path(temp_directory)
+            artifact_writer = _RecordingArtifactWriter()
+            report_writer = _RecordingReportWriter()
+            runner = _DeterministicPytorchTrainingRunner(
+                event_publisher=_Publisher(),
+                cancellation_registry=CancellationRegistry(),
+                utc_clock=_Clock(),
+                device_setting="cpu",
+                model_factory=_ModelFactory(),
+                artifact_loader=_ArtifactLoader(),
+                artifact_writer=artifact_writer,
+                dataset_loader=_DatasetLoader(),
+                dataloader_factory=_DataloaderFactory(),
+                input_transform_factory=_InputTransformFactory(),
+                profile_catalog=_ProfileCatalog(),
+                fine_tuning_policy_factory=_FineTuningPolicyFactory(),
+                optimizer_factory=_RecordingOptimizerFactory(),
+                metrics_calculator=_MetricsCalculator(),
+                report_writer=report_writer,
+            )
+
+            await runner.start(
+                _context(root_path, use_best_checkpoint=False),
+                CancellationToken(),
+            )
+
+            self.assertEqual(artifact_writer.saved_epoch_marker, 4)
+            self.assertIsNotNone(report_writer.summary)
+            self.assertFalse(report_writer.summary["useBestCheckpoint"])
+
+    async def test_start_should_delay_early_stopping_until_after_warmup_epochs(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_directory:
+            root_path = Path(temp_directory)
+            publisher = _Publisher()
+            artifact_writer = _RecordingArtifactWriter()
+            report_writer = _RecordingReportWriter()
+            runner = _DeterministicPytorchTrainingRunner(
+                event_publisher=publisher,
+                cancellation_registry=CancellationRegistry(),
+                utc_clock=_Clock(),
+                device_setting="cpu",
+                model_factory=_ModelFactory(),
+                artifact_loader=_ArtifactLoader(),
+                artifact_writer=artifact_writer,
+                dataset_loader=_DatasetLoader(),
+                dataloader_factory=_DataloaderFactory(),
+                input_transform_factory=_InputTransformFactory(),
+                profile_catalog=_ProfileCatalog(),
+                fine_tuning_policy_factory=_FineTuningPolicyFactory(),
+                optimizer_factory=_RecordingOptimizerFactory(),
+                metrics_calculator=_MetricsCalculator(),
+                report_writer=report_writer,
+            )
+
+            await runner.start(
+                _context(
+                    root_path,
+                    early_stopping_patience=1,
+                    warmup_epochs=3,
+                ),
+                CancellationToken(),
+            )
+
+            progress_events = [
+                event
+                for event, _ in publisher.events
+                if event.event_type == "progress"
+            ]
+            self.assertEqual(len(progress_events), 4)
+            self.assertEqual(artifact_writer.saved_epoch_marker, 2)
+            self.assertIsNotNone(report_writer.summary)
+            self.assertEqual(report_writer.summary["executedEpochs"], 4)
+            self.assertEqual(report_writer.summary["bestEpoch"], 2)
+            self.assertTrue(report_writer.summary["stoppedEarly"])
+            self.assertEqual(report_writer.summary["warmupEpochs"], 3)
+
+    async def test_start_should_publish_cancelled_when_cancel_requested_during_evaluation(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_directory:
+            root_path = Path(temp_directory)
+            publisher = _Publisher()
+            artifact_writer = _RecordingArtifactWriter()
+            report_writer = _RecordingReportWriter()
+            runner = _CancellingDuringPredictRunner(
+                event_publisher=publisher,
+                cancellation_registry=CancellationRegistry(),
+                utc_clock=_Clock(),
+                device_setting="cpu",
+                model_factory=_ModelFactory(),
+                artifact_loader=_ArtifactLoader(),
+                artifact_writer=artifact_writer,
+                dataset_loader=_DatasetLoader(),
+                dataloader_factory=_DataloaderFactory(),
+                input_transform_factory=_InputTransformFactory(),
+                profile_catalog=_ProfileCatalog(),
+                fine_tuning_policy_factory=_FineTuningPolicyFactory(),
+                optimizer_factory=_RecordingOptimizerFactory(),
+                metrics_calculator=_MetricsCalculator(),
+                report_writer=report_writer,
+            )
+
+            await runner.start(_context(root_path), CancellationToken())
+
+            self.assertIsNone(artifact_writer.saved_epoch_marker)
+            self.assertIsNone(report_writer.summary)
+            self.assertGreater(len(publisher.events), 0)
+            last_event, is_terminal = publisher.events[-1]
+            self.assertTrue(is_terminal)
+            self.assertEqual(last_event.event_type, "cancelled")
+            self.assertEqual(last_event.status, "cancelled")
 
 
 if __name__ == "__main__":

@@ -83,9 +83,10 @@ class PytorchTrainingRunner:
     ) -> None:
         training_started_at = perf_counter()
         sequence = TrainingEventSequence()
-        profile = self._profile_catalog.get(
-            context.resolved_configuration.training_profile_name,
+        profile = self._profile_catalog.create_effective_profile(
             context.model_manifest,
+            context.resolved_configuration.training_parameters,
+            profile_name=context.resolved_configuration.training_profile_name,
         )
         stage = TrainingRunStage.TRAINING.value
         try:
@@ -149,12 +150,14 @@ class PytorchTrainingRunner:
                     optimizer,
                     criterion,
                     device,
+                    cancellation_token=cancellation_token,
                 )
                 val_metrics = self._evaluate_loss_accuracy(
                     model,
                     dataloaders["val"],
                     criterion,
                     device,
+                    cancellation_token=cancellation_token,
                 )
                 history.append(
                     {
@@ -187,7 +190,7 @@ class PytorchTrainingRunner:
                     best_epoch = epoch
                     epochs_without_improvement = 0
                     self._write_best_checkpoint(context, model)
-                else:
+                elif self._should_count_early_stopping_epoch(profile, epoch):
                     epochs_without_improvement += 1
                 executed_epochs = epoch
                 await self._publish_progress(
@@ -200,13 +203,17 @@ class PytorchTrainingRunner:
                 )
                 if self._should_stop_early(
                     profile,
+                    epoch,
                     epochs_without_improvement,
                 ):
                     stopped_early = True
                     break
 
             cancellation_token.throw_if_cancelled()
-            if best_epoch > 0:
+            if (
+                context.resolved_configuration.training_parameters.use_best_checkpoint
+                and best_epoch > 0
+            ):
                 model.load_state_dict(best_model_state)
             stage = TrainingRunStage.EVALUATION.value
             evaluation_message = "Training evaluation started."
@@ -227,7 +234,9 @@ class PytorchTrainingRunner:
                 model,
                 evaluation_loader,
                 device,
+                cancellation_token=cancellation_token,
             )
+            cancellation_token.throw_if_cancelled()
             metrics = self._metrics_calculator.calculate(
                 y_true,
                 y_pred,
@@ -335,12 +344,15 @@ class PytorchTrainingRunner:
         optimizer: torch.optim.Optimizer,
         criterion: nn.Module,
         device: torch.device,
+        cancellation_token: CancellationToken | None = None,
     ) -> dict:
         model.train()
         total_loss = 0.0
         total_count = 0
         correct_count = 0
         for images, labels in dataloader:
+            if cancellation_token is not None:
+                cancellation_token.throw_if_cancelled()
             images = images.to(device)
             labels = labels.to(device)
             optimizer.zero_grad()
@@ -360,6 +372,7 @@ class PytorchTrainingRunner:
         dataloader: DataLoader,
         criterion: nn.Module,
         device: torch.device,
+        cancellation_token: CancellationToken | None = None,
     ) -> dict:
         if len(dataloader.dataset) == 0:
             return {"loss": None, "accuracy": None}
@@ -369,6 +382,8 @@ class PytorchTrainingRunner:
         correct_count = 0
         with torch.no_grad():
             for images, labels in dataloader:
+                if cancellation_token is not None:
+                    cancellation_token.throw_if_cancelled()
                 images = images.to(device)
                 labels = labels.to(device)
                 logits = model(images)
@@ -454,11 +469,17 @@ class PytorchTrainingRunner:
     def _should_stop_early(
         self,
         profile,
+        epoch: int,
         epochs_without_improvement: int,
     ) -> bool:
         if profile.early_stopping_patience is None:
             return False
+        if not self._should_count_early_stopping_epoch(profile, epoch):
+            return False
         return epochs_without_improvement >= profile.early_stopping_patience
+
+    def _should_count_early_stopping_epoch(self, profile, epoch: int) -> bool:
+        return epoch > profile.warmup_epochs
 
     def _select_evaluation_loader(
         self,
@@ -475,6 +496,7 @@ class PytorchTrainingRunner:
         model: nn.Module,
         dataloader: DataLoader,
         device: torch.device,
+        cancellation_token: CancellationToken | None = None,
     ) -> tuple[np.ndarray, np.ndarray, float | None]:
         model.eval()
         y_true = []
@@ -483,6 +505,8 @@ class PytorchTrainingRunner:
         inference_count = 0
         with torch.no_grad():
             for images, labels in dataloader:
+                if cancellation_token is not None:
+                    cancellation_token.throw_if_cancelled()
                 device_images = images.to(device)
                 batch_started_at = perf_counter()
                 logits = model(device_images)
@@ -561,6 +585,29 @@ class PytorchTrainingRunner:
             ),
             "benchmarkName": context.resolved_configuration.benchmark_name,
             "seed": context.resolved_configuration.seed,
+            "learningRate": context.resolved_configuration.training_parameters.learning_rate,
+            "batchSize": context.resolved_configuration.training_parameters.batch_size,
+            "earlyStoppingPatience": (
+                context.resolved_configuration.training_parameters.early_stopping_patience
+            ),
+            "earlyStoppingMinDelta": (
+                context.resolved_configuration.training_parameters.early_stopping_min_delta
+            ),
+            "warmupEpochs": (
+                context.resolved_configuration.training_parameters.warmup_epochs
+            ),
+            "lrSchedulerPatience": (
+                context.resolved_configuration.training_parameters.lr_scheduler_patience
+            ),
+            "lrSchedulerFactor": (
+                context.resolved_configuration.training_parameters.lr_scheduler_factor
+            ),
+            "fineTuningPolicy": (
+                context.resolved_configuration.training_parameters.fine_tuning_policy
+            ),
+            "useBestCheckpoint": (
+                context.resolved_configuration.training_parameters.use_best_checkpoint
+            ),
             "epochs": epoch_total,
             "executedEpochs": executed_epochs,
             "bestEpoch": best_epoch,

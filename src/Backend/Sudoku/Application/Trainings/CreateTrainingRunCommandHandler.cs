@@ -1,4 +1,6 @@
 using MediatR;
+using FluentValidation;
+using FluentValidation.Results;
 using Microsoft.Extensions.Options;
 using Sudoku.Application.Abstractions;
 using Sudoku.Application.Datasets;
@@ -28,6 +30,7 @@ public sealed class CreateTrainingRunCommandHandler
     private readonly IModelsRegistryGateway _modelsRegistryGateway;
     private readonly IProcessedDatasetsGateway _processedDatasetsGateway;
     private readonly IMlTrainingsGateway _mlTrainingsGateway;
+    private readonly ITrainingRunCancellationRecovery _trainingRunCancellationRecovery;
     private readonly ITrainingEventsPathProvider _trainingEventsPathProvider;
     private readonly ITrainingRunNameGenerator _trainingRunNameGenerator;
     private readonly TrainingDefaultsOptions _trainingDefaultsOptions;
@@ -41,6 +44,7 @@ public sealed class CreateTrainingRunCommandHandler
         IModelsRegistryGateway modelsRegistryGateway,
         IProcessedDatasetsGateway processedDatasetsGateway,
         IMlTrainingsGateway mlTrainingsGateway,
+        ITrainingRunCancellationRecovery trainingRunCancellationRecovery,
         ITrainingEventsPathProvider trainingEventsPathProvider,
         ITrainingRunNameGenerator trainingRunNameGenerator,
         IOptions<TrainingDefaultsOptions> trainingDefaultsOptions,
@@ -53,6 +57,7 @@ public sealed class CreateTrainingRunCommandHandler
         _modelsRegistryGateway = modelsRegistryGateway;
         _processedDatasetsGateway = processedDatasetsGateway;
         _mlTrainingsGateway = mlTrainingsGateway;
+        _trainingRunCancellationRecovery = trainingRunCancellationRecovery;
         _trainingEventsPathProvider = trainingEventsPathProvider;
         _trainingRunNameGenerator = trainingRunNameGenerator;
         _trainingDefaultsOptions = trainingDefaultsOptions.Value;
@@ -67,14 +72,17 @@ public sealed class CreateTrainingRunCommandHandler
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.BaseModelName)
-            || string.IsNullOrWhiteSpace(request.ProcessedDatasetName))
+            || string.IsNullOrWhiteSpace(request.ProcessedDatasetName)
+            || request.TrainingParameters is null)
         {
             throw new InvalidOperationException("CreateTrainingRunCommand must be validated before handler execution.");
         }
 
         var baseModelName = request.BaseModelName.Trim();
         var processedDatasetName = request.ProcessedDatasetName.Trim();
+        var effectiveParameters = BuildEffectiveParameters(request.TrainingParameters);
 
+        await _trainingRunCancellationRecovery.RecoverAsync(cancellationToken);
         await EnsureNoActiveRunAsync(cancellationToken);
 
         var baseModel = await ResolveBaseModelAsync(baseModelName, cancellationToken);
@@ -83,12 +91,14 @@ public sealed class CreateTrainingRunCommandHandler
         ValidateBaseModel(baseModel);
         ValidateProcessedDataset(processedDataset);
         ValidateProfileCompatibility(baseModel, processedDataset);
+        ValidateEffectiveParameters(baseModel, effectiveParameters);
 
         var createdAtUtc = _timeProvider.GetUtcNow();
         var metadata = await ReserveTrainingRunAsync(
             createdAtUtc,
             baseModel,
             processedDataset,
+            effectiveParameters,
             cancellationToken);
 
         try
@@ -194,6 +204,7 @@ public sealed class CreateTrainingRunCommandHandler
         DateTimeOffset createdAtUtc,
         RegistryModelManifestDto baseModel,
         ProcessedDatasetMetadataDto processedDataset,
+        TrainingRunEffectiveParametersDto effectiveParameters,
         CancellationToken cancellationToken)
     {
         for (var attempt = 0; attempt < MaxReservationAttempts; attempt++)
@@ -222,7 +233,8 @@ public sealed class CreateTrainingRunCommandHandler
                 SourceRevision: null,
                 ReportStatus: null,
                 Warnings: Array.Empty<string>(),
-                MlJobId: null);
+                MlJobId: null,
+                EffectiveParameters: effectiveParameters);
 
             if (await _trainingRunsGateway.TryCreateAsync(metadata, cancellationToken))
             {
@@ -268,7 +280,10 @@ public sealed class CreateTrainingRunCommandHandler
                 TrainingProfileName: metadata.TrainingProfileName,
                 AugmentationProfileName: metadata.AugmentationProfileName,
                 BenchmarkName: metadata.BenchmarkName,
-                Seed: metadata.Seed),
+                Seed: metadata.Seed,
+                TrainingParameters: metadata.EffectiveParameters
+                                    ?? throw new InvalidOperationException(
+                                        $"Run {metadata.RunName} does not contain effective training parameters.")),
             OutputModel: new OutputRegistryModelDto(
                 Name: metadata.ProducedModelName,
                 DirectoryPath: producedModelDirectoryPath),
@@ -340,6 +355,64 @@ public sealed class CreateTrainingRunCommandHandler
             AugmentationProfileName: metadata.AugmentationProfileName,
             BenchmarkName: metadata.BenchmarkName,
             Seed: metadata.Seed,
+            EffectiveParameters: metadata.EffectiveParameters,
             ProgressChannelUrl: metadata.ProgressChannelUrl);
+    }
+
+    private static TrainingRunEffectiveParametersDto BuildEffectiveParameters(
+        TrainingRunRequestedParametersDto requestedParameters)
+    {
+        return new TrainingRunEffectiveParametersDto(
+            Epochs: requestedParameters.Epochs ?? throw new InvalidOperationException(
+                "CreateTrainingRunCommand must include epochs."),
+            LearningRate: requestedParameters.LearningRate ?? throw new InvalidOperationException(
+                "CreateTrainingRunCommand must include learningRate."),
+            BatchSize: requestedParameters.BatchSize ?? throw new InvalidOperationException(
+                "CreateTrainingRunCommand must include batchSize."),
+            EarlyStoppingPatience: requestedParameters.EarlyStoppingPatience ?? throw new InvalidOperationException(
+                "CreateTrainingRunCommand must include earlyStoppingPatience."),
+            EarlyStoppingMinDelta: requestedParameters.EarlyStoppingMinDelta ?? 0.001,
+            WarmupEpochs: requestedParameters.WarmupEpochs ?? 0,
+            LrSchedulerPatience: requestedParameters.LrSchedulerPatience ?? throw new InvalidOperationException(
+                "CreateTrainingRunCommand must include lrSchedulerPatience."),
+            LrSchedulerFactor: requestedParameters.LrSchedulerFactor ?? throw new InvalidOperationException(
+                "CreateTrainingRunCommand must include lrSchedulerFactor."),
+            FineTuningPolicy: NormalizeFineTuningPolicy(requestedParameters.FineTuningPolicy),
+            UseBestCheckpoint: requestedParameters.UseBestCheckpoint ?? true);
+    }
+
+    private static string NormalizeFineTuningPolicy(string? fineTuningPolicy)
+    {
+        if (string.IsNullOrWhiteSpace(fineTuningPolicy))
+        {
+            throw new InvalidOperationException("CreateTrainingRunCommand must include fineTuningPolicy.");
+        }
+
+        return fineTuningPolicy.Trim().ToLowerInvariant();
+    }
+
+    private static void ValidateEffectiveParameters(
+        RegistryModelManifestDto baseModel,
+        TrainingRunEffectiveParametersDto effectiveParameters)
+    {
+        if (string.Equals(
+                effectiveParameters.FineTuningPolicy,
+                "head-only",
+                StringComparison.Ordinal)
+            && !string.Equals(
+                baseModel.ArchitectureFamily,
+                "resnet",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ValidationException(new[]
+            {
+                new ValidationFailure(
+                    $"{nameof(CreateTrainingRunCommand.TrainingParameters)}.{nameof(TrainingRunEffectiveParametersDto.FineTuningPolicy)}",
+                    "Polityka head-only jest obsługiwana wyłącznie dla modeli rodziny resnet.")
+                {
+                    ErrorCode = CreateTrainingRunErrorTypes.InvalidRequest
+                }
+            });
+        }
     }
 }

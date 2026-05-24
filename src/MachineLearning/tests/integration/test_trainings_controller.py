@@ -112,6 +112,17 @@ class TrainingsControllerTests(unittest.TestCase):
                     "augmentationProfileName": "digits-light-v1",
                     "benchmarkName": "sudoku-benchmark-v1",
                     "seed": 1234,
+                    "trainingParameters": {
+                        "epochs": 4,
+                        "learningRate": 0.001,
+                        "batchSize": 16,
+                        "earlyStoppingPatience": 3,
+                        "earlyStoppingMinDelta": 0.01,
+                        "warmupEpochs": 2,
+                        "lrSchedulerPatience": 2,
+                        "lrSchedulerFactor": 0.5,
+                        "fineTuningPolicy": "all",
+                    },
                 },
                 "outputModel": {
                     "name": "mock-run",

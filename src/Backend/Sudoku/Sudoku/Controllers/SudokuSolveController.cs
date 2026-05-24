@@ -37,7 +37,11 @@ public sealed class SudokuSolveController : ControllerBase
 
         try
         {
-            var result = await _sender.Send(new StartSudokuSolveCommand(entry?.Grid), cancellationToken);
+            var result = await _sender.Send(
+                new StartSudokuSolveCommand(
+                    entry?.Grid,
+                    entry?.SolverStepDelayMs),
+                cancellationToken);
 
             _logger.LogInformation(
                 "Uruchomiono sesję solve sudoku. SolveSessionId={SolveSessionId}, Status={Status}.",

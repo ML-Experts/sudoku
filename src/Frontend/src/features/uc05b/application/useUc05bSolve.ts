@@ -6,7 +6,10 @@ import {
   postStartSudokuSolve,
   SudokuSolveApiError,
 } from "../../../api/sudokuSolve";
-import type { SolveSessionApiResponse } from "../../../types/api";
+import type {
+  SolveSessionApiResponse,
+  SolveSudokuParametersApiEntry,
+} from "../../../types/api";
 import type { RecognitionSessionStatus } from "../../uc05a/application/recognitionSessionTypes";
 import type { RecognizedGrid } from "../../uc05a/domain/recognizedGrid";
 import { clearPersistedLiveSolveContext } from "../../uc05e/infrastructure/solveLiveSessionStorage";
@@ -29,10 +32,14 @@ import {
   type SolveSessionOperation,
 } from "./solveSessionTypes";
 
+const DEFAULT_SOLVER_STEP_DELAY_MS = 50;
+
 type UseUc05bSolveOptions = {
   apiBaseUrl: string;
   recognizedGrid: RecognizedGrid | null;
   recognitionStatus: RecognitionSessionStatus;
+  solveParameters?: SolveSudokuParametersApiEntry | null;
+  isSolveParametersValid?: boolean;
 };
 
 type GridSolveReadiness = {
@@ -175,6 +182,8 @@ export function useUc05bSolve({
   apiBaseUrl,
   recognizedGrid,
   recognitionStatus,
+  solveParameters = null,
+  isSolveParametersValid = true,
 }: UseUc05bSolveOptions) {
   const [state, dispatch] = useReducer(
     solveSessionReducer,
@@ -263,7 +272,7 @@ export function useUc05bSolve({
   }, [recoverActiveSolveDetailed]);
 
   const startSolve = useCallback(async () => {
-    if (!recognizedGrid) {
+    if (!recognizedGrid || !isSolveParametersValid) {
       dispatch({
         type: "requestFailed",
         error: toSolveSessionError(
@@ -280,13 +289,19 @@ export function useUc05bSolve({
 
     try {
       const solveReadyGrid = prepareRecognizedGridForSolve(recognizedGrid);
-      const request = toSolveSudokuApiEntry(solveReadyGrid);
+      const solverStepDelayMs =
+        solveParameters?.solverStepDelayMs ?? DEFAULT_SOLVER_STEP_DELAY_MS;
+      const request = toSolveSudokuApiEntry(
+        solveReadyGrid,
+        solverStepDelayMs,
+      );
       const startedGridSignature = createGridSignature(solveReadyGrid);
       const session = await postStartSudokuSolve(apiBaseUrl, request);
 
       console.info("[UC-05B] Backend przyjal start solve.", {
         solveSessionId: session.solveSessionId,
         status: session.status,
+        solverStepDelayMs,
       });
 
       dispatch({
@@ -351,7 +366,7 @@ export function useUc05bSolve({
         error: toSolveSessionError(error, "start"),
       });
     }
-  }, [apiBaseUrl, recognizedGrid]);
+  }, [apiBaseUrl, isSolveParametersValid, recognizedGrid, solveParameters]);
 
   const cancelSolve = useCallback(async () => {
     if (!state.session) {
@@ -464,7 +479,11 @@ export function useUc05bSolve({
     recoverActiveSolveDetailed,
     cancelSolve,
     acceptTerminalLiveEvent,
-    canStartSolve: gridReadiness.isReady && !isBusy && !hasKnownActiveSession,
+    canStartSolve:
+      gridReadiness.isReady &&
+      isSolveParametersValid &&
+      !isBusy &&
+      !hasKnownActiveSession,
     canRecoverActiveSolve: !isBusy,
     canCancelSolve: hasKnownActiveSession && state.phase !== "cancelling",
   };

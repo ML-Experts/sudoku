@@ -4,4 +4,5 @@ using MediatR;
 namespace Sudoku.Application.SudokuSolve;
 
 public sealed record StartSudokuSolveCommand(
-    JsonElement? Grid) : IRequest<StartSudokuSolveCommandResultDto>;
+    JsonElement? Grid,
+    int? SolverStepDelayMs) : IRequest<StartSudokuSolveCommandResultDto>;

@@ -24,6 +24,23 @@ class StartTrainingProcessedDatasetApiEntry(BaseModel):
     preprocessing_profile: str = Field(alias="preprocessingProfile", min_length=1)
 
 
+class TrainingParametersApiEntry(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    epochs: int
+    learning_rate: float = Field(alias="learningRate")
+    batch_size: int = Field(alias="batchSize")
+    early_stopping_patience: int = Field(alias="earlyStoppingPatience")
+    early_stopping_min_delta: float = Field(
+        default=0.001, alias="earlyStoppingMinDelta"
+    )
+    warmup_epochs: int = Field(default=0, alias="warmupEpochs")
+    lr_scheduler_patience: int = Field(alias="lrSchedulerPatience")
+    lr_scheduler_factor: float = Field(alias="lrSchedulerFactor")
+    fine_tuning_policy: str = Field(alias="fineTuningPolicy", min_length=1)
+    use_best_checkpoint: bool = Field(default=True, alias="useBestCheckpoint")
+
+
 class ResolvedTrainingConfigurationApiEntry(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
@@ -34,6 +51,9 @@ class ResolvedTrainingConfigurationApiEntry(BaseModel):
     )
     benchmark_name: str = Field(alias="benchmarkName", min_length=1)
     seed: int
+    training_parameters: TrainingParametersApiEntry = Field(
+        alias="trainingParameters"
+    )
 
 
 class OutputRegistryModelApiEntry(BaseModel):

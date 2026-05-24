@@ -12,4 +12,5 @@ public sealed record TrainingRunApiResponse(
     string AugmentationProfileName,
     string BenchmarkName,
     int Seed,
+    TrainingRunEffectiveParametersApiResponse? EffectiveParameters,
     string ProgressChannelUrl);

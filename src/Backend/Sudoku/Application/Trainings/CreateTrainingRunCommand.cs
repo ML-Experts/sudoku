@@ -4,4 +4,5 @@ namespace Sudoku.Application.Trainings;
 
 public sealed record CreateTrainingRunCommand(
     string? BaseModelName,
-    string? ProcessedDatasetName) : IRequest<CreateTrainingRunCommandResultDto>;
+    string? ProcessedDatasetName,
+    TrainingRunRequestedParametersDto? TrainingParameters) : IRequest<CreateTrainingRunCommandResultDto>;

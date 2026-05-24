@@ -44,6 +44,7 @@ flowchart TD
 - [`UC-05C — Historyjka scalona`](./uc-05c-overview.md)
 - [`UC-05D — Graficzne naniesienie cyfr na obraz`](./uc-05d-overview.md)
 - [`UC-05E — Pokazywanie kroków backtrackingu na żywo przez SignalR`](./uc-05e-overview.md)
+- [`UC-15 — Spowolnienie live solve przez opóźnienie kroku`](./uc-15-overview.md)
 
 Praktyczna decyzja dla obecnej wersji dokumentacji:
 - dawne `UC-05C` zostało scalone do `UC-05A` i `UC-05E`,
@@ -68,4 +69,5 @@ Wewnętrzny odpowiednik `BE -> ML` może pozostać jako `POST /ml/solve-from-ima
 1. `UC-05A` — stabilna inferencja pojedynczej komórki z poprawnym `null` dla pustej komórki.
 2. `UC-05B` — solver backtracking z czytelną walidacją wejścia.
 3. `UC-05E` — strumień kroków solvera po `SignalR`, jeśli chcemy pokazać "pracę" algorytmu na tym samym gridzie zbudowanym wcześniej w `UC-05A`.
-4. `UC-05D` — overlay graficzny, najpierw na obrazie po korekcji perspektywy.
+4. `UC-15` — kontrolowane spowolnienie `live solve`, aby użytkownik mógł śledzić kolejne kroki backtrackingu.
+5. `UC-05D` — overlay graficzny, najpierw na obrazie po korekcji perspektywy.

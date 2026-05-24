@@ -16,4 +16,9 @@ public sealed record InferSudokuCellDigitMlActiveModelDto(
 public sealed record InferSudokuCellDigitMlResolvedConfigurationDto(
     string InferenceProfileName,
     double EmptyCellInnerMarginRatio,
-    double EmptyCellDarkPixelRatioThreshold);
+    double EmptyCellDarkPixelRatioThreshold,
+    double CenterAreaRatio,
+    double MinComponentAreaRatio,
+    double LineArtifactMinSpanRatio,
+    double LineArtifactMaxThicknessRatio
+);

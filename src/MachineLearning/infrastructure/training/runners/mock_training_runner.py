@@ -57,10 +57,13 @@ class MockTrainingRunner:
         cancellation_token: CancellationToken,
     ) -> None:
         sequence = TrainingEventSequence()
-        profile = self._profile_catalog.get(
-            context.resolved_configuration.training_profile_name,
+        profile = self._profile_catalog.create_effective_profile(
             context.model_manifest,
+            context.resolved_configuration.training_parameters,
+            profile_name=context.resolved_configuration.training_profile_name,
         )
+        history: list[dict[str, float | int | None]] = []
+        last_progress_metrics: dict[str, float] | None = None
         try:
             self._cancellation_registry.mark_running(context.run_name)
             await self._publish_status_changed(
@@ -74,7 +77,26 @@ class MockTrainingRunner:
                 cancellation_token.throw_if_cancelled()
                 if self._interval_seconds > 0:
                     await asyncio.sleep(self._interval_seconds)
-                await self._publish_progress(sequence, context, epoch, profile.epochs)
+                progress_metrics = self._build_progress_metrics(epoch, profile.epochs)
+                history.append(
+                    {
+                        "epoch": epoch,
+                        "trainLoss": progress_metrics["train_loss"],
+                        "validationLoss": progress_metrics["validation_loss"],
+                        "trainAccuracy": progress_metrics["train_accuracy"],
+                        "validationAccuracy": progress_metrics[
+                            "validation_accuracy"
+                        ],
+                    }
+                )
+                last_progress_metrics = progress_metrics
+                await self._publish_progress(
+                    sequence,
+                    context,
+                    epoch,
+                    profile.epochs,
+                    progress_metrics,
+                )
 
             cancellation_token.throw_if_cancelled()
             await self._publish_status_changed(
@@ -88,7 +110,12 @@ class MockTrainingRunner:
             report_status = ReportStatus.READY.value
             warnings = ()
             try:
-                report_paths = self._write_reports(context, profile.epochs)
+                report_paths = self._write_reports(
+                    context,
+                    profile.epochs,
+                    history,
+                    last_progress_metrics,
+                )
             except ReportCorruptedError as error:
                 LOGGER.warning(
                     "Mock training report validation failed after artifact write.",
@@ -135,9 +162,8 @@ class MockTrainingRunner:
                         report_status=report_status,
                         can_use_produced_model_for_inference=True,
                         primary_artifact_relative_path=artifact_relative_path,
-                        metrics_summary=TrainingMetricsSummaryDto(
-                            accuracy=0.0,
-                            macro_f1=0.0,
+                        metrics_summary=self._build_metrics_summary(
+                            last_progress_metrics
                         ),
                         summary_relative_path=report_paths["summary"],
                         metrics_relative_path=report_paths["metrics"],
@@ -205,6 +231,7 @@ class MockTrainingRunner:
         context: TrainingRunContextDto,
         epoch: int,
         epoch_total: int,
+        progress_metrics: dict[str, float],
     ) -> None:
         await self._event_publisher.publish(
             TrainingRunEventDto(
@@ -219,15 +246,48 @@ class MockTrainingRunner:
                     percent=round(epoch / epoch_total * 100, 2),
                     epoch_current=epoch,
                     epoch_total=epoch_total,
-                    train_loss=None,
-                    validation_loss=None,
-                    train_accuracy=None,
-                    validation_accuracy=None,
+                    train_loss=progress_metrics["train_loss"],
+                    validation_loss=progress_metrics["validation_loss"],
+                    train_accuracy=progress_metrics["train_accuracy"],
+                    validation_accuracy=progress_metrics["validation_accuracy"],
                 ),
                 warnings=(),
                 result=None,
                 failure=None,
             )
+        )
+
+    def _build_progress_metrics(
+        self,
+        epoch: int,
+        epoch_total: int,
+    ) -> dict[str, float]:
+        progress_ratio = epoch / max(epoch_total, 1)
+        train_loss = round(max(0.05, 1.2 - 0.75 * progress_ratio), 4)
+        validation_loss = round(max(0.05, train_loss + 0.08), 4)
+        train_accuracy = round(min(0.45 + 0.45 * progress_ratio, 0.995), 4)
+        validation_accuracy = round(max(0.0, train_accuracy - 0.04), 4)
+        return {
+            "train_loss": train_loss,
+            "validation_loss": validation_loss,
+            "train_accuracy": train_accuracy,
+            "validation_accuracy": validation_accuracy,
+        }
+
+    def _build_metrics_summary(
+        self,
+        last_progress_metrics: dict[str, float] | None,
+    ) -> TrainingMetricsSummaryDto:
+        if last_progress_metrics is None:
+            return TrainingMetricsSummaryDto(
+                accuracy=0.0,
+                macro_f1=0.0,
+            )
+
+        accuracy = last_progress_metrics["validation_accuracy"]
+        return TrainingMetricsSummaryDto(
+            accuracy=accuracy,
+            macro_f1=max(0.0, round(accuracy - 0.02, 4)),
         )
 
     def _write_artifacts(self, context: TrainingRunContextDto) -> str:
@@ -241,7 +301,15 @@ class MockTrainingRunner:
         self,
         context: TrainingRunContextDto,
         epoch_total: int,
+        history: list[dict[str, float | int | None]],
+        last_progress_metrics: dict[str, float] | None,
     ) -> dict[str, str]:
+        final_accuracy = 0.0
+        macro_f1 = 0.0
+        if last_progress_metrics is not None:
+            final_accuracy = last_progress_metrics["validation_accuracy"]
+            macro_f1 = max(0.0, round(final_accuracy - 0.02, 4))
+
         summary = {
             "runName": context.run_name,
             "baseModelName": context.base_model.name,
@@ -256,6 +324,29 @@ class MockTrainingRunner:
             ),
             "benchmarkName": context.resolved_configuration.benchmark_name,
             "seed": context.resolved_configuration.seed,
+            "learningRate": context.resolved_configuration.training_parameters.learning_rate,
+            "batchSize": context.resolved_configuration.training_parameters.batch_size,
+            "earlyStoppingPatience": (
+                context.resolved_configuration.training_parameters.early_stopping_patience
+            ),
+            "earlyStoppingMinDelta": (
+                context.resolved_configuration.training_parameters.early_stopping_min_delta
+            ),
+            "warmupEpochs": (
+                context.resolved_configuration.training_parameters.warmup_epochs
+            ),
+            "lrSchedulerPatience": (
+                context.resolved_configuration.training_parameters.lr_scheduler_patience
+            ),
+            "lrSchedulerFactor": (
+                context.resolved_configuration.training_parameters.lr_scheduler_factor
+            ),
+            "fineTuningPolicy": (
+                context.resolved_configuration.training_parameters.fine_tuning_policy
+            ),
+            "useBestCheckpoint": (
+                context.resolved_configuration.training_parameters.use_best_checkpoint
+            ),
             "epochs": epoch_total,
             "device": "mock",
             "runner": "mock",
@@ -264,29 +355,19 @@ class MockTrainingRunner:
         }
         metrics = {
             "runName": context.run_name,
-            "accuracy": 0.0,
-            "precisionMacro": 0.0,
-            "recallMacro": 0.0,
-            "f1Macro": 0.0,
+            "accuracy": final_accuracy,
+            "precisionMacro": macro_f1,
+            "recallMacro": macro_f1,
+            "f1Macro": macro_f1,
             "classes": [],
             "classNames": [],
             "confusionMatrix": [],
         }
-        history = tuple(
-            {
-                "epoch": epoch,
-                "trainLoss": None,
-                "validationLoss": None,
-                "trainAccuracy": None,
-                "validationAccuracy": None,
-            }
-            for epoch in range(1, epoch_total + 1)
-        )
         return self._report_writer.write(
             context.output_paths.report_directory_path,
             summary,
             metrics,
-            list(history),
+            history,
         )
 
     async def _publish_failed(

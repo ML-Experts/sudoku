@@ -33,12 +33,19 @@ public sealed class SudokuCellsController : ControllerBase
     [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status504GatewayTimeout)]
     [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> InferAsync(
-        [FromBody] ImageApiEntry? entry,
+        [FromBody] DigitInferenceApiEntry entry,
         CancellationToken cancellationToken)
     {
         var command = new InferSudokuCellDigitCommand(
-            MimeType: entry?.MimeType,
-            Base64: entry?.Base64);
+            entry.Image.MimeType,
+            entry.Image.Base64,
+            entry.EmptyCellDarkPixelRatioThreshold,
+            entry.EmptyCellInnerMarginRatio,
+            entry.CenterAreaRatio,
+            entry.MinComponentAreaRatio,
+            entry.LineArtifactMinSpanRatio,
+            entry.LineArtifactMaxThicknessRatio
+        );
 
         _logger.LogInformation("Rozpoczęto inferencję pojedynczej komórki sudoku.");
 

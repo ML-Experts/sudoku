@@ -8,6 +8,7 @@ from application.features.trainings.dto.training_run_context_dto import (
     OutputRegistryModelDto,
     ProcessedDatasetReferenceDto,
     ResolvedTrainingConfigurationDto,
+    TrainingParametersDto,
     TrainingOutputPathsDto,
     TrainingRunContextDto,
 )
@@ -37,15 +38,25 @@ class _ProfileCatalog:
     def __init__(self, epochs: int) -> None:
         self._epochs = epochs
 
-    def get(self, profile_name: str, manifest: ModelManifest) -> TrainingProfile:
+    def create_effective_profile(
+        self,
+        manifest: ModelManifest,
+        training_parameters: TrainingParametersDto,
+        profile_name: str | None = None,
+    ) -> TrainingProfile:
         return TrainingProfile(
-            name=profile_name,
+            name=profile_name or "runtime",
             architecture_family=manifest.architecture.family,
             epochs=self._epochs,
-            batch_size=1,
-            learning_rate=0.001,
+            batch_size=training_parameters.batch_size,
+            learning_rate=training_parameters.learning_rate,
             optimizer="adam",
-            fine_tuning_policy="all",
+            fine_tuning_policy=training_parameters.fine_tuning_policy,
+            early_stopping_patience=training_parameters.early_stopping_patience,
+            early_stopping_min_delta=training_parameters.early_stopping_min_delta,
+            warmup_epochs=training_parameters.warmup_epochs,
+            lr_scheduler_patience=training_parameters.lr_scheduler_patience,
+            lr_scheduler_factor=training_parameters.lr_scheduler_factor,
         )
 
 
@@ -103,6 +114,18 @@ def _context(root_path: Path) -> TrainingRunContextDto:
             augmentation_profile_name="digits-light-v1",
             benchmark_name="sudoku-benchmark-v1",
             seed=1234,
+            training_parameters=TrainingParametersDto(
+                epochs=3,
+                learning_rate=0.001,
+                batch_size=1,
+                early_stopping_patience=2,
+                lr_scheduler_patience=1,
+                lr_scheduler_factor=0.5,
+                fine_tuning_policy="all",
+                early_stopping_min_delta=0.01,
+                warmup_epochs=2,
+                use_best_checkpoint=True,
+            ),
         ),
         output_model=OutputRegistryModelDto(
             name="mock-run",
@@ -143,6 +166,18 @@ class MockTrainingRunnerTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("statusChanged", event_types)
         self.assertEqual(len(progress_events), 3)
         self.assertEqual(progress_events[-1].progress.percent, 100.0)
+        self.assertIsNotNone(progress_events[0].progress.train_loss)
+        self.assertIsNotNone(progress_events[0].progress.validation_loss)
+        self.assertIsNotNone(progress_events[0].progress.train_accuracy)
+        self.assertIsNotNone(progress_events[0].progress.validation_accuracy)
+        self.assertLess(
+            progress_events[-1].progress.train_loss,
+            progress_events[0].progress.train_loss,
+        )
+        self.assertGreater(
+            progress_events[-1].progress.train_accuracy,
+            progress_events[0].progress.train_accuracy,
+        )
 
 
 if __name__ == "__main__":

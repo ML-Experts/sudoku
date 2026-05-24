@@ -32,4 +32,5 @@ public sealed record TrainingRunMetadataDto(
     string? PrimaryArtifactRelativePath = null,
     string? FailureReason = null,
     string? FailureErrorType = null,
-    IReadOnlyList<string>? CleanupWarnings = null);
+    IReadOnlyList<string>? CleanupWarnings = null,
+    TrainingRunEffectiveParametersDto? EffectiveParameters = null);

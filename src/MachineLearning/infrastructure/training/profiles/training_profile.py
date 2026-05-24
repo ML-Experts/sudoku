@@ -12,5 +12,6 @@ class TrainingProfile:
     fine_tuning_policy: str
     early_stopping_patience: int | None = None
     early_stopping_min_delta: float = 0.0
+    warmup_epochs: int = 0
     lr_scheduler_patience: int | None = None
     lr_scheduler_factor: float | None = None

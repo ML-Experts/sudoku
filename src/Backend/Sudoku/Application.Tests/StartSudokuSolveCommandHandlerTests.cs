@@ -16,7 +16,7 @@ public sealed class StartSudokuSolveCommandHandlerTests
         var handler = CreateHandler(gateway, scheduler, solveSessionId: "solve-test-01");
 
         var result = await handler.Handle(
-            new StartSudokuSolveCommand(ToJsonElement(CreateValidGrid())),
+            new StartSudokuSolveCommand(ToJsonElement(CreateValidGrid()), 120),
             CancellationToken.None);
 
         Assert.Equal("solve-test-01", result.SolveSessionId);
@@ -27,7 +27,45 @@ public sealed class StartSudokuSolveCommandHandlerTests
         Assert.Equal("solve-test-01", metadata.SolveSessionId);
         Assert.Equal(SudokuSolveSessionStatus.Queued, metadata.Status);
         Assert.Equal(FixedNow, metadata.CreatedAtUtc);
+        Assert.NotNull(metadata.EffectiveParameters);
+        Assert.Equal(120, metadata.EffectiveParameters!.SolverStepDelayMs);
         Assert.Equal("solve-test-01", Assert.Single(scheduler.ScheduledItems).SolveSessionId);
+    }
+
+    [Fact]
+    public async Task Handle_UsesDefaultDelay_WhenSolverStepDelayIsMissing()
+    {
+        var gateway = new InMemorySolveSessionsGateway();
+        var handler = CreateHandler(gateway, new StubSolveExecutionScheduler(), solveSessionId: "solve-test-01");
+
+        await handler.Handle(
+            new StartSudokuSolveCommand(ToJsonElement(CreateValidGrid()), null),
+            CancellationToken.None);
+
+        var metadata = Assert.Single(gateway.Items.Values);
+        Assert.NotNull(metadata.EffectiveParameters);
+        Assert.Equal(
+            SudokuSolveParameterPolicy.DefaultSolverStepDelayMs,
+            metadata.EffectiveParameters!.SolverStepDelayMs);
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(999999)]
+    public async Task Handle_UsesDefaultDelay_WhenSolverStepDelayIsOutOfRange(int requestedDelayMs)
+    {
+        var gateway = new InMemorySolveSessionsGateway();
+        var handler = CreateHandler(gateway, new StubSolveExecutionScheduler(), solveSessionId: "solve-test-01");
+
+        await handler.Handle(
+            new StartSudokuSolveCommand(ToJsonElement(CreateValidGrid()), requestedDelayMs),
+            CancellationToken.None);
+
+        var metadata = Assert.Single(gateway.Items.Values);
+        Assert.NotNull(metadata.EffectiveParameters);
+        Assert.Equal(
+            SudokuSolveParameterPolicy.DefaultSolverStepDelayMs,
+            metadata.EffectiveParameters!.SolverStepDelayMs);
     }
 
     [Fact]
@@ -40,7 +78,7 @@ public sealed class StartSudokuSolveCommandHandlerTests
         var handler = CreateHandler(gateway, new StubSolveExecutionScheduler(), solveSessionId: "solve-test-01");
 
         var exception = await Assert.ThrowsAsync<ActiveSolveSessionAlreadyExistsException>(() => handler.Handle(
-            new StartSudokuSolveCommand(ToJsonElement(CreateValidGrid())),
+            new StartSudokuSolveCommand(ToJsonElement(CreateValidGrid()), null),
             CancellationToken.None));
 
         Assert.Equal("solve-existing", exception.ActiveSolveSessionId);
@@ -56,7 +94,7 @@ public sealed class StartSudokuSolveCommandHandlerTests
         conflictingGrid[0][1] = 5;
 
         await Assert.ThrowsAsync<SudokuGridConflictsException>(() => handler.Handle(
-            new StartSudokuSolveCommand(ToJsonElement(conflictingGrid)),
+            new StartSudokuSolveCommand(ToJsonElement(conflictingGrid), null),
             CancellationToken.None));
     }
 
@@ -71,7 +109,7 @@ public sealed class StartSudokuSolveCommandHandlerTests
         var handler = CreateHandler(gateway, scheduler, solveSessionId: "solve-test-01");
 
         var exception = await Assert.ThrowsAsync<SolveSessionStartException>(() => handler.Handle(
-            new StartSudokuSolveCommand(ToJsonElement(CreateValidGrid())),
+            new StartSudokuSolveCommand(ToJsonElement(CreateValidGrid()), null),
             CancellationToken.None));
 
         Assert.Equal(SolveSudokuErrorTypes.SolveSessionEnqueueFailed, exception.ErrorType);

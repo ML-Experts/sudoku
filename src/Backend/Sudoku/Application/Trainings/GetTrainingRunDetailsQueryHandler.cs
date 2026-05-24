@@ -12,17 +12,20 @@ public sealed class GetTrainingRunDetailsQueryHandler
     private const string DatasetMetadataMissingWarning = "processed_dataset_metadata_missing";
 
     private readonly ITrainingRunsGateway _trainingRunsGateway;
+    private readonly ITrainingRunCancellationRecovery _trainingRunCancellationRecovery;
     private readonly IModelsRegistryGateway _modelsRegistryGateway;
     private readonly IProcessedDatasetsGateway _processedDatasetsGateway;
     private readonly ITrainingReportsGateway _trainingReportsGateway;
 
     public GetTrainingRunDetailsQueryHandler(
         ITrainingRunsGateway trainingRunsGateway,
+        ITrainingRunCancellationRecovery trainingRunCancellationRecovery,
         IModelsRegistryGateway modelsRegistryGateway,
         IProcessedDatasetsGateway processedDatasetsGateway,
         ITrainingReportsGateway trainingReportsGateway)
     {
         _trainingRunsGateway = trainingRunsGateway;
+        _trainingRunCancellationRecovery = trainingRunCancellationRecovery;
         _modelsRegistryGateway = modelsRegistryGateway;
         _processedDatasetsGateway = processedDatasetsGateway;
         _trainingReportsGateway = trainingReportsGateway;
@@ -36,6 +39,7 @@ public sealed class GetTrainingRunDetailsQueryHandler
                       ?? throw new InvalidOperationException(
                           "GetTrainingRunDetailsQuery must be validated before handler execution.");
 
+        await _trainingRunCancellationRecovery.RecoverAsync(cancellationToken);
         var metadata = await _trainingRunsGateway.GetByRunNameAsync(runName, cancellationToken)
                        ?? throw new TrainingRunDetailsNotFoundException(runName);
 
@@ -68,6 +72,7 @@ public sealed class GetTrainingRunDetailsQueryHandler
                     AugmentationProfileName: metadata.AugmentationProfileName,
                     BenchmarkName: metadata.BenchmarkName,
                     Seed: metadata.Seed,
+                    EffectiveParameters: metadata.EffectiveParameters,
                     SourceRevision: metadata.SourceRevision),
                 Progress: metadata.Progress,
                 Report: report,

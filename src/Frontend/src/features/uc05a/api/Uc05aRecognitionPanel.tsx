@@ -5,6 +5,9 @@ import { RecognitionProgressPanel } from "./RecognitionProgressPanel";
 type Uc05aRecognitionPanelProps = {
   selectedProcessName: string | null;
   cellsGridAvailable: boolean;
+  parameterOverrideCount: number;
+  parametersValid: boolean;
+  parameterErrorCount: number;
   state: RecognitionSessionState;
   progress: RecognitionProgress;
   canStartRecognition: boolean;
@@ -18,6 +21,9 @@ type Uc05aRecognitionPanelProps = {
 export function Uc05aRecognitionPanel({
   selectedProcessName,
   cellsGridAvailable,
+  parameterOverrideCount,
+  parametersValid,
+  parameterErrorCount,
   state,
   progress,
   canStartRecognition,
@@ -36,6 +42,12 @@ export function Uc05aRecognitionPanel({
         i wysyla pojedyncze komorki do <code>PUT /api/sudoku/cells/inference</code>.
       </p>
 
+      <p className="muted-copy">
+        {parameterOverrideCount > 0
+          ? `Biezace rozpoznanie wysle ${parameterOverrideCount} aktywne override'y z panelu UC-14.`
+          : "Biezace rozpoznanie wysle domyslny snapshot parametrow UC-14."}
+      </p>
+
       {selectedProcessName ? (
         <p className="muted-copy">
           Aktywny przyklad: <code>{selectedProcessName}</code>
@@ -45,6 +57,13 @@ export function Uc05aRecognitionPanel({
       {!cellsGridAvailable ? (
         <p className="status-banner status-loading">
           Najpierw zakoncz `UC-04`, aby uzyskac siatke komorek 9x9.
+        </p>
+      ) : null}
+
+      {!parametersValid ? (
+        <p className="status-banner status-error">
+          Panel parametrow zawiera {parameterErrorCount} bledy. Popraw je, zanim
+          uruchomisz rozpoznanie.
         </p>
       ) : null}
 

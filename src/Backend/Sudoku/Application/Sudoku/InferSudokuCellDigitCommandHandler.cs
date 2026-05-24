@@ -50,7 +50,17 @@ public sealed class InferSudokuCellDigitCommandHandler
         var image = new ImageContent(
             MimeType: request.MimeType,
             Content: imageBytes);
-        var mlRequest = BuildMlRequest(image, resolvedActiveModel);
+        var mlRequest = BuildMlRequest(
+            image,
+            resolvedActiveModel,
+            request.EmptyCellDarkPixelRatioThreshold,
+            request.EmptyCellInnerMarginRatio,
+            request.CenterAreaRatio,
+            request.MinComponentAreaRatio,
+            request.LineArtifactMinSpanRatio,
+            request.LineArtifactMaxThicknessRatio
+        );
+
         var mlResult = await _mlImageProcessingGateway.InferDigitAsync(mlRequest, cancellationToken);
 
         DigitInferenceResult result;
@@ -70,18 +80,30 @@ public sealed class InferSudokuCellDigitCommandHandler
 
     private InferSudokuCellDigitMlRequestDto BuildMlRequest(
         ImageContent image,
-        ResolvedActiveModelDto resolvedActiveModel)
+        ResolvedActiveModelDto resolvedActiveModel,
+        double emptyCellDarkPixelRatioThreshold,
+        double emptyCellInnerMarginRatio,
+        double centerAreaRatio,
+        double minComponentAreaRatio,
+        double lineArtifactMinSpanRatio,
+        double lineArtifactMaxThicknessRatio
+    )
     {
         return new InferSudokuCellDigitMlRequestDto(
             Image: image,
             ActiveModel: new InferSudokuCellDigitMlActiveModelDto(
-                Name: resolvedActiveModel.Manifest.Name,
-                ManifestPath: resolvedActiveModel.ManifestPath,
-                PrimaryArtifactPath: resolvedActiveModel.PrimaryArtifactPath,
-                InputProfile: resolvedActiveModel.Manifest.InputProfile),
+                resolvedActiveModel.Manifest.Name,
+                resolvedActiveModel.ManifestPath,
+                resolvedActiveModel.PrimaryArtifactPath,
+                resolvedActiveModel.Manifest.InputProfile),
             ResolvedConfiguration: new InferSudokuCellDigitMlResolvedConfigurationDto(
-                InferenceProfileName: _options.InferenceProfileName,
-                EmptyCellInnerMarginRatio: _options.EmptyCellInnerMarginRatio,
-                EmptyCellDarkPixelRatioThreshold: _options.EmptyCellDarkPixelRatioThreshold));
+                _options.InferenceProfileName,
+                emptyCellInnerMarginRatio,
+                emptyCellDarkPixelRatioThreshold,
+                centerAreaRatio,
+                minComponentAreaRatio,
+                lineArtifactMinSpanRatio,
+                lineArtifactMaxThicknessRatio
+            ));
     }
 }
