@@ -18,7 +18,7 @@ Na zajęciach wymagany jest projekt z elementem Machine Learning w Pythonie. Tem
 
 ### 3) Cele projektu
 - **G1 (funkcjonalny)**: Rozpoznanie planszy Sudoku z obrazu i zbudowanie stanu gry jako macierzy 9×9.
-- **G2 (ML)**: Rozpoznanie cyfr 1–9 (oraz/lub wykrycie pustych pól) z użyciem sieci neuronowej.
+- **G2 (ML)**: Rozpoznanie cyfr `1–9` z użyciem sieci neuronowej oraz wykrycie pustych pól heurystyką opartą o centralny foreground komórki po binaryzacji.
 - **G3 (solver)**: Poprawne rozwiązanie sudoku metodą backtrackingu.
 - **G4 (output)**: Wygenerowanie obrazu wynikowego z naniesionymi cyframi rozwiązania na planszę.
 - **G5 (ewaluacja)**: Raport jakości (confusion matrix, accuracy, precision, recall, F1) + porównanie podejść (model własny vs transfer learning).
@@ -76,7 +76,7 @@ Uwaga: w zakresie pozostaje wyłącznie prosta bramka administracyjna oparta o j
 - **FR-01**: System przyjmuje obraz sudoku (jpg/png) z UI i przekazuje go do pipeline’u.
 - **FR-02**: System wykrywa obszar planszy i wykonuje korekcję perspektywy (widok z góry).
 - **FR-03**: System dzieli planszę na 81 pól i przygotowuje dane wejściowe dla modelu (np. 28×28, normalizacja 0–1).
-- **FR-04**: System klasyfikuje zawartość pól (cyfra 1–9 lub puste).
+- **FR-04**: System rozpoznaje zawartość pól jako `cyfra 1–9` albo `puste`, przy czym pustą komórkę wykrywa przed klasyfikacją modelową na podstawie foregroundu w centralnym obszarze zbinaryzowanej komórki.
 - **FR-05**: System buduje macierz 9×9 reprezentującą stan sudoku.
 - **FR-06**: System rozwiązuje sudoku algorytmem backtrackingu.
 - **FR-07**: System generuje obraz wynikowy z naniesionymi cyframi rozwiązania.
@@ -98,10 +98,12 @@ Uwaga: w zakresie pozostaje wyłącznie prosta bramka administracyjna oparta o j
 - **FR-23**: Dla wyboru `mix` system wykonuje automatyczny split do `train` / `val` / `test` zgodnie z polityką projektu; dla jawnego wyboru jednego lub wielu splitów zapisuje dane do wskazanych partycji bez dublowania tej samej próbki między splitami.
 - **FR-24**: System udostępnia listę przygotowanych zestawów `.npz` oraz listę wpisów rejestru modeli z capability do treningu i/lub inferencji, aby użytkownik mógł uruchomić trening i później wybrać aktywny model.
 - **FR-25**: System uruchamia trening na podstawie wybranego modelu z rejestru i wybranego zestawu `.npz`, utrzymuje dokładnie jeden aktywny run jednocześnie, pozwala anulować aktywny run, publikuje postęp przez kanał `SignalR` po stronie Backendu zasilany zdarzeniami z `ML`, a po zakończeniu zapisuje model wynikowy jako nowy wpis rejestru oraz raport treningu. Brakujący albo uszkodzony raport nie unieważnia automatycznie modelu, jeśli artefakty inferencyjne są kompletne.
+- W `MVP` domyślny profil treningowy wspiera do `20` epok, zapis checkpointów po każdej epoce i wybór najlepszego checkpointu walidacyjnego jako finalnego artefaktu modelu; model z ostatniej epoki nie jest automatycznie uznawany za wynikowy.
 - **FR-26**: Rejestr modeli jest utrzymywany jako katalog `models/registry`, gdzie każdy wpis modelu jest osobnym katalogiem `{modelName}` zawierającym obowiązkowy manifest `model.json` oraz katalog `artifacts/` z artefaktami technicznymi modelu.
 - **FR-27**: System obsługuje model bootstrap dodany ręcznie do rejestru bez powiązanego `runName`; taki wpis nadal musi mieć pełny manifest `model.json` i może zostać użyty jako model bazowy do treningu albo jako aktywny model inferencyjny.
 - **FR-28**: System utrzymuje aktywny model inferencyjny przez lekki plik wskaźnikowy w `models/active` (np. `inference.json`) wskazujący wpis z `models/registry`, bez kopiowania całego katalogu modelu przy każdym przełączeniu.
 - **FR-29**: System zapisuje relację między runem treningowym, modelem wynikowym i raportami tak, aby można było odtworzyć pochodzenie modelu oraz porównać wyniki na wspólnym benchmarku.
+- **FR-30**: System udostępnia kontekstowy panel parametrów funkcjonalnych renderowany w `UI` po przełączeniu na odpowiednią zakładkę; panel jest umieszczony poniżej głównego menu po lewej stronie, a jego pola odpowiadają funkcjonalności aktualnej zakładki. Wartości domyślne pozostają zgodne z obecnym zachowaniem systemu, ale użytkownik może je nadpisać przed wysłaniem żądania do istniejącego endpointu.
 
 ### 8) Historyjki (User Stories) + kryteria akceptacji
 Backlog jest podzielony na 4 obszary (strumienie prac):
@@ -161,6 +163,7 @@ Uwaga organizacyjna:
     - Workflow korzysta z wcześniej przygotowanego środowiska serwerowego opisanego w `INF-03` oraz z ustalonej konfiguracji wdrożeniowej po stronie serwera.
     - Workflow wdrożeniowy i aplikacje korzystają z konfigurowalnych ścieżek oraz ustawień środowiskowych; deploy nie zakłada hardcodowanych lokalizacji danych w kodzie.
     - Workflow backendu generuje `appsettings.production.json` z dokładnymi, absolutnymi ścieżkami runtime do katalogów używanych przez workflow datasetów, co najmniej do folderów `boards`, `digits`, `processed` i `tmp/datasets`; analogicznie `appsettings.local.json` również przechowuje dokładne, absolutne ścieżki dla środowiska lokalnego.
+    - Parametry funkcjonalne przeniesione do `UI` przez `UC-14` nie są utrzymywane ani nadpisywane przez workflow GitHub; workflow pozostawia wyłącznie konfigurację środowiskową i infrastrukturalną potrzebną do uruchomienia systemu.
     - Konfiguracja uruchomieniowa serwera dla backendu wskazuje środowisko `production` przez `SUDOKU_ENVIRONMENT=production`, tak aby runtime załadował overlay `appsettings.production.json`.
     - Sekrety/klucze są trzymane bezpiecznie (np. secrets w systemie CI), a proces jest odtwarzalny i opisany.
 
@@ -186,6 +189,10 @@ Uwaga organizacyjna:
     - Użytkownik z poziomu FE może uruchomić test i otrzymać potwierdzenie działania pełnej ścieżki `FE -> BE -> ML`.
     - W przypadku błędu system zwraca czytelną informację diagnostyczną, czy problem dotyczy FE, BE czy ML.
     - Historyjka może służyć jako smoke test po wdrożeniu na serwer lub po zmianach integracyjnych.
+
+#### EXP-04 — „Testowa inferencja pojedynczej cyfry”
+- Poza zakresem produktu dodano eksperymentalny endpoint ML `GET /ml/test/inteference/{name}`, który ładuje obrazek z katalogu przykładów, wykonuje preprocessing komórki do `28x28`, używa aktywnego modelu z `models/active/inference.json` i zwraca rozpoznaną cyfrę jako `int`.
+- Eksperyment jest udokumentowany w `.ai/feature/exp/exp_plan_implementation_test_inference.md` i służy wyłącznie do lokalnej diagnostyki modelu po treningu.
 
 #### UC-01 — „Dodaj plik sudoku do przykładów (examples)”
 - **FE**:
@@ -240,17 +247,20 @@ Uwaga organizacyjna:
     - System zwraca obraz po korekcji perspektywy albo czytelny błąd.
     - System zwraca planszę podzieloną na siatkę 9×9 komórek albo czytelny błąd.
 
-#### UC-05 — „Rozwiąż wybrany plik przez system”
-- **FE**:
-  - Akcja „Rozwiąż” + prezentacja wyniku: rozpoznany grid, rozwiązany grid, overlay.
-- **BE**:
-  - Endpoint rozwiązania dla przykładu (np. `POST /api/examples/{name}/solve`) albo reuse jednego endpointu solve z parametrami.
-  - Przekazanie żądania do serwisu ML i zwrot odpowiedzi do FE.
-- **ML**:
-  - End-to-end: preprocess → rozpoznanie cyfr → grid → solver → overlay.
-  - Zwracany kontrakt: `recognized_grid`, `solved_grid`, `overlay_image_base64` + `warnings/errors`.
-  - **AC**:
-    - Dla przykładowych obrazów system znajduje rozwiązanie lub zwraca czytelny błąd.
+#### UC-05 — „Rozpoznaj cyfry, rozwiąż sudoku i zaprezentuj wynik”
+- **UC-05A — Inferencja pojedynczej cyfry / komórki**:
+  - System przyjmuje obraz komórki jako `ImageApiEntry` (`mimeType` + `base64`) i zwraca minimalną odpowiedź `{ "digit": 1..9 | null }`, gdzie `null` oznacza brak rozpoznanej cyfry / pustą komórkę.
+  - Pusta komórka jest wykrywana przed klasyfikacją modelową na zbinaryzowanym obrazie z odwróconymi kolorami przez analizę centralnego obszaru komórki: komórkę dzielimy na 4 ćwiartki, a następnie dla każdej ćwiartki bierzemy jej wewnętrzną ćwiartkę skierowaną do środka; z tych 4 fragmentów powstaje mały obszar centralny. Jeśli udział foregroundu w tym obszarze nie przekracza progu, system zwraca `digit = null`; próg oraz wybrane parametry tej heurystyki mogą być później podawane przez `UI` w `UC-14`, ale zawsze są walidowane i domykane po stronie `BE`.
+  - Eksperymentalny endpoint z `EXP-04` jest tylko źródłem wniosków technicznych; docelowe API produktu przechodzi przez Backend.
+- **UC-05B — Backtracking dla rozpoznanego gridu**:
+  - System przyjmuje grid 9×9 z cyframi i pustymi polami, waliduje poprawność wejścia i zwraca rozwiązany grid albo czytelny błąd `invalid` / `unsolvable`.
+- **UC-05C — Przypisanie cyfr do komórek w UI**:
+  - System prezentuje rozpoznane i rozwiązane cyfry w siatce 9×9; wariant podstawowy może umieszczać cyfry jako tekst w komórkach.
+- **UC-05D — Graficzne naniesienie cyfr na obraz**:
+  - System docelowo generuje obraz wynikowy z naniesionymi cyframi; wariant podstawowy dotyczy obrazu po korekcji perspektywy, a wariant ambitny oryginalnego zdjęcia wejściowego.
+- **AC**:
+  - Użytkownik może przejść od obrazu komórek lub planszy do rozpoznanego gridu, rozwiązania i czytelnej prezentacji wyniku.
+  - Brak aktywnego modelu, błąd inferencji, niepoprawny grid albo brak rozwiązania zwracają czytelny błąd zamiast niepełnego wyniku.
 
 #### UC-06 — „Uruchom trening na przygotowanym zestawie `.npz`”
 - **FE**:
@@ -269,14 +279,16 @@ Uwaga organizacyjna:
   - Utworzenie plikowego rekordu treningu / eksperymentu (np. `trainings/metadata/{runName}.json`) i zapamiętanie pełnej konfiguracji (model bazowy, zestaw `.npz`, seed, profil treningu, profil augmentacji, `sourceRevision` / commit / wersja); w `MVP` pole `sourceRevision` istnieje, ale przyjmuje wartość `null`, a później może zostać podpięte pod wersję kodu lub konfiguracji. Rekord przechowuje także status, `producedModelName` oraz referencje do artefaktów potrzebnych UI.
   - Wsparcie zarówno dla wpisów bootstrap bez historii `trainings/*`, jak i dla modeli wcześniej wytrenowanych w systemie.
   - W `MVP` `BE` rozwiązuje konfigurację runu po swojej stronie; `FE` wysyła tylko `baseModelName` i `processedDatasetName`, a `trainingMode` jest przypisywane jako `fineTuning`.
-  - W `MVP` `trainingProfileName`, `augmentationProfileName`, `benchmarkName` i `seed` są rozwiązywane przez `BE` na podstawie własnej polityki i `appsettings.{environment}.json`; profile nie są dziedziczone z modelu bazowego i nie są jeszcze podawane przez użytkownika.
-  - W `MVP` system wspiera dokładnie jeden preset treningowy i jeden preset augmentacji po stronie `BE`; `FE` nie pobiera katalogu presetów i nie przekazuje żadnych identyfikatorów presetów w `POST /api/trainings`.
+  - W bazowym `MVP` `trainingProfileName`, `augmentationProfileName`, `benchmarkName` i `seed` są rozwiązywane przez `BE` na podstawie własnej polityki i `appsettings.{environment}.json`; profile nie są dziedziczone z modelu bazowego i nie są jeszcze podawane przez użytkownika. Wdrożenie `UC-14` ma przenieść wybrany, jawnie dozwolony zestaw parametrów treningu do `UI`, bez oddawania `FE` kontroli nad ścieżkami, sekretami i konfiguracją infrastrukturalną.
+  - W bazowym `MVP` system wspiera dokładnie jeden preset treningowy i jeden preset augmentacji po stronie `BE`; `FE` nie pobiera katalogu presetów i nie przekazuje identyfikatorów presetów w `POST /api/trainings`. Po wdrożeniu `UC-14` `FE` może przekazywać tylko te parametry treningu, które zostały przewidziane dla tego formularza i są walidowane przez `BE`.
   - Jeśli start do `ML` nie zostanie potwierdzony, zanim `BE` odpowie do `FE`, `BE` robi rollback prowizorycznego rekordu runu; przy synchronicznym błędzie walidacyjnym albo kontraktowym z `ML` przepuszcza ten sam kod i body, a dla niedostępności albo timeoutu zwraca `503` albo `504`.
   - W MVP zgodność modelu bazowego z datasetem oznacza dokładną równość `inputProfile` wpisu rejestru i `preprocessingProfile` gotowego zestawu `.npz`; walidację wykonuje `BE` przed wywołaniem `ML`.
+  - Po sukcesie runu `BE` finalizuje kompletny wpis modelu wynikowego w `models/registry`, gotowy do późniejszego wyboru jako aktywny model inferencyjny w `UC-10`; `UC-06` nie przełącza aktywnego modelu automatycznie.
   - Po zestawieniu albo odtworzeniu kanału `SignalR` Backend wysyła `snapshot` będący aktualnym publicznym stanem runu znanym przez `BE`; jeśli run zdążył się już zakończyć, `snapshot` może być terminalny i po jego dostarczeniu kanał nie musi pozostawać otwarty.
 - **ML**:
   - Job treningowy bazujący na jednym przygotowanym artefakcie `.npz`; preprocessing i split są wykonane wcześniej podczas przygotowania datasetu.
   - Trening wykorzystuje wpis modelu bazowego wskazany przez Backend przez jego manifest i główny artefakt oraz zapisuje końcowe artefakty modelu do docelowego katalogu `models/registry/{producedModelName}/artifacts`, a checkpointy oraz raport treningu do skonfigurowanych katalogów `trainings/*` i `tmp`.
+  - W `MVP` domyślny profil treningowy wykonuje maksymalnie `20` epok; po każdej epoce runner zapisuje checkpoint i śledzi metrykę walidacyjną, a finalny artefakt modelu powstaje z najlepszego checkpointu walidacyjnego, a nie z ostatniej epoki.
   - Finalna ewaluacja porównawcza modeli odbywa się na wspólnym, stałym benchmarku / secie testowym Sudoku.
   - Zapis artefaktów technicznych (model/checkpoint + metryki + raporty) odbywa się wyłącznie w skonfigurowanych katalogach systemowych; `BE` przekazuje `ML` resolved ścieżki wejścia i wyjścia, a `ML` raportuje wynik i referencje do Backendu potrzebne do finalizacji `model.json`.
   - `ML` raportuje postęp, anulowanie i stan końcowy do `BE` przez wewnętrzny endpoint statusowy; `FE` nie łączy się z `ML` bezpośrednio.
@@ -288,7 +300,8 @@ Uwaga organizacyjna:
     - System dopuszcza tylko jeden aktywny run jednocześnie; drugi start nie tworzy kolejki.
     - Jeśli drugi start trafi na już istniejący aktywny run, `FE` może odzyskać jego dane przez endpoint aktywnego runu i przejść do monitoringu.
     - Aktywny run może zostać anulowany i dopiero wtedy można uruchomić kolejny run.
-    - W `MVP` `FE` nie parametryzuje presetów treningowych; system używa jednego stałego presetu treningowego i jednego stałego presetu augmentacji rozwiązywanych po stronie `BE`.
+    - W bazowym `MVP` `FE` nie parametryzuje presetów treningowych; system używa jednego stałego presetu treningowego i jednego stałego presetu augmentacji rozwiązywanych po stronie `BE`. Po realizacji `UC-14` wybrane parametry runu mogą być sterowane z `UI` w granicach opisanych przez `BE`.
+    - W `MVP` domyślny preset treningowy wspiera do `20` epok i wybór najlepszego checkpointu walidacyjnego jako finalnego modelu wynikowego.
     - Po anulowaniu system zachowuje `trainings/metadata/{runName}.json` ze statusem `cancelled`, ale usuwa techniczne artefakty runtime tego runu.
     - Po `failed` system zachowuje `trainings/metadata/{runName}.json` ze statusem `failed`, ale usuwa techniczne artefakty runtime tego runu analogicznie do `cancelled`.
     - Run tworzy wpis treningu widoczny w liście (UC-08), a run zakończony sukcesem tworzy dodatkowo docelowy wpis modelu wynikowego w rejestrze.
@@ -302,6 +315,7 @@ Uwaga organizacyjna:
 #### UC-07 — „Pokazuj postęp treningu i informuj o zakończeniu”
 - **FE**:
   - Ekran postępu (np. procent/epoki/ETA) + status końcowy (sukces/porażka), aktualizowany w czasie rzeczywistym przez `SignalR`, z opcją anulowania aktywnego runu.
+  - Historyjka rozwija prezentację i ergonomię monitoringu z `UC-06`, ale nie zmienia identyfikatorów runu ani nie przełącza aktywnego modelu.
 - **BE**:
   - Kanał `SignalR` do `FE` publikujący zdarzenia postępu treningu i status końcowy.
   - Po zestawieniu połączenia kanał zwraca snapshot aktualnego stanu runu, a kolejne eventy pochodzą z eventów `ML` zapisanych wcześniej w rekordzie `BE`; `FE` renderuje najświeższy stan i może ignorować spóźnione eventy z niższym `sequence`, bez oczekiwania na kompletność numeracji.
@@ -316,6 +330,7 @@ Uwaga organizacyjna:
   - Widok listy treningów (status, data, krótki opis: model / dataset / tryb treningu) oraz powiązanych modeli, w tym wpisów bootstrap i modeli wytrenowanych w systemie.
 - **BE**:
   - Endpoint listujący treningi i modele (np. `GET /api/trainings`, `GET /api/models/registry`) na podstawie rekordów systemowych utrzymywanych przez Backend oraz manifestów modeli w rejestrze.
+  - Jeśli część endpointów listujących powstała wcześniej w `UC-06`, `UC-08` rozwija przede wszystkim widok katalogowy, powiązania `run -> model` i czytelne statusy modeli oraz treningów.
 - **ML**:
   - Dostarczenie skróconych danych technicznych lub referencji do artefaktów potrzebnych do aktualizacji rekordów widocznych w Backendzie.
   - **AC**:
@@ -327,6 +342,7 @@ Uwaga organizacyjna:
   - Widok szczegółów treningu (parametry, datasety źródłowe, profil preprocessingu/augmentacji, wykresy/metryki, confusion matrix) wraz z referencją do modelu wynikowego i modelu bazowego.
 - **BE**:
   - Endpoint szczegółów (np. `GET /api/trainings/{runName}`) zwracający konfigurację treningu, status, metryki, `producedModelName`, `baseModelName`, `parentModelName` / `sourceRunName` jeśli istnieją, oraz referencje do artefaktów raportu.
+  - Jeśli podstawowy odczyt runu istnieje już po `UC-06`, `UC-09` rozwija go o raport, benchmark, metryki i dane potrzebne do porównania modeli.
 - **ML**:
   - Generowanie i zapis metryk/raportu ewaluacyjnego (artefakty do pobrania) oraz danych potrzebnych do porównania treningów na wspólnym benchmarku.
   - **AC**:
@@ -406,13 +422,55 @@ Uwaga organizacyjna:
     - Po podaniu poprawnego hasła użytkownik otrzymuje token i może uruchomić przygotowanie datasetu oraz trening.
     - Mechanizm jest świadomie prosty i projektowy; nie zastępuje pełnego systemu tożsamości.
 
+#### UC-14 — „Parametryzuj funkcjonalności z poziomu UI”
+- **FE**:
+  - W każdej wspieranej zakładce aplikacji renderowany jest kontekstowy panel parametrów umieszczony poniżej głównego menu po lewej stronie.
+  - Zmiana aktywnej zakładki powoduje zmianę zawartości panelu parametrów dla danego kontekstu, np. `solve` albo `train`.
+  - Użytkownik może zmienić wybrane parametry funkcjonalne przed uruchomieniem akcji, bez ręcznej edycji plików konfiguracyjnych.
+- **BE**:
+  - Parametry przychodzą razem z istniejącymi żądaniami biznesowymi; `BE` nie wprowadza osobnego endpointu do pobierania albo zapamiętywania parametrów.
+  - Dla `UC-05A` parametry heurystyki pustej komórki `emptyCellForegroundThresholdPercent` i `emptyCellInnerWindowPercent` są przekazywane przez istniejący `PUT /api/sudoku/cells/inference`.
+  - Dla `UC-05E` parametr `solverStepDelayMs` jest przekazywany przez istniejący `POST /api/sudoku/solve`.
+  - `BE` waliduje parametry, domyka brakujące wartości domyślne i zapisuje użyte `effectiveParameters` w rekordzie sesji / runu.
+  - Parametry infrastrukturalne i środowiskowe pozostają poza zakresem `UI`.
+- **ML**:
+  - `ML` przyjmuje od `BE` resolved parametry inferencji i treningu w ramach istniejących kontraktów wewnętrznych.
+  - Dla `UC-05A` resolved parametry heurystyki pustej komórki trafiają z `BE` do istniejącego `PUT /ml/cells/inference`.
+  - `solverStepDelayMs` pozostaje parametrem solvera live po stronie `BE` i nie musi być przekazywany do `ML`, jeśli opóźnienie kroków backtrackingu jest realizowane przez `BE`.
+  - `ML` nie zgaduje wartości z `UI` samodzielnie i nie staje się ich źródłem prawdy.
+  - **AC**:
+    - Po przełączeniu zakładki `UI` pokazuje odpowiedni zestaw parametrów dla danej funkcjonalności.
+    - Panel parametrów jest umieszczony poniżej głównego menu po lewej stronie i zmienia zawartość zależnie od aktywnego kontekstu.
+    - Użytkownik może zmienić wybrane parametry `UC-05` i `UC-06` przed uruchomieniem akcji, a system użyje ich tylko wtedy, gdy przejdą walidację `BE`.
+    - Parametry niewysłane przez `FE` przyjmują wartości domyślne zgodne z aktualnym zachowaniem systemu.
+    - Szczegóły kontraktów, migracji z `appsettings` i mapowania parametrów na endpointy są utrzymywane w rozszerzonej dokumentacji `@.ai/feature/uc-14-overview.md`.
+
+#### UC-15 — „Spowolnij live solve stałym opóźnieniem kroku”
+- **FE**:
+  - Przy uruchomieniu `live solve` Frontend przekazuje w istniejącym `POST /api/sudoku/solve` parametr `solverStepDelayMs`.
+  - W obecnym etapie parametr nie jest edytowalny z poziomu `GUI`; `FE` ustawia go jako wartość zahardcodowaną w warstwie frontendu i zawsze przekazuje do endpointu solve.
+  - Użytkownik nadal obserwuje tę samą sesję `SignalR` z `UC-05E`, ale kolejne zmiany planszy są celowo rozłożone w czasie, aby można było śledzić wpisania i cofnięcia backtrackingu.
+- **BE**:
+  - `BE` przyjmuje `solverStepDelayMs` w istniejącym kontrakcie `POST /api/sudoku/solve`, waliduje zakres i zapisuje resolved wartość w `effectiveParameters` sesji solve.
+  - Resolved wartość jest przekazywana przez kolejne warstwy i metody odpowiedzialne za live solve aż do miejsca, w którym wykonywany jest rzeczywisty `sleep` między kolejnymi krokami backtrackingu.
+  - Opóźnienie dotyczy sekwencji postępu emitowanych podczas pracy solvera i nie wymaga nowego endpointu ani osobnego kanału transportowego.
+- **ML**:
+  - — (brak zmian; solver live pozostaje odpowiedzialnością `BE`, więc parametr opóźnienia nie musi być przekazywany do `ML`).
+  - **AC**:
+    - Po uruchomieniu `live solve` użytkownik widzi kolejne kroki backtrackingu wolniej niż dotąd, dzięki czemu może śledzić zmiany planszy.
+    - `GUI` nie pokazuje jeszcze pola formularza do edycji `solverStepDelayMs`; wartość jest tymczasowo sterowana zahardcodowaną konfiguracją `FE`.
+    - `POST /api/sudoku/solve` pozostaje jedynym publicznym endpointem startującym sesję solve i przenosi parametr opóźnienia bez dodawania nowego endpointu pomocniczego.
+    - Wartość opóźnienia jest przekazywana od warstwy API do miejsca wykonania `sleep`, a nie odczytywana lokalnie z przypadkowej konfiguracji w środku implementacji.
+    - `UC-15` jest etapem przejściowym przed pełną parametryzacją z `UC-14`; docelowo to samo pole może zostać wystawione użytkownikowi w panelu parametrów.
+
 ### 9) Wymagania niefunkcjonalne (NFR)
 - **NFR-01 (reprodukowalność)**: trening i inferencja mają być uruchamialne skryptami/komendami opisanymi w README.
-- **NFR-02 (czas odpowiedzi)**: inferencja „solve-from-image” powinna zakończyć się w rozsądnym czasie na CPU (np. < 5 s dla typowego obrazu) — cel orientacyjny.
+- **NFR-02 (czas odpowiedzi)**: ścieżka rozpoznawania i rozwiązania sudoku z obrazu powinna zakończyć się w rozsądnym czasie na CPU (np. < 5 s dla typowego obrazu) — cel orientacyjny.
 - **NFR-03 (czytelność)**: kod podzielony na moduły (vision / ml / solver / render) oraz warstwę interfejsu (API + web UI).
 - **NFR-04 (odporność)**: system radzi sobie z typowymi zakłóceniami (cień, lekka perspektywa), a w razie porażki zwraca czytelny błąd.
 - **NFR-05 (porównywalność eksperymentów)**: dla porównań modeli utrzymujemy wspólny, niezmienny benchmark testowy Sudoku oraz zapisujemy pełną konfigurację treningu.
 - **NFR-06 (konfigurowalność)**: ścieżki do danych, modeli, przykładów, benchmarków, katalogów roboczych i URL-e usług są konfigurowane przez `appsettings*.json`, `.env` i zmienne środowiskowe, a nie przez hardcodowane wartości w kodzie.
+- **NFR-07 (jedno źródło parametrów funkcjonalnych)**: parametry funkcjonalne wystawione użytkownikowi przez `UC-14` mają docelowo pochodzić z żądania `UI`; `appsettings`, `.env` i workflow wdrożeniowy nie mogą pozostać dla nich równoległym źródłem prawdy po zakończeniu migracji.
 
 ### 10) Założenia i ograniczenia
 - ML (trening + inferencja) jest w Pythonie.
@@ -420,6 +478,8 @@ Uwaga organizacyjna:
 - Dane treningowe: preferowane publiczne (np. Kaggle) + opcjonalnie MNIST/EMNIST jako baseline / pretraining; dla źródeł `digit` etykiety `0..9` mogą być legalną częścią baseline'u / pretrainingu, natomiast finalna inferencja Sudoku pozostaje semantycznie rozpoznawaniem cyfr `1..9` oraz pustych pól. Finalne porównania jakości odnosimy do benchmarku Sudoku.
 - W UI dopuszczamy możliwość ręcznej korekty rozpoznanego gridu (zmniejsza ryzyko błędów CV/ML na demo).
 - Ścieżki do `data`, `examples`, `models`, `benchmark`, `tmp` oraz adresy integracyjne BE ↔ ML są konfigurowalne i nie powinny być hardcodowane w kodzie.
+- Parametry funkcjonalne i eksperymentalne mogą być podawane z `UI` w ramach istniejących requestów biznesowych; wartości infrastrukturalne i środowiskowe pozostają poza zakresem edycji użytkownika.
+- Wdrożenie `UC-14` ma przebieg migracyjny: najpierw implementacja `UI` przejmuje jako domyślne obecne wartości znane z konfiguracji, a po ustabilizowaniu tej ścieżki te same parametry są usuwane z `appsettings` i workflow GitHub.
 
 ### 11) Architektura (wariant ambitny)
 #### Komponenty
@@ -448,6 +508,7 @@ Uwaga organizacyjna:
 - **Backend** korzysta z `appsettings.json` / `appsettings.{Environment}.json` z override przez zmienne środowiskowe.
 - **Serwis ML** korzysta z analogicznej konfiguracji środowiskowej `local` / `production`; jeśli techniczny loader `ML` używa `.env`, plik ten jest generowany z tych samych wartości środowiskowych co release'owe `appsettings.{Environment}.json`.
 - Podstawowa konfiguracja release (`appsettings.json`, `appsettings.{Environment}.json` oraz ewentualnie wygenerowane z nich `.env` dla warstwy `ML`) jest wersjonowana i dostarczana razem z release; sekrety i ewentualne lokalne override'y developerskie są wstrzykiwane poza kodem, np. przez zmienne środowiskowe lub CI/CD.
+- Parametry funkcjonalne sterowane przez `UI` nie powinny docelowo być utrzymywane w `appsettings`, `.env` ani generowane przez workflow release; po migracji pozostają tam wyłącznie wartości środowiskowe, integracyjne i bezpieczeństwa.
 - Przykładowy layout systemowy serwera może obejmować:
   - `/opt/sudoku/` — katalog aplikacji, release’ów i współdzielonych danych,
   - `/var/www/sudoku/fe` — aktywny frontend dla reverse proxy,
@@ -469,13 +530,19 @@ Uwaga organizacyjna:
 - **Frontend → Backend (C#)**: `POST /api/trainings/{runName}/cancel` — kooperacyjne anulowanie aktywnego runu; odpowiedź zwraca bieżący `status` dopasowanego runu albo `null` przy braku dopasowania oraz `requestDisposition`.
 - **Frontend → Backend (C#)**: `GET /api/trainings/{runName}` — szczegóły pojedynczego runu treningowego.
 - **Frontend → Backend (C#)**: `PUT /api/models/active` — ustawienie aktywnego modelu inferencyjnego przez aktualizację wskaźnika w `models/active`.
-- **Frontend → Backend (C#)**: `POST /api/solve-from-image` — przyjmuje obraz, zwraca JSON (kontrakt poniżej); endpoint publiczny dostępny także bez tokenu.
+- **Frontend → Backend (C#)**: `PUT /api/sudoku/cells/inference` — inferencja pojedynczej komórki Sudoku; request może przenosić parametry heurystyki pustego pola dla `UC-05A`.
+- **Frontend → Backend (C#)**: `POST /api/sudoku/solve` — start sesji live solve; request może przenosić parametr `solverStepDelayMs` dla `UC-05E`.
 - **Frontend ↔ Backend (C#)**: kanał `SignalR` dla zdarzeń treningu (np. `/ws/trainings/{runName}`) — postęp i status końcowy; kanał chroniony tym samym tokenem administracyjnym i zestawiany po `accessTokenFactory` lub równoważnym mechanizmie.
 - **Backend (C#) → Serwis ML (Python)**: `POST /ml/datasets/prepare` — przygotowanie jednego technicznego artefaktu `{name}.npz` na podstawie logicznych źródeł `name` + `type` oraz polityki splitu wyliczonej przez `BE`.
 - **Backend (C#) → Serwis ML (Python)**: `POST /ml/trainings` — start runu treningowego na jednym `.npz` z przekazaniem resolved ścieżek wejścia i wyjścia.
 - **Backend (C#) → Serwis ML (Python)**: `POST /ml/trainings/{runName}/cancel` — kooperacyjne anulowanie aktywnego runu.
 - **Serwis ML (Python) → Backend (C#)**: `POST /internal/ml/trainings/{runName}/events` — raportowanie postępu, anulowania, statusu końcowego i referencji do artefaktów.
-- **Backend (C#) → Serwis ML (Python)**: `POST /ml/solve-from-image` — przyjmuje obraz, zwraca JSON (ten sam kontrakt, bezpośrednio z ML).
+- **Backend (C#) → Serwis ML (Python)**: `PUT /ml/cells/inference` — inferencja pojedynczej komórki; `BE` przekazuje resolved parametry heurystyki pustego pola dla `UC-05A`.
+- W `UC-05` parametry z `UI` są przekazywane tylko przez istniejące requesty biznesowe:
+  - `PUT /api/sudoku/cells/inference` dla `emptyCellForegroundThresholdPercent` i `emptyCellInnerWindowPercent`,
+  - `POST /api/sudoku/solve` dla `solverStepDelayMs`.
+- W `UC-06` parametry z `UI` są przekazywane przez `POST /api/trainings`.
+- `BE` waliduje te parametry i domyka brakujące wartości przed wywołaniem solvera albo `ML`.
 
 ##### Przykład listy kandydatów datasetowych
 `GET /api/datasets/raw-candidates` zwraca listę rekordów logicznych:
@@ -546,6 +613,12 @@ Publiczny kontrakt odpowiedzi dla przygotowania datasetu `.npz` jest opisany w d
   - wycięcie / wyśrodkowanie cyfry w komórce, opcjonalne ignorowanie marginesów i czyszczenie pozostałości siatki,
   - standaryzacja obrazu cyfry do 28×28,
   - binaryzacja / normalizacja pikseli do [0, 1].
+- **Wykrycie pustej komórki w runtime inferencji**:
+  - detektor pracuje na obrazie już zbinaryzowanym i odwróconym, gdzie cyfra oraz resztki linii siatki stanowią foreground,
+  - komórka jest dzielona na 4 ćwiartki, a następnie z każdej ćwiartki wybierana jest jej wewnętrzna ćwiartka skierowana do środka komórki,
+  - suma tych 4 małych fragmentów tworzy obszar centralny używany do decyzji `empty` vs `digit`,
+  - jeśli udział foregroundu w obszarze centralnym nie przekracza progu konfiguracyjnego, system zwraca `digit = null` i nie uruchamia modelu,
+  - jeśli próg zostanie przekroczony, próbka trafia do klasyfikacji `1..9`.
 - **Augmentacje treningowe (opcjonalne / konfigurowalne)**:
   - rotacja ±10°,
   - przesunięcie,
@@ -563,8 +636,12 @@ Publiczny kontrakt odpowiedzi dla przygotowania datasetu `.npz` jest opisany w d
   - użytkownik wybiera jeden wpis modelu bazowego z katalogu rejestru modeli (np. produkcyjnie `/opt/sudoku/shared/models/registry`) oraz jeden przygotowany zestaw `.npz`,
   - po wejściu na ekran administracyjny `FE` może odzyskać aktywny run przez dedykowany endpoint i wrócić do monitoringu zamiast zawsze pokazywać pusty formularz,
   - system dopuszcza dokładnie jeden aktywny run jednocześnie; kolejny start nie tworzy kolejki, ale aktywny run można anulować,
+  - po realizacji `UC-14` `FE` może dodatkowo przekazać wybrane parametry runu z panelu kontekstowego, np. `epochCount`, `useBestCheckpoint`, `batchSize`, `learningRate`, `earlyStoppingPatience`, `freezeBaseLayers` i `randomSeed`,
   - Backend uruchamia trening, odbiera status z `ML` i publikuje postęp przez `SignalR`,
   - utrata połączenia `SignalR` po stronie `FE` nie zatrzymuje runu,
+  - w `MVP` domyślny profil treningowy wykonuje maksymalnie `20` epok,
+  - po każdej epoce runner zapisuje checkpoint i ocenia, czy bieżący stan jest najlepszy według metryki walidacyjnej,
+  - finalny artefakt modelu wynikowego jest budowany z najlepszego checkpointu walidacyjnego, a nie automatycznie z wag z ostatniej epoki,
   - po zakończeniu sukcesem zapisujemy wytrenowany model jako nowy wpis rejestru modeli oraz raport treningu w skonfigurowanych lokalizacjach systemowych,
   - jeśli run kończy się `failed`, Backend zachowuje rekord metadanych, ale czyści artefakty runtime analogicznie do `cancelled`,
   - jeśli jedynym problemem końcowym jest raport, ale model wynikowy jest kompletny, run kończy się sukcesem z ostrzeżeniem, a nie statusem `failed`.
@@ -578,7 +655,7 @@ Publiczny kontrakt odpowiedzi dla przygotowania datasetu `.npz` jest opisany w d
   - przełączenie aktywnego modelu aktualizuje wskaźnik, a nie kopiuje całego modelu,
   - wskaźnik może odnosić się zarówno do modelu bootstrap, jak i do modelu wytrenowanego w systemie.
 - **Pliki tworzone w workflow treningu**:
-  - po starcie runu Backend zapisuje `trainings/metadata/{runName}.json`, rezerwuje `producedModelName` i utrzymuje pełną konfigurację eksperymentu wraz z `sourceRevision`; w `MVP` temu polu przypisuje `null`, a docelowo może ono wskazywać wersję kodu albo konfiguracji użytej do treningu. Rekord zawiera też referencje do artefaktów raportu,
+  - po starcie runu Backend zapisuje `trainings/metadata/{runName}.json`, rezerwuje `producedModelName` i utrzymuje pełną konfigurację eksperymentu wraz z `sourceRevision`; w `MVP` temu polu przypisuje `null`, a docelowo może ono wskazywać wersję kodu albo konfiguracji użytej do treningu. Rekord zawiera też referencje do artefaktów raportu oraz `effectiveParameters` użyte do uruchomienia runu,
   - w trakcie runu `ML` zapisuje checkpointy i logi w `trainings/runs/{runName}` oraz raporty w `trainings/reports/{runName}`,
   - po sukcesie `ML` zapisuje artefakty modelu do `models/registry/{producedModelName}/artifacts`, a `BE` finalizuje `models/registry/{producedModelName}/model.json` i aktualizuje rekord runu,
   - po `failed` Backend zachowuje `trainings/metadata/{runName}.json` ze statusem końcowym `failed`, ale usuwa artefakty runtime runu z `trainings/runs`, `trainings/reports`, katalogu tymczasowego i częściowo utworzonego katalogu modelu wynikowego,
@@ -606,11 +683,13 @@ Publiczny kontrakt odpowiedzi dla przygotowania datasetu `.npz` jest opisany w d
 - **R8: dwa źródła prawdy dla datasetów, treningów i modeli w BE i ML** → Backend pozostaje systemowym `source of truth`, a ML zwraca statusy, metryki i referencje do artefaktów zamiast utrzymywać niezależny rejestr biznesowy.
 - **R9: hardcodowane ścieżki i ustawienia środowiskowe** → wszystkie ścieżki, URL-e integracyjne i ustawienia środowiskowe trzymamy w `appsettings*.json`, `.env` i ewentualnych override'ach zmiennych środowiskowych, a nie w kodzie.
 - **R10: zbyt uproszczona autoryzacja do operacji administracyjnych** → ograniczamy zakres chronionych operacji, utrzymujemy krótko żyjące tokeny, hasło trzymamy wyłącznie po stronie konfiguracji Backendu i traktujemy ten mechanizm jako etap przejściowy do demo/projektu.
+- **R11: zbyt duża swoboda parametrów z UI prowadzi do niestabilnych albo nieporównywalnych wyników** → `BE` waliduje zakresy, zapisuje `effectiveParameters` i utrzymuje wartości domyślne oraz limity bezpieczeństwa po swojej stronie.
+- **R12: pozostawienie tych samych parametrów jednocześnie w `UI`, `appsettings` i workflow GitHub tworzy niejawne konflikty i mylące zachowanie** → migrację wykonujemy dwuetapowo: najpierw przepisujemy obecne wartości do domyślnych w `UI`, a po wdrożeniu usuwamy te parametry z konfiguracji runtime i workflow, pozostawiając tam wyłącznie ustawienia środowiskowe.
 
 ### 14) Kamienie milowe (propozycja)
 - **M1**: pipeline OpenCV (wykrycie + warp + cięcie) + solver backtracking.
 - **M2**: baseline ML (np. CNN na MNIST/EMNIST lub dataset sudoku) + inferencja na wycinkach.
-- **M3**: end-to-end „solve-from-image” + overlay.
+- **M3**: end-to-end rozpoznanie sudoku z obrazu + overlay.
 - **M4**: wybór datasetu z `data/raw` + przygotowanie `.npz` + unifikacja / split + prosta autoryzacja dla operacji administracyjnych.
 - **M5**: integracja usług (Python API + C# backend + UI) + raport ewaluacji + przygotowanie prezentacji.
 
@@ -622,4 +701,3 @@ Publiczny kontrakt odpowiedzi dla przygotowania datasetu `.npz` jest opisany w d
 - Przykładowe obrazy wejściowe i wyniki (np. w `examples/`).
 - Wersjonowane pliki konfiguracji runtime potrzebne do release (`appsettings.json`, `appsettings.{Environment}.json`, `.env`, `.env.{Environment}` dla środowisk współdzielonych) lub równoważna instrukcja, bez sekretów; ścieżki runtime i URL-e są konfigurowane w plikach lub zmiennych środowiskowych, a nie hardcodowane w kodzie.
 - Prezentacja 5–7 minut + demo działania.
-

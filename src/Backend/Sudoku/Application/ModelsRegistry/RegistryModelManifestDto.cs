@@ -1,0 +1,25 @@
+namespace Sudoku.Application.ModelsRegistry;
+
+public sealed record RegistryModelManifestDto(
+    string Name,
+    string DisplayName,
+    string SourceType,
+    string? SourceRunName,
+    string? ParentModelName,
+    string TrainingMode,
+    string? Framework,
+    string? ArchitectureType,
+    string? ArchitectureFamily,
+    int? ArchitectureNumClasses,
+    int? ArchitectureInputChannels,
+    int? ArchitectureInputHeight,
+    int? ArchitectureInputWidth,
+    string InputProfile,
+    string? TrainingProfileName,
+    string? AugmentationProfileName,
+    DateTimeOffset? CreatedAtUtc,
+    bool CanStartTraining,
+    bool CanUseForInference,
+    string? PrimaryArtifactRelativePath,
+    string? ArtifactFormat,
+    IReadOnlyList<string> Warnings);

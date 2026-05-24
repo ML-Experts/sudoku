@@ -32,12 +32,39 @@ class PreprocessingSettings:
 
 
 @dataclass(frozen=True)
+class TrainingSettings:
+    runner: str
+    backend_base_url: str
+    event_timeout_seconds: float
+    terminal_event_retry_delay_seconds: float
+    terminal_event_max_attempts: int
+    device: str
+    max_epochs_override: int | None
+    allowed_output_roots: tuple[str, ...]
+    mock_interval_seconds: float
+    active_event_max_attempts: int
+
+
+@dataclass(frozen=True)
+class InferenceSettings:
+    device: str
+    supported_input_profiles: tuple[str, ...]
+    empty_cell_inner_margin_ratio: float
+    empty_cell_dark_pixel_ratio_threshold: float
+
+
+@dataclass(frozen=True)
 class RuntimeSettings:
     environment: str
     service_name: str
     service_version: str
     ping_response_message: str
     preprocessing_settings: PreprocessingSettings
+    training_settings: TrainingSettings
+    inference_settings: InferenceSettings
     boards_subdirectory: str
     digits_subdirectory: str
     temp_datasets_directory_path: str
+    examples_uploads_directory_path: str
+    models_active_directory_path: str
+    models_registry_directory_path: str

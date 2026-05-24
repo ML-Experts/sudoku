@@ -10,7 +10,28 @@ public interface IFileStorageGateway
         Stream content,
         CancellationToken cancellationToken = default);
 
+    Task ReplaceAsync(
+        string directoryPath,
+        string fileName,
+        Stream content,
+        CancellationToken cancellationToken = default);
+
+    Task DeleteAsync(
+        string directoryPath,
+        string fileName,
+        CancellationToken cancellationToken = default);
+
+    Task DeleteDirectoryAsync(
+        string directoryPath,
+        string directoryName,
+        CancellationToken cancellationToken = default);
+
     Task<Stream> OpenReadAsync(
+        string directoryPath,
+        string fileName,
+        CancellationToken cancellationToken = default);
+
+    Task<bool> FileExistsAsync(
         string directoryPath,
         string fileName,
         CancellationToken cancellationToken = default);

@@ -1,3 +1,82 @@
+```mermaid
+flowchart TD
+    A[FE: otwiera ekran treningu] -->|FE -> BE<br/>GET /api/trainings/active| B[BE: sprawdza aktywny run<br/>read trainings/metadata/*.json]
+
+    B --> C{Aktywny run istnieje?}
+
+    C -->|200 OK| D[FE: dostaje aktywny run]
+    D -->|FE -> BE<br/>SignalR /ws/trainings/{runName}| E[FE: odtwarza monitoring]
+
+    C -->|204 No Content| F[FE: pobiera modele bazowe]
+    F -->|FE -> BE<br/>GET /api/models/registry| G[BE: listuje modele z registry<br/>read models/registry/*/model.json]
+
+    G --> H[FE: pobiera gotowe datasety]
+    H -->|FE -> BE<br/>GET /api/datasets/processed| I[BE: listuje przetworzone datasety<br/>read data/processed/*.npz]
+
+    I --> J[FE: użytkownik wybiera model i dataset]
+
+    J -->|FE -> BE<br/>POST /api/trainings| K[BE: waliduje start runu<br/>read models/registry/{baseModelName}/model.json<br/>read data/processed/{processedDatasetName}.npz]
+
+    K --> L{Walidacja OK?}
+
+    L -->|nie<br/>400 / 404 / 409| M[FE: pokazuje błąd walidacji]
+
+    L -->|tak| N[BE: rezerwuje runName i tworzy rekord runu<br/>create trainings/metadata/{runName}.json<br/>status: starting/queued]
+
+    N -->|BE -> ML<br/>POST /ml/trainings| O[ML API: waliduje i przyjmuje zlecenie startu]
+
+    O --> P{ML API przyjęło zlecenie?}
+
+    P -->|nie<br/>4xx / 5xx / timeout| Q[BE: mapuje błąd ML<br/>update trainings/metadata/{runName}.json<br/>status: failed albo cleanup startu]
+    Q -->|BE -> FE<br/>4xx / 5xx albo 503 / 504| R[FE: pokazuje błąd startu]
+
+    P -->|tak<br/>202 Accepted| S[BE: zwraca uruchomiony run<br/>update trainings/metadata/{runName}.json<br/>status: queued]
+    S -->|BE -> FE<br/>202 TrainingRunApiResponse| T[FE: przechodzi do monitoringu]
+    T -->|FE -> BE<br/>SignalR /ws/trainings/{runName}| U[FE: monitoruje postęp]
+
+    O --> V[ML worker: wykonuje trening w tle<br/>write tmp/trainings/{runName}/...<br/>write trainings/runs/{runName}/...]
+
+    V --> VA[ML worker: zapisuje artefakty i raport<br/>write models/registry/{producedModelName}/artifacts/model.pt<br/>write trainings/reports/{runName}/...]
+
+    VA -->|ML -> BE<br/>POST /internal/ml/trainings/{runName}/events| W[BE: zapisuje event i aktualizuje status<br/>update trainings/metadata/{runName}.json]
+
+    W -->|BE -> FE<br/>SignalR event| U
+
+    W --> X{Czy event kończy run?}
+
+    X -->|nie<br/>progress / statusChanged| V
+
+    X -->|tak<br/>completed| Y[BE: finalizuje model wynikowy<br/>create models/registry/{producedModelName}/model.json<br/>update trainings/metadata/{runName}.json<br/>status: succeeded]
+
+    X -->|tak<br/>failed| Z[BE: oznacza run jako failed<br/>update trainings/metadata/{runName}.json<br/>delete trainings/runs/{runName}/...<br/>delete tmp/trainings/{runName}/...]
+
+    X -->|tak<br/>cancelled| AA[BE: oznacza run jako cancelled<br/>update trainings/metadata/{runName}.json<br/>delete trainings/runs/{runName}/...<br/>delete tmp/trainings/{runName}/...]
+
+    U --> AB{Użytkownik anuluje?}
+
+    AB -->|tak| AC[FE: zleca anulowanie]
+    AC -->|FE -> BE<br/>POST /api/trainings/{runName}/cancel| AD[BE: przyjmuje cancel<br/>update trainings/metadata/{runName}.json<br/>status: cancelling]
+
+    AD -->|BE -> ML<br/>POST /ml/trainings/{runName}/cancel| AE[ML API: przyjmuje zlecenie anulowania]
+    AE -->|ML -> BE<br/>POST /internal/ml/trainings/{runName}/events<br/>event: cancelled| W
+
+    AB -->|nie| V
+
+    %% FE -> BE
+    linkStyle 0,3,5,7,9,19,31 stroke:#2563eb,stroke-width:2px
+
+    %% BE -> FE / SignalR / HTTP response to FE
+    linkStyle 2,4,16,18,23 stroke:#16a34a,stroke-width:2px
+
+    %% BE -> ML
+    linkStyle 13,32 stroke:#ea580c,stroke-width:2px
+
+    %% ML -> BE
+    linkStyle 22,33 stroke:#ca8a04,stroke-width:2px
+
+    %% Internal decisions / local workflow
+    linkStyle 1,6,8,10,11,12,14,15,17,20,21,24,25,26,27,28,29,30,34 stroke:#7c3aed,stroke-width:1.5px
+```
 # UC-06 — Przepływ End-to-End
 
 ## Cel dokumentu
@@ -33,6 +112,7 @@
 ### Profile treningowe i augmentacyjne
 - `trainingMode` opisuje typ uruchamianego runu; w `MVP` jest to `fineTuning`.
 - `trainingProfileName` identyfikuje preset parametrów treningu, np. liczbę epok, batch size, learning rate albo politykę zamrażania warstw.
+- W bieżącym `MVP` domyślny preset treningowy wspiera do `20` epok; runner zapisuje checkpoint po każdej epoce i wybiera najlepszy checkpoint walidacyjny jako finalny model wynikowy.
 - `augmentationProfileName` identyfikuje preset augmentacji danych używany podczas treningu.
 - `benchmarkName` identyfikuje wspólny benchmark używany do końcowego porównania modeli.
 - `seed` jest ziarnem losowości runu potrzebnym do powtarzalności eksperymentu.
@@ -237,12 +317,13 @@
 23. `ML` zapisuje:
    - checkpointy i logi do `trainings/runs/{runName}`,
    - raporty do `trainings/reports/{runName}`,
-   - finalne artefakty modelu do `models/registry/{producedModelName}/artifacts`.
-24. Po zdarzeniu końcowym `completed` `BE` finalizuje `models/registry/{producedModelName}/model.json`.
-25. Jeśli końcowy problem dotyczy wyłącznie raportu (`missing` albo `corrupted`), ale artefakty modelu są kompletne, `ML` raportuje `completed`, a `BE` zachowuje model wynikowy i publikuje ostrzeżenie zamiast przechodzić do `failed`.
-26. Po zdarzeniu końcowym `failed` `BE` zachowuje `trainings/metadata/{runName}.json` ze statusem `failed`, usuwa artefakty runtime runu z `trainings/runs/{runName}`, `trainings/reports/{runName}`, katalogu tymczasowego oraz częściowo utworzonego katalogu `models/registry/{producedModelName}`, a dopiero potem publikuje publiczny event `failed`.
-27. Po zdarzeniu końcowym `cancelled` `BE` zachowuje `trainings/metadata/{runName}.json` ze statusem `cancelled`, usuwa artefakty runtime runu z `trainings/runs/{runName}`, `trainings/reports/{runName}`, katalogu tymczasowego oraz częściowo utworzonego katalogu `models/registry/{producedModelName}`, a dopiero potem publikuje publiczny event `cancelled`.
-28. Run staje się widoczny w późniejszych use case'ach:
+   - finalne artefakty modelu do `models/registry/{producedModelName}/artifacts`, ale z wag najlepszego checkpointu walidacyjnego, a nie automatycznie z ostatniej epoki.
+24. W `MVP` domyślny profil treningowy wykonuje maksymalnie `20` epok; po każdej epoce runner aktualizuje ranking checkpointów według metryki walidacyjnej.
+25. Po zdarzeniu końcowym `completed` `BE` finalizuje `models/registry/{producedModelName}/model.json`.
+26. Jeśli końcowy problem dotyczy wyłącznie raportu (`missing` albo `corrupted`), ale artefakty modelu są kompletne, `ML` raportuje `completed`, a `BE` zachowuje model wynikowy i publikuje ostrzeżenie zamiast przechodzić do `failed`.
+27. Po zdarzeniu końcowym `failed` `BE` zachowuje `trainings/metadata/{runName}.json` ze statusem `failed`, usuwa artefakty runtime runu z `trainings/runs/{runName}`, `trainings/reports/{runName}`, katalogu tymczasowego oraz częściowo utworzonego katalogu `models/registry/{producedModelName}`, a dopiero potem publikuje publiczny event `failed`.
+28. Po zdarzeniu końcowym `cancelled` `BE` zachowuje `trainings/metadata/{runName}.json` ze statusem `cancelled`, usuwa artefakty runtime runu z `trainings/runs/{runName}`, `trainings/reports/{runName}`, katalogu tymczasowego oraz częściowo utworzonego katalogu `models/registry/{producedModelName}`, a dopiero potem publikuje publiczny event `cancelled`.
+29. Run staje się widoczny w późniejszych use case'ach:
    - `UC-07` postęp,
    - `UC-08` lista treningów i modeli,
    - `UC-09` szczegóły i metryki,

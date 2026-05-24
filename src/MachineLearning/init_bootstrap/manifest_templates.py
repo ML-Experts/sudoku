@@ -26,7 +26,7 @@ def _build_resnet_template(model_type: str) -> ManifestTemplate:
             "inputChannels": 3,
             "inputHeight": 224,
             "inputWidth": 224,
-            "inputProfile": "digits-224x224-rgb-v1",
+            "inputProfile": "default-28x28-v1",
         },
         "artifacts": {
             "primaryArtifactRelativePath": (
@@ -63,7 +63,7 @@ MANIFEST_TEMPLATES: dict[tuple[str, str], ManifestTemplate] = {
             "inputChannels": 1,
             "inputHeight": 28,
             "inputWidth": 28,
-            "inputProfile": "digits-28x28-grayscale-v1",
+            "inputProfile": "default-28x28-v1",
         },
         "artifacts": {
             "primaryArtifactRelativePath": (

@@ -1,9 +1,8 @@
 ---
 description: Tech stack dla wariantu ambitnego (web + C# backend + Python ML w WSL/Unix)
-globs: **/PRD_Wariant_Ambitny_Web_CSharp_Python.md
+globs: prd.md
 alwaysApply: false
 ---
-
 # Tech stack — wariant ambitny (web + C# backend + Python ML)
 
 ## Środowisko (wymagane)
@@ -17,6 +16,16 @@ alwaysApply: false
 - Metryki/raport: `scikit-learn` (+ opcjonalnie `matplotlib`/`seaborn`)
 - Augmentacje (propozycja): `albumentations`
 
+## Modele ML
+- **Baseline do treningu i inferencji**: własny, mały `CNN` do klasyfikacji cyfr sudoku; architekturę definiujemy we własnym kodzie i trenujemy od zera na `MNIST` / `EMNIST` / danych sudoku-like.
+- **Wariant porównawczy / transfer learning**: `ResNet18`; nie używamy cięższych wariantów (`ResNet50+`) jako domyślnej ścieżki dla MVP, bo problem dotyczy małych obrazów cyfr i prostszej inferencji.
+- **Sposób pobierania bibliotek**: instalacja przez `pip` w środowisku `venv`.
+- **Sposób pozyskania `CNN`**: model nie jest pobierany z zewnętrznej strony jako gotowy artefakt; implementujemy go lokalnie w kodzie projektu jako własny `nn.Module`.
+- **Sposób pozyskania `ResNet18`**: architektura i pretrained weights pochodzą z `torchvision`; model inicjalizujemy w kodzie, a biblioteka automatycznie pobiera oficjalne wagi przy pierwszym użyciu i zapisuje je lokalnie w cache.
+- **Źródło pretrained weights**: korzystamy z oficjalnych wag udostępnianych przez ekosystem `PyTorch` / `torchvision`, a nie z losowych repozytoriów GitHub.
+- **Datasety referencyjne**: `MNIST` / `EMNIST` mogą być pobierane przez `torchvision.datasets`; datasety sudoku mogą być dostarczane lokalnie albo zewnętrznie (np. Kaggle), ale po przygotowaniu muszą zostać znormalizowane do wspólnego formatu treningowego projektu.
+- **Podejście implementacyjne**: utrzymujemy jeden generyczny pipeline treningowy dla klasyfikacji obrazu; różnice między `CNN` i `ResNet18` obsługujemy konfiguracją modelu, transformacjami wejścia i strategią fine-tuningu, a nie przez dwa niezależne systemy treningowe.
+
 ## Serwis inferencji (Python)
 - API: `fastapi`, `uvicorn`
 - Transfer plików: `python-multipart` (jeśli użyjecie `multipart/form-data`)
@@ -24,6 +33,7 @@ alwaysApply: false
 ## Backend (C#)
 - **.NET 10**, **ASP.NET Core Web API**
 - OpenAPI/Swagger: `Swashbuckle.AspNetCore`
+- CQRS/mediator: `MediatR` musi pozostać w ostatniej wersji sprzed 13, czyli `12.5.0`; nie aktualizujemy do `13+`, ponieważ od tej linii pakiet przeszedł na model płatny/licencjonowany.
 - Integracja z Pythonem: `HttpClient` / `IHttpClientFactory` (REST)
 
 ## Frontend (web)

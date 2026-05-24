@@ -1,4 +1,5 @@
 using Sudoku.Models.Images;
+using Sudoku.Application.Sudoku;
 
 namespace Sudoku.Application.Abstractions;
 
@@ -10,5 +11,9 @@ public interface IMlImageProcessingGateway
 
     Task<CellsGrid> ExtractCellsAsync(
         ImageContent image,
+        CancellationToken cancellationToken = default);
+
+    Task<InferSudokuCellDigitMlResultDto> InferDigitAsync(
+        InferSudokuCellDigitMlRequestDto request,
         CancellationToken cancellationToken = default);
 }

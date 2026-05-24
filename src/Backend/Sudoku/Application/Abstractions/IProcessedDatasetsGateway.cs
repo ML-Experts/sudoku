@@ -19,4 +19,8 @@ public interface IProcessedDatasetsGateway
 
     Task<IReadOnlyList<ProcessedDatasetMetadataDto>> ListAsync(
         CancellationToken cancellationToken = default);
+
+    Task<ProcessedDatasetMetadataDto?> GetByNameAsync(
+        string datasetName,
+        CancellationToken cancellationToken = default);
 }

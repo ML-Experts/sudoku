@@ -19,7 +19,19 @@ public sealed class MlServiceOptions
     public string PreprocessCellsPath { get; init; } = "/ml/preprocess/cells";
 
     [Required]
+    public string CellInferencePath { get; init; } = "/ml/cells/inference";
+
+    [Required]
     public string PrepareDatasetPath { get; init; } = "/ml/datasets/prepare";
+
+    [Required]
+    public string StartTrainingPath { get; init; } = "/ml/trainings";
+
+    [Required]
+    public string CancelTrainingPathTemplate { get; init; } = "/ml/trainings/{runName}/cancel";
+
+    [Required]
+    public string TrainingEventsPathTemplate { get; init; } = "/internal/ml/trainings/{runName}/events";
 
     [Range(1, 600)]
     public int TimeoutSeconds { get; init; } = 60;
