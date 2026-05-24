@@ -21,6 +21,7 @@ import type {
   ProcessedDatasetListItemApiResponse,
   RegistryModelListItemApiResponse,
   TrainingRunApiResponse,
+  TrainingRunProgressApiResponse,
   TrainingRunSocketEventApiResponse,
 } from "../types/api";
 
@@ -176,6 +177,160 @@ function formatProgressPercent(value: number | null | undefined): string {
   return `${clamped.toFixed(1)}%`;
 }
 
+function formatMetric(value: number | null | undefined): string {
+  if (typeof value !== "number") {
+    return "-";
+  }
+
+  return value.toFixed(4);
+}
+
+function formatEtaSeconds(value: number | null | undefined): string {
+  if (typeof value !== "number" || value < 0) {
+    return "brak prognozy";
+  }
+
+  return `${value} s`;
+}
+
+function getSignalRMetricTooltip(kind: string): string {
+  const tooltips: Record<string, string> = {
+    epoch:
+      "Numer aktualnej epoki. Epoka to jedno pelne przejscie modelu przez dane treningowe.",
+    progress:
+      "Przyblizony procent wykonania biezacego runu treningowego.",
+    eta: "Szacowany czas do konca treningu, obliczony na podstawie dotychczasowego tempa.",
+    trainLoss:
+      "Blad modelu na danych treningowych. Zwykle im nizsza wartosc, tym lepiej model dopasowuje sie do danych, na ktorych sie uczy.",
+    validationLoss:
+      "Blad modelu na danych walidacyjnych, czyli na danych kontrolnych nieuzywanych bezposrednio do uczenia. Pomaga ocenic, czy model nie uczy sie 'na pamiec'.",
+    trainAccuracy:
+      "Skutecznosc modelu na danych treningowych. Pokazuje, jaki procent odpowiedzi na danych do nauki byl poprawny.",
+    validationAccuracy:
+      "Skutecznosc modelu na danych walidacyjnych. To bardziej praktyczny sygnal, jak model radzi sobie na nowych danych niz train accuracy.",
+  };
+
+  return tooltips[kind] ?? "";
+}
+
+function formatMetricPair(
+  primary: number | null | undefined,
+  secondary: number | null | undefined,
+): string {
+  const primaryText = formatMetric(primary);
+  const secondaryText = formatMetric(secondary);
+
+  if (primaryText === "-" && secondaryText === "-") {
+    return "-";
+  }
+
+  if (primaryText !== "-" && secondaryText !== "-") {
+    return `train: ${primaryText} | val: ${secondaryText}`;
+  }
+
+  if (primaryText !== "-") {
+    return primaryText;
+  }
+
+  return secondaryText;
+}
+
+function toOptionalNumber(value: unknown): number | null | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (value === null || value === undefined) {
+    return value;
+  }
+
+  return undefined;
+}
+
+function normalizeProgress(
+  payload: unknown,
+): TrainingRunProgressApiResponse | null {
+  if (payload === null) {
+    return null;
+  }
+
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+
+  const record = payload as Record<string, unknown>;
+  const percent = toOptionalNumber(record.percent);
+  const epochCurrent = toOptionalNumber(record.epochCurrent);
+  const epochTotal = toOptionalNumber(record.epochTotal);
+  const etaSeconds = toOptionalNumber(record.etaSeconds);
+  const trainLoss = toOptionalNumber(record.trainLoss);
+  const validationLoss = toOptionalNumber(record.validationLoss);
+  const trainAccuracy = toOptionalNumber(record.trainAccuracy);
+  const validationAccuracy = toOptionalNumber(record.validationAccuracy);
+  const legacyLoss = toOptionalNumber(record.loss);
+  const legacyAccuracy = toOptionalNumber(record.accuracy);
+
+  if (
+    percent === undefined ||
+    epochCurrent === undefined ||
+    epochTotal === undefined
+  ) {
+    return null;
+  }
+
+  return {
+    percent,
+    epochCurrent,
+    epochTotal,
+    etaSeconds: etaSeconds ?? null,
+    trainLoss:
+      trainLoss === undefined
+        ? legacyLoss === undefined
+          ? undefined
+          : legacyLoss
+        : trainLoss,
+    validationLoss: validationLoss === undefined ? undefined : validationLoss,
+    trainAccuracy:
+      trainAccuracy === undefined
+        ? legacyAccuracy === undefined
+          ? undefined
+          : legacyAccuracy
+        : trainAccuracy,
+    validationAccuracy:
+      validationAccuracy === undefined ? undefined : validationAccuracy,
+  };
+}
+
+function getHighestEpochProgressEvent(
+  events: TrainingRunSocketEventApiResponse[],
+): TrainingRunSocketEventApiResponse | null {
+  let candidate: TrainingRunSocketEventApiResponse | null = null;
+
+  for (const event of events) {
+    if (event.progress?.epochCurrent === null || event.progress === null) {
+      continue;
+    }
+
+    if (candidate === null || candidate.progress === null) {
+      candidate = event;
+      continue;
+    }
+
+    const currentEpoch = event.progress.epochCurrent ?? -1;
+    const candidateEpoch = candidate.progress.epochCurrent ?? -1;
+    if (currentEpoch > candidateEpoch) {
+      candidate = event;
+      continue;
+    }
+
+    if (currentEpoch === candidateEpoch && event.sequence > candidate.sequence) {
+      candidate = event;
+    }
+  }
+
+  return candidate;
+}
+
 function toSyntheticStage(status: string): string {
   if (status === "queued" || status === "starting") {
     return "queued";
@@ -208,6 +363,7 @@ function normalizeSocketEvent(
   }
 
   const record = payload as Record<string, unknown>;
+  const normalizedProgress = normalizeProgress(record.progress);
   if (
     typeof record.eventType === "string" &&
     typeof record.sequence === "number" &&
@@ -216,12 +372,32 @@ function normalizeSocketEvent(
     typeof record.stage === "string" &&
     typeof record.occurredAtUtc === "string" &&
     (typeof record.message === "string" || record.message === null) &&
-    (typeof record.progress === "object" || record.progress === null) &&
+    (record.progress === null || normalizedProgress !== null) &&
     Array.isArray(record.warnings) &&
     (typeof record.result === "object" || record.result === null) &&
     (typeof record.failure === "object" || record.failure === null)
   ) {
-    return record as unknown as TrainingRunSocketEventApiResponse;
+    return {
+      eventType: record.eventType,
+      sequence: record.sequence,
+      runName: record.runName,
+      status: record.status,
+      stage: record.stage,
+      occurredAtUtc: record.occurredAtUtc,
+      message: typeof record.message === "string" ? record.message : null,
+      progress: normalizedProgress,
+      warnings: record.warnings.filter(
+        (warning): warning is string => typeof warning === "string",
+      ),
+      result:
+        record.result && typeof record.result === "object"
+          ? (record.result as TrainingRunSocketEventApiResponse["result"])
+          : null,
+      failure:
+        record.failure && typeof record.failure === "object"
+          ? (record.failure as TrainingRunSocketEventApiResponse["failure"])
+          : null,
+    };
   }
 
   const isLegacyPayload =
@@ -310,21 +486,43 @@ function normalizeSocketEvent(
     stage: toSyntheticStage(status),
     occurredAtUtc,
     message: null,
-    progress: legacyProgress
-      ? {
-          percent:
-            typeof legacyProgress.percent === "number"
-              ? legacyProgress.percent
-              : null,
-          epochCurrent:
-            typeof legacyProgress.epoch === "number" ? legacyProgress.epoch : null,
-          epochTotal:
-            typeof legacyProgress.totalEpochs === "number"
-              ? legacyProgress.totalEpochs
-              : null,
-          etaSeconds: null,
-        }
-      : null,
+    progress:
+      legacyProgress
+        ? normalizeProgress({
+            percent: typeof legacyProgress.percent === "number" ? legacyProgress.percent : null,
+            epochCurrent:
+              typeof legacyProgress.epoch === "number" ? legacyProgress.epoch : null,
+            epochTotal:
+              typeof legacyProgress.totalEpochs === "number"
+                ? legacyProgress.totalEpochs
+                : null,
+            etaSeconds:
+              typeof legacyProgress.etaSeconds === "number"
+                ? legacyProgress.etaSeconds
+                : null,
+            trainLoss:
+              typeof legacyProgress.trainLoss === "number"
+                ? legacyProgress.trainLoss
+                : null,
+            validationLoss:
+              typeof legacyProgress.validationLoss === "number"
+                ? legacyProgress.validationLoss
+                : null,
+            trainAccuracy:
+              typeof legacyProgress.trainAccuracy === "number"
+                ? legacyProgress.trainAccuracy
+                : null,
+            validationAccuracy:
+              typeof legacyProgress.validationAccuracy === "number"
+                ? legacyProgress.validationAccuracy
+                : null,
+            loss: typeof legacyProgress.loss === "number" ? legacyProgress.loss : null,
+            accuracy:
+              typeof legacyProgress.accuracy === "number"
+                ? legacyProgress.accuracy
+                : null,
+          })
+        : null,
     warnings,
     result,
     failure,
@@ -425,6 +623,7 @@ export function Uc06TrainingSection({
   const [socketEvents, setSocketEvents] = useState<TrainingRunSocketEventApiResponse[]>([]);
   const connectionRef = useRef<HubConnection | null>(null);
   const latestSequenceRef = useRef<number>(-1);
+  const realtimeRunNameRef = useRef<string | null>(null);
   const hadActiveRunRef = useRef(false);
   const activeRunRefreshInFlightRef = useRef(false);
 
@@ -579,9 +778,13 @@ export function Uc06TrainingSection({
         return;
       }
 
+      const sameRun = realtimeRunNameRef.current === run.runName;
       await disconnectRealtime();
-      latestSequenceRef.current = -1;
-      setSocketEvents([]);
+      realtimeRunNameRef.current = run.runName;
+      if (!sameRun) {
+        latestSequenceRef.current = -1;
+        setSocketEvents([]);
+      }
       setConnectionState("connecting");
 
       const connection = new HubConnectionBuilder()
@@ -895,6 +1098,7 @@ export function Uc06TrainingSection({
   useEffect(() => {
     if (!accessToken) {
       hadActiveRunRef.current = false;
+      realtimeRunNameRef.current = null;
       setActiveRun(null);
       setSocketEvents([]);
       setStartState(defaultStartState);
@@ -924,6 +1128,8 @@ export function Uc06TrainingSection({
   }, []);
 
   const latestEvent = socketEvents[0] ?? null;
+  const highestEpochProgressEvent = getHighestEpochProgressEvent(socketEvents);
+  const latestProgress = highestEpochProgressEvent?.progress ?? null;
   const latestStatus = latestEvent?.status ?? activeRun?.status ?? null;
   const isActiveRunPresent = latestStatus ? activeStatuses.includes(latestStatus) : false;
   const shouldShowStartForm = Boolean(accessToken);
@@ -942,6 +1148,7 @@ export function Uc06TrainingSection({
   useEffect(() => {
     if (!accessToken) {
       hadActiveRunRef.current = false;
+      realtimeRunNameRef.current = null;
       return;
     }
 
@@ -1222,6 +1429,38 @@ export function Uc06TrainingSection({
               <dd>{activeRun.effectiveParameters?.epochs ?? "-"}</dd>
             </div>
             <div>
+              <dt>Postep</dt>
+              <dd>{formatProgressPercent(latestProgress?.percent)}</dd>
+            </div>
+            <div>
+              <dt>Biezaca epoka</dt>
+              <dd>
+                {latestProgress?.epochCurrent ?? "-"} / {latestProgress?.epochTotal ?? "-"}
+              </dd>
+            </div>
+            <div>
+              <dt>Loss</dt>
+              <dd>
+                {formatMetricPair(
+                  latestProgress?.trainLoss,
+                  latestProgress?.validationLoss,
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt>Accuracy</dt>
+              <dd>
+                {formatMetricPair(
+                  latestProgress?.trainAccuracy,
+                  latestProgress?.validationAccuracy,
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt>Szacowany czas do konca</dt>
+              <dd>{formatEtaSeconds(latestProgress?.etaSeconds)}</dd>
+            </div>
+            <div>
               <dt>Learning rate</dt>
               <dd>{activeRun.effectiveParameters?.learningRate ?? "-"}</dd>
             </div>
@@ -1295,7 +1534,31 @@ export function Uc06TrainingSection({
           }`}
         >
           Aktualny status: {latestEvent.status} (event: {latestEvent.eventType}). Postep:{" "}
-          {formatProgressPercent(latestEvent.progress?.percent)}.
+          {formatProgressPercent(latestProgress?.percent)}.
+          {latestProgress?.trainLoss !== undefined ||
+          latestProgress?.validationLoss !== undefined ? (
+            <>
+              {" "}
+              Loss:{" "}
+              {formatMetricPair(
+                latestProgress?.trainLoss,
+                latestProgress?.validationLoss,
+              )}
+              .
+            </>
+          ) : null}
+          {latestProgress?.trainAccuracy !== undefined ||
+          latestProgress?.validationAccuracy !== undefined ? (
+            <>
+              {" "}
+              Accuracy:{" "}
+              {formatMetricPair(
+                latestProgress?.trainAccuracy,
+                latestProgress?.validationAccuracy,
+              )}
+              .
+            </>
+          ) : null}
           {latestEvent.status === "succeeded"
             ? " Trening zakonczony sukcesem."
             : latestEvent.status === "cancelled"
@@ -1326,10 +1589,55 @@ export function Uc06TrainingSection({
                   seq: {event.sequence}, stage: {event.stage}, czas:{" "}
                   {formatTimestamp(event.occurredAtUtc)}
                 </span>
-                <span>
-                  epoch: {event.progress?.epochCurrent ?? "-"} /{" "}
-                  {event.progress?.epochTotal ?? "-"}, ETA: {event.progress?.etaSeconds ?? "-"} s
-                </span>
+                <div className="uc06-event-chips">
+                  <span
+                    className="uc06-event-chip uc06-event-chip-progress"
+                    title={getSignalRMetricTooltip("epoch")}
+                  >
+                    epoka: {event.progress?.epochCurrent ?? "-"} /{" "}
+                    {event.progress?.epochTotal ?? "-"}
+                  </span>
+                  <span
+                    className="uc06-event-chip uc06-event-chip-progress"
+                    title={getSignalRMetricTooltip("progress")}
+                  >
+                    postep: {formatProgressPercent(event.progress?.percent)}
+                  </span>
+                  <span
+                    className="uc06-event-chip uc06-event-chip-progress"
+                    title={getSignalRMetricTooltip("eta")}
+                  >
+                    szacowany czas do konca: {formatEtaSeconds(event.progress?.etaSeconds)}
+                  </span>
+                </div>
+                <div className="uc06-event-chips">
+                  <span
+                    className="uc06-event-chip uc06-event-chip-loss"
+                    title={getSignalRMetricTooltip("trainLoss")}
+                  >
+                    train loss: {formatMetric(event.progress?.trainLoss)}
+                  </span>
+                  <span
+                    className="uc06-event-chip uc06-event-chip-loss"
+                    title={getSignalRMetricTooltip("validationLoss")}
+                  >
+                    validation loss: {formatMetric(event.progress?.validationLoss)}
+                  </span>
+                </div>
+                <div className="uc06-event-chips">
+                  <span
+                    className="uc06-event-chip uc06-event-chip-accuracy"
+                    title={getSignalRMetricTooltip("trainAccuracy")}
+                  >
+                    train accuracy: {formatMetric(event.progress?.trainAccuracy)}
+                  </span>
+                  <span
+                    className="uc06-event-chip uc06-event-chip-accuracy"
+                    title={getSignalRMetricTooltip("validationAccuracy")}
+                  >
+                    validation accuracy: {formatMetric(event.progress?.validationAccuracy)}
+                  </span>
+                </div>
                 {event.result ? (
                   <span>model: {event.result.producedModelName}</span>
                 ) : null}

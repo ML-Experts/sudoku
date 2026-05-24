@@ -166,6 +166,18 @@ class MockTrainingRunnerTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("statusChanged", event_types)
         self.assertEqual(len(progress_events), 3)
         self.assertEqual(progress_events[-1].progress.percent, 100.0)
+        self.assertIsNotNone(progress_events[0].progress.train_loss)
+        self.assertIsNotNone(progress_events[0].progress.validation_loss)
+        self.assertIsNotNone(progress_events[0].progress.train_accuracy)
+        self.assertIsNotNone(progress_events[0].progress.validation_accuracy)
+        self.assertLess(
+            progress_events[-1].progress.train_loss,
+            progress_events[0].progress.train_loss,
+        )
+        self.assertGreater(
+            progress_events[-1].progress.train_accuracy,
+            progress_events[0].progress.train_accuracy,
+        )
 
 
 if __name__ == "__main__":
