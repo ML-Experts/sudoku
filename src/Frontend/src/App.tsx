@@ -20,12 +20,40 @@ import { ExamplesView } from "./app/views/ExamplesView";
 import { HealthView } from "./app/views/HealthView";
 import { AuthApiError, postAdminLogin } from "./api/auth";
 import { useAdminSession } from "./context/AdminSessionContext";
+import { getUc14ActiveParameterContext } from "./features/uc14/application/uc14ParameterContexts";
+import { Uc14SolveCellInferenceParametersPanel } from "./features/uc14/api/Uc14SolveCellInferenceParametersPanel";
+import { Uc14SolveLiveParametersPanel } from "./features/uc14/api/Uc14SolveLiveParametersPanel";
 import { Uc14TrainingRunParametersPanel } from "./features/uc14/api/Uc14TrainingRunParametersPanel";
+import { createUc14ContextState } from "./features/uc14/domain/createUc14ContextState";
+import { solveCellInferenceDefaults } from "./features/uc14/domain/solveCellInferenceDefaults";
+import {
+  solveCellInferenceParameterDefinitions,
+  type SolveCellInferenceContextState,
+  type SolveCellInferenceParameterKey,
+} from "./features/uc14/domain/solveCellInferenceParameterDefinitions";
+import { solveLiveDefaults } from "./features/uc14/domain/solveLiveDefaults";
+import {
+  solveLiveParameterDefinitions,
+  type SolveLiveContextState,
+  type SolveLiveParameterKey,
+} from "./features/uc14/domain/solveLiveParameterDefinitions";
+import { toSolveSudokuParametersApiEntry } from "./features/uc14/domain/toSolveSudokuParametersApiEntry";
+import { toSudokuCellInferenceParametersApiEntry } from "./features/uc14/domain/toSudokuCellInferenceParametersApiEntry";
+import type { Uc14ContextState } from "./features/uc14/domain/uc14ParameterFieldState";
+import type { Uc14ActiveParameterContext } from "./features/uc14/domain/uc14ParameterContext";
 import {
   createTrainingRunParameterFormState,
   type TrainingRunParameterFormState,
   validateTrainingRunParameterState,
 } from "./features/uc14/domain/trainingRunParameters";
+import { updateUc14FieldValue } from "./features/uc14/domain/updateUc14FieldValue";
+import { validateUc14ContextState } from "./features/uc14/domain/validateUc14ContextState";
+
+function countUc14Overrides<TKey extends string>(state: Uc14ContextState<TKey>): number {
+  return (Object.values(state) as Array<Uc14ContextState<TKey>[TKey]>).filter(
+    (field) => field.isDirty && !field.error,
+  ).length;
+}
 
 export default function App() {
   const apiBaseUrl = normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL);
@@ -48,18 +76,63 @@ export default function App() {
   const [loginState, setLoginState] = useState<LoginState>(defaultLoginState);
   const [activeView, setActiveView] = useState<AppView>("health");
   const [datasetsStep, setDatasetsStep] = useState<DatasetsStep>("uc11");
-  const [uc14PanelVisible, setUc14PanelVisible] = useState(false);
+  const [examplesWorkflowContext, setExamplesWorkflowContext] =
+    useState<Uc14ActiveParameterContext>(null);
+  const [solveCellInferenceState, setSolveCellInferenceState] =
+    useState<SolveCellInferenceContextState>(() =>
+      createUc14ContextState(
+        solveCellInferenceParameterDefinitions,
+        solveCellInferenceDefaults,
+      ),
+    );
+  const [solveLiveState, setSolveLiveState] = useState<SolveLiveContextState>(() =>
+    createUc14ContextState(solveLiveParameterDefinitions, solveLiveDefaults),
+  );
   const [trainingRunParameterState, setTrainingRunParameterState] = useState(
     createTrainingRunParameterFormState,
   );
   const isAdminMode = mode === "admin";
   const isDemoMode = mode === "demo";
-  const hasUc14Panel =
-    activeView === "datasets" && datasetsStep === "uc06" && uc14PanelVisible;
+  const solveCellInferenceValidation = useMemo(
+    () => validateUc14ContextState(solveCellInferenceState),
+    [solveCellInferenceState],
+  );
+  const solveLiveValidation = useMemo(
+    () => validateUc14ContextState(solveLiveState),
+    [solveLiveState],
+  );
+  const solveCellInferenceParameters = useMemo(
+    () =>
+      solveCellInferenceValidation.isValid
+        ? toSudokuCellInferenceParametersApiEntry(solveCellInferenceState)
+        : null,
+    [solveCellInferenceState, solveCellInferenceValidation.isValid],
+  );
+  const solveLiveParameters = useMemo(
+    () =>
+      solveLiveValidation.isValid
+        ? toSolveSudokuParametersApiEntry(solveLiveState)
+        : null,
+    [solveLiveState, solveLiveValidation.isValid],
+  );
+  const solveCellInferenceOverrideCount = useMemo(
+    () => countUc14Overrides(solveCellInferenceState),
+    [solveCellInferenceState],
+  );
+  const solveLiveOverrideCount = useMemo(
+    () => countUc14Overrides(solveLiveState),
+    [solveLiveState],
+  );
   const trainingRunParameterValidation = useMemo(
     () => validateTrainingRunParameterState(trainingRunParameterState),
     [trainingRunParameterState],
   );
+  const activeUc14Context = getUc14ActiveParameterContext({
+    activeView,
+    datasetsStep,
+    examplesWorkflowContext,
+  });
+  const hasUc14Panel = activeUc14Context !== null;
 
   const handleAdminUnauthorized = useCallback(
     (tokenErrorType?: string | null) => {
@@ -161,6 +234,45 @@ export default function App() {
   const resetTrainingRunParameters = useCallback(() => {
     setTrainingRunParameterState(createTrainingRunParameterFormState());
   }, []);
+  const handleSolveCellInferenceParameterChange = useCallback(
+    (key: SolveCellInferenceParameterKey, rawValue: string) => {
+      setSolveCellInferenceState((previous) =>
+        updateUc14FieldValue(
+          previous,
+          solveCellInferenceParameterDefinitions,
+          key,
+          rawValue,
+        ),
+      );
+    },
+    [],
+  );
+  const handleSolveLiveParameterChange = useCallback(
+    (key: SolveLiveParameterKey, rawValue: string) => {
+      setSolveLiveState((previous) =>
+        updateUc14FieldValue(
+          previous,
+          solveLiveParameterDefinitions,
+          key,
+          rawValue,
+        ),
+      );
+    },
+    [],
+  );
+  const resetSolveCellInferenceParameters = useCallback(() => {
+    setSolveCellInferenceState(
+      createUc14ContextState(
+        solveCellInferenceParameterDefinitions,
+        solveCellInferenceDefaults,
+      ),
+    );
+  }, []);
+  const resetSolveLiveParameters = useCallback(() => {
+    setSolveLiveState(
+      createUc14ContextState(solveLiveParameterDefinitions, solveLiveDefaults),
+    );
+  }, []);
 
   async function handlePingClick() {
     setPingState({
@@ -228,10 +340,10 @@ export default function App() {
   }, [loginModalOpen]);
 
   useEffect(() => {
-    if (activeView !== "datasets" || datasetsStep !== "uc06") {
-      setUc14PanelVisible(false);
+    if (activeView !== "examples" || !examplesModule.selectedProcessName) {
+      setExamplesWorkflowContext(null);
     }
-  }, [activeView, datasetsStep]);
+  }, [activeView, examplesModule.selectedProcessName]);
   return (
     <main className="app-root">
       <AppHeader
@@ -283,10 +395,19 @@ export default function App() {
               onRunUpload={() => void examplesModule.handleUploadClick()}
               onSelectedFileChange={examplesModule.setSelectedFile}
               onSelectProcessName={examplesModule.setSelectedProcessName}
+              onUc14ContextChange={setExamplesWorkflowContext}
               previewStageState={examplesModule.previewStageState}
               runUc04Flow={(fileName) => void examplesModule.runUc04Flow(fileName)}
               selectedProcessName={examplesModule.selectedProcessName}
               sessionExamples={examplesModule.sessionExamples}
+              solveCellInferenceParameters={solveCellInferenceParameters}
+              solveCellInferenceParametersValid={solveCellInferenceValidation.isValid}
+              solveCellInferenceParameterErrorCount={solveCellInferenceValidation.errorCount}
+              solveCellInferenceOverrideCount={solveCellInferenceOverrideCount}
+              solveLiveParameters={solveLiveParameters}
+              solveLiveParametersValid={solveLiveValidation.isValid}
+              solveLiveParameterErrorCount={solveLiveValidation.errorCount}
+              solveLiveOverrideCount={solveLiveOverrideCount}
             />
           ) : null}
 
@@ -297,7 +418,6 @@ export default function App() {
               datasetsStep={datasetsStep}
               onDatasetsStepChange={setDatasetsStep}
               onUnauthorized={() => handleAdminUnauthorized("invalid_token")}
-              setUc14PanelVisible={setUc14PanelVisible}
               trainingRunParameterValidation={trainingRunParameterValidation}
             />
           ) : null}
@@ -305,15 +425,37 @@ export default function App() {
 
         {hasUc14Panel ? (
           <aside className="workspace-context-panel">
-            <Uc14TrainingRunParametersPanel
-              state={trainingRunParameterState}
-              errors={trainingRunParameterValidation.errors}
-              isValid={trainingRunParameterValidation.isValid}
-              errorCount={trainingRunParameterValidation.errorCount}
-              overrideCount={trainingRunParameterValidation.overrideCount}
-              onReset={resetTrainingRunParameters}
-              onFieldChange={handleTrainingRunParameterChange}
-            />
+            {activeUc14Context === "solveCellInference" ? (
+              <Uc14SolveCellInferenceParametersPanel
+                state={solveCellInferenceState}
+                isValid={solveCellInferenceValidation.isValid}
+                errorCount={solveCellInferenceValidation.errorCount}
+                overrideCount={solveCellInferenceOverrideCount}
+                onReset={resetSolveCellInferenceParameters}
+                onSetValue={handleSolveCellInferenceParameterChange}
+              />
+            ) : null}
+            {activeUc14Context === "solveLive" ? (
+              <Uc14SolveLiveParametersPanel
+                state={solveLiveState}
+                isValid={solveLiveValidation.isValid}
+                errorCount={solveLiveValidation.errorCount}
+                overrideCount={solveLiveOverrideCount}
+                onReset={resetSolveLiveParameters}
+                onSetValue={handleSolveLiveParameterChange}
+              />
+            ) : null}
+            {activeUc14Context === "trainingRun" ? (
+              <Uc14TrainingRunParametersPanel
+                state={trainingRunParameterState}
+                errors={trainingRunParameterValidation.errors}
+                isValid={trainingRunParameterValidation.isValid}
+                errorCount={trainingRunParameterValidation.errorCount}
+                overrideCount={trainingRunParameterValidation.overrideCount}
+                onReset={resetTrainingRunParameters}
+                onFieldChange={handleTrainingRunParameterChange}
+              />
+            ) : null}
           </aside>
         ) : null}
 

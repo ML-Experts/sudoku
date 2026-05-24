@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 
-import type { CellsGridApiResponse } from "../../../types/api";
+import type {
+  CellsGridApiResponse,
+  SudokuCellInferenceParametersApiEntry,
+} from "../../../types/api";
 import {
   SudokuCellInferenceApiError,
 } from "../../../api/sudokuCellsInference";
@@ -71,11 +74,15 @@ function toRecognitionSessionError(error: unknown): RecognitionSessionError {
 type UseUc05aRecognitionOptions = {
   apiBaseUrl: string;
   cellsGrid: CellsGridApiResponse | null;
+  inferenceParameters?: SudokuCellInferenceParametersApiEntry | null;
+  isInferenceParametersValid?: boolean;
 };
 
 export function useUc05aRecognition({
   apiBaseUrl,
   cellsGrid,
+  inferenceParameters = null,
+  isInferenceParametersValid = true,
 }: UseUc05aRecognitionOptions) {
   const [state, dispatch] = useReducer(
     recognitionSessionReducer,
@@ -109,7 +116,7 @@ export function useUc05aRecognition({
   }, []);
 
   const startRecognition = useCallback(async () => {
-    if (!cellsGrid) {
+    if (!cellsGrid || !isInferenceParametersValid) {
       return;
     }
 
@@ -138,6 +145,7 @@ export function useUc05aRecognition({
       await recognizeCellsGrid({
         apiBaseUrl,
         cellsGrid,
+        inferenceParameters,
         signal: controller.signal,
         concurrency: DEFAULT_RECOGNITION_CONCURRENCY,
         onCellRecognized: (coordinates, result) => {
@@ -223,7 +231,7 @@ export function useUc05aRecognition({
         failedCell,
       });
     }
-  }, [apiBaseUrl, cellsGrid]);
+  }, [apiBaseUrl, cellsGrid, inferenceParameters, isInferenceParametersValid]);
 
   const retryRecognition = useCallback(async () => {
     await startRecognition();
@@ -253,10 +261,12 @@ export function useUc05aRecognition({
     resetRecognition,
     canStartRecognition:
       cellsGrid !== null &&
+      isInferenceParametersValid &&
       state.status !== "running" &&
       state.status !== "completed",
     canRetryRecognition:
       cellsGrid !== null &&
+      isInferenceParametersValid &&
       state.status !== "running" &&
       (state.status === "failed" || state.status === "cancelled"),
     canCancelRecognition: state.status === "running",

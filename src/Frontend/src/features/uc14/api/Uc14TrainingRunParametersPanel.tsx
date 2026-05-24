@@ -1,9 +1,17 @@
-import type { ChangeEvent } from "react";
+import { useMemo } from "react";
 
 import type {
   TrainingRunParameterErrors,
   TrainingRunParameterFormState,
 } from "../domain/trainingRunParameters";
+import { trainingRunParameterDefaults } from "../domain/trainingRunParameters";
+import {
+  trainingRunParameterDefinitions,
+  type TrainingRunParameterKey,
+} from "../domain/trainingRunParameterDefinitions";
+import { Uc14ParameterNumberField } from "./Uc14ParameterNumberField";
+import { Uc14ParameterSelector } from "./Uc14ParameterSelector";
+import { Uc14ParameterSelectField } from "./Uc14ParameterSelectField";
 
 type Uc14TrainingRunParametersPanelProps = {
   state: TrainingRunParameterFormState;
@@ -12,80 +20,72 @@ type Uc14TrainingRunParametersPanelProps = {
   errorCount: number;
   overrideCount: number;
   onReset: () => void;
-  onFieldChange: (
-    key: keyof TrainingRunParameterFormState,
-    value: string,
-  ) => void;
+  onFieldChange: (key: TrainingRunParameterKey, value: string) => void;
 };
 
-type NumberFieldDefinition = {
-  key:
-    | "epochs"
-    | "learningRate"
-    | "batchSize"
-    | "earlyStoppingPatience"
-    | "lrSchedulerPatience"
-    | "lrSchedulerFactor";
-  label: string;
-  description: string;
-  inputMode: "numeric" | "decimal";
-  step?: string;
-};
+type TrainingRunNumberParameterKey = Exclude<
+  TrainingRunParameterKey,
+  "fineTuningPolicy"
+>;
 
-const numberFieldDefinitions: NumberFieldDefinition[] = [
-  {
-    key: "epochs",
-    label: "Liczba epok",
-    description: "Maksymalna liczba epok dla nowego runu treningowego.",
-    inputMode: "numeric",
-    step: "1",
-  },
-  {
-    key: "learningRate",
-    label: "Learning rate",
-    description: "Krok uczenia przekazywany do workflow treningu.",
-    inputMode: "decimal",
-    step: "0.0001",
-  },
-  {
-    key: "batchSize",
-    label: "Batch size",
-    description: "Rozmiar batcha dla treningu modelu.",
-    inputMode: "numeric",
-    step: "1",
-  },
-  {
-    key: "earlyStoppingPatience",
-    label: "Early stopping patience",
-    description: "Liczba epok bez poprawy przed wczesnym zatrzymaniem.",
-    inputMode: "numeric",
-    step: "1",
-  },
-  {
-    key: "lrSchedulerPatience",
-    label: "LR scheduler patience",
-    description: "Liczba epok bez poprawy przed redukcja learning rate.",
-    inputMode: "numeric",
-    step: "1",
-  },
-  {
-    key: "lrSchedulerFactor",
-    label: "LR scheduler factor",
-    description: "Wspolczynnik redukcji learning rate.",
-    inputMode: "decimal",
-    step: "0.1",
-  },
-];
+function parseNumber(rawValue: string): number | null {
+  const normalizedValue = rawValue.trim().replace(",", ".");
+  if (!normalizedValue) {
+    return null;
+  }
 
-function handleInputChange(
-  key: keyof TrainingRunParameterFormState,
-  onFieldChange: (
-    fieldKey: keyof TrainingRunParameterFormState,
-    value: string,
-  ) => void,
+  const parsedValue = Number(normalizedValue);
+  return Number.isFinite(parsedValue) ? parsedValue : null;
+}
+
+function isFieldDirty(
+  key: TrainingRunParameterKey,
+  state: TrainingRunParameterFormState,
+): boolean {
+  if (key === "fineTuningPolicy") {
+    return (
+      state.fineTuningPolicy.trim().toLowerCase() !==
+      trainingRunParameterDefaults.fineTuningPolicy
+    );
+  }
+
+  const rawValue = state[key].trim();
+  if (!rawValue) {
+    return false;
+  }
+
+  const parsedValue = parseNumber(state[key]);
+  if (parsedValue === null) {
+    return rawValue !== String(trainingRunParameterDefaults[key]);
+  }
+
+  return parsedValue !== trainingRunParameterDefaults[key];
+}
+
+function createNumberFieldState(
+  key: TrainingRunNumberParameterKey,
+  state: TrainingRunParameterFormState,
+  errors: TrainingRunParameterErrors,
 ) {
-  return (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    onFieldChange(key, event.target.value);
+  return {
+    kind: "number" as const,
+    rawValue: state[key],
+    parsedValue: parseNumber(state[key]),
+    defaultValue: trainingRunParameterDefaults[key],
+    isDirty: isFieldDirty(key, state),
+    error: errors[key] ?? null,
+  };
+}
+
+function createSelectFieldState(
+  state: TrainingRunParameterFormState,
+  errors: TrainingRunParameterErrors,
+) {
+  return {
+    rawValue: state.fineTuningPolicy,
+    defaultValue: trainingRunParameterDefaults.fineTuningPolicy,
+    isDirty: isFieldDirty("fineTuningPolicy", state),
+    error: errors.fineTuningPolicy ?? null,
   };
 }
 
@@ -98,6 +98,27 @@ export function Uc14TrainingRunParametersPanel({
   onReset,
   onFieldChange,
 }: Uc14TrainingRunParametersPanelProps) {
+  const selectorState = useMemo(
+    () =>
+      trainingRunParameterDefinitions.reduce<
+        Record<TrainingRunParameterKey, { error: string | null; isDirty: boolean }>
+      >(
+        (result, definition) => {
+          result[definition.key] = {
+            error: errors[definition.key] ?? null,
+            isDirty: isFieldDirty(definition.key, state),
+          };
+
+          return result;
+        },
+        {} as Record<
+          TrainingRunParameterKey,
+          { error: string | null; isDirty: boolean }
+        >,
+      ),
+    [errors, state],
+  );
+
   return (
     <section className="uc14-aside-card" aria-label="Panel parametrow treningu">
       <div className="uc14-aside-header">
@@ -129,45 +150,47 @@ export function Uc14TrainingRunParametersPanel({
           </span>
         </div>
 
-        <div className="uc14-fields-list">
-          {numberFieldDefinitions.map((field) => (
-            <label key={field.key} className="uc12-field">
-              <span>{field.label}</span>
-              <input
-                value={state[field.key]}
-                inputMode={field.inputMode}
-                step={field.step}
-                aria-invalid={errors[field.key] ? "true" : "false"}
-                onChange={handleInputChange(field.key, onFieldChange)}
-              />
-              <span className="muted-copy">{field.description}</span>
-              {errors[field.key] ? (
-                <span className="uc14-parameter-error">{errors[field.key]}</span>
-              ) : null}
-            </label>
-          ))}
+        <p className="muted-copy">
+          Frontend wysyla pelny snapshot parametrow treningu, a backend nadal
+          pozostaje zrodlem prawdy dla walidacji i wartosci efektywnych.
+        </p>
 
-          <label className="uc12-field">
-            <span>Fine-tuning policy</span>
-            <select
-              value={state.fineTuningPolicy}
-              aria-invalid={errors.fineTuningPolicy ? "true" : "false"}
-              onChange={handleInputChange("fineTuningPolicy", onFieldChange)}
-            >
-              <option value="all">all</option>
-              <option value="head-only">head-only</option>
-            </select>
-            <span className="muted-copy">
-              Polityka <code>head-only</code> jest walidowana dodatkowo przez BE
-              i przejdzie tylko dla wspieranych modeli.
-            </span>
-            {errors.fineTuningPolicy ? (
-              <span className="uc14-parameter-error">
-                {errors.fineTuningPolicy}
-              </span>
-            ) : null}
-          </label>
-        </div>
+        <Uc14ParameterSelector
+          title="Wybierz parametr do zmiany"
+          description="Edytor pokazuje jeden parametr treningu naraz, tak jak w pozostalych panelach UC-14."
+          definitions={trainingRunParameterDefinitions}
+          state={selectorState}
+        >
+          {(activeKey) => {
+            const activeDefinition = trainingRunParameterDefinitions.find(
+              (definition) => definition.key === activeKey,
+            );
+
+            if (!activeDefinition) {
+              return null;
+            }
+
+            if (activeDefinition.kind === "number") {
+              const numberKey = activeDefinition.key as TrainingRunNumberParameterKey;
+
+              return (
+                <Uc14ParameterNumberField
+                  definition={activeDefinition}
+                  state={createNumberFieldState(numberKey, state, errors)}
+                  onChange={(rawValue) => onFieldChange(numberKey, rawValue)}
+                />
+              );
+            }
+
+            return (
+              <Uc14ParameterSelectField
+                definition={activeDefinition}
+                state={createSelectFieldState(state, errors)}
+                onChange={(rawValue) => onFieldChange("fineTuningPolicy", rawValue)}
+              />
+            );
+          }}
+        </Uc14ParameterSelector>
 
         {!isValid ? (
           <p className="status-banner status-error">

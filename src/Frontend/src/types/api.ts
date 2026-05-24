@@ -38,10 +38,25 @@ export type DigitInferenceApiEntry = {
   lineArtifactMaxThicknessRatio: number;
 };
 
+export type SudokuCellInferenceParametersApiEntry = Pick<
+  DigitInferenceApiEntry,
+  | "emptyCellDarkPixelRatioThreshold"
+  | "emptyCellInnerMarginRatio"
+  | "centerAreaRatio"
+  | "minComponentAreaRatio"
+  | "lineArtifactMinSpanRatio"
+  | "lineArtifactMaxThicknessRatio"
+>;
+
 export type SolveSudokuApiEntry = {
   grid: (number | null)[][];
   solverStepDelayMs: number;
 };
+
+export type SolveSudokuParametersApiEntry = Pick<
+  SolveSudokuApiEntry,
+  "solverStepDelayMs"
+>;
 
 export type SolveSessionApiResponse = {
   solveSessionId: string;

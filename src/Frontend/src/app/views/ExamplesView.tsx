@@ -1,8 +1,13 @@
 import type { RefObject } from "react";
 
 import { Uc05WorkflowSection } from "../../features/uc05/api";
+import type { Uc14ActiveParameterContext } from "../../features/uc14/domain/uc14ParameterContext";
 import { toImageDataUrl } from "../../shared/images/toImageDataUrl";
 import type { ExampleFileApiResponse } from "../../types/api";
+import type {
+  SolveSudokuParametersApiEntry,
+  SudokuCellInferenceParametersApiEntry,
+} from "../../types/api";
 import type {
   CellsStageState,
   ExamplesListState,
@@ -37,10 +42,19 @@ type ExamplesViewProps = {
   onRunUpload: () => void;
   onSelectedFileChange: (file: File | null) => void;
   onSelectProcessName: (value: string | null) => void;
+  onUc14ContextChange?: (context: Uc14ActiveParameterContext) => void;
   previewStageState: ImageStageState;
   runUc04Flow: (fileName: string) => void;
   selectedProcessName: string | null;
   sessionExamples: ExampleFileApiResponse[];
+  solveCellInferenceParameters: SudokuCellInferenceParametersApiEntry | null;
+  solveCellInferenceParametersValid: boolean;
+  solveCellInferenceParameterErrorCount: number;
+  solveCellInferenceOverrideCount: number;
+  solveLiveParameters: SolveSudokuParametersApiEntry | null;
+  solveLiveParametersValid: boolean;
+  solveLiveParameterErrorCount: number;
+  solveLiveOverrideCount: number;
 };
 
 export function ExamplesView({
@@ -60,10 +74,19 @@ export function ExamplesView({
   onRunUpload,
   onSelectedFileChange,
   onSelectProcessName,
+  onUc14ContextChange,
   previewStageState,
   runUc04Flow,
   selectedProcessName,
   sessionExamples,
+  solveCellInferenceParameters,
+  solveCellInferenceParametersValid,
+  solveCellInferenceParameterErrorCount,
+  solveCellInferenceOverrideCount,
+  solveLiveParameters,
+  solveLiveParametersValid,
+  solveLiveParameterErrorCount,
+  solveLiveOverrideCount,
 }: ExamplesViewProps) {
   return (
     <>
@@ -309,7 +332,16 @@ export function ExamplesView({
           <Uc05WorkflowSection
             apiBaseUrl={apiBaseUrl}
             cellsGrid={cellsStageState.kind === "success" ? cellsStageState.cells : null}
+            onParameterContextChange={onUc14ContextChange}
             selectedProcessName={selectedProcessName}
+            solveCellInferenceParameters={solveCellInferenceParameters}
+            solveCellInferenceParametersValid={solveCellInferenceParametersValid}
+            solveCellInferenceParameterErrorCount={solveCellInferenceParameterErrorCount}
+            solveCellInferenceOverrideCount={solveCellInferenceOverrideCount}
+            solveLiveParameters={solveLiveParameters}
+            solveLiveParametersValid={solveLiveParametersValid}
+            solveLiveParameterErrorCount={solveLiveParameterErrorCount}
+            solveLiveOverrideCount={solveLiveOverrideCount}
           />
         </>
       ) : null}

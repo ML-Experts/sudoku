@@ -1,4 +1,8 @@
-import type { CellsGridApiResponse, DigitInferenceApiResponse } from "../../../types/api";
+import type {
+  CellsGridApiResponse,
+  DigitInferenceApiResponse,
+  SudokuCellInferenceParametersApiEntry,
+} from "../../../types/api";
 import { putSudokuCellInference } from "../../../api/sudokuCellsInference";
 import type { GridCoordinates } from "../domain/gridCoordinates";
 import { GRID_SIZE } from "../domain/gridCoordinates";
@@ -26,6 +30,7 @@ export class CellRecognitionTaskError extends Error {
 type RecognizeCellsGridOptions = {
   apiBaseUrl: string;
   cellsGrid: CellsGridApiResponse;
+  inferenceParameters?: SudokuCellInferenceParametersApiEntry | null;
   signal: AbortSignal;
   concurrency: number;
   onCellRecognized: (
@@ -51,6 +56,7 @@ export function assertCellsGridShape(cellsGrid: CellsGridApiResponse): void {
 export async function recognizeCellsGrid({
   apiBaseUrl,
   cellsGrid,
+  inferenceParameters,
   signal,
   concurrency,
   onCellRecognized,
@@ -63,7 +69,12 @@ export async function recognizeCellsGrid({
 
       return async () => {
         try {
-          const response = await putSudokuCellInference(apiBaseUrl, cell, signal);
+          const response = await putSudokuCellInference(
+            apiBaseUrl,
+            cell,
+            inferenceParameters,
+            signal,
+          );
           onCellRecognized(coordinates, response);
           return response;
         } catch (error) {

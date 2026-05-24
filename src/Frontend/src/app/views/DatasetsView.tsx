@@ -13,7 +13,6 @@ type DatasetsViewProps = {
   datasetsStep: DatasetsStep;
   onDatasetsStepChange: (step: DatasetsStep) => void;
   onUnauthorized: () => void;
-  setUc14PanelVisible: (visible: boolean) => void;
   trainingRunParameterValidation: TrainingRunParameterValidationResult;
 };
 
@@ -23,7 +22,6 @@ export function DatasetsView({
   datasetsStep,
   onDatasetsStepChange,
   onUnauthorized,
-  setUc14PanelVisible,
   trainingRunParameterValidation,
 }: DatasetsViewProps) {
   return (
@@ -40,34 +38,22 @@ export function DatasetsView({
           <DatasetStepButton
             isActive={datasetsStep === "uc11"}
             label="1. Przeglad kandydatow raw (UC-11)"
-            onClick={() => {
-              setUc14PanelVisible(false);
-              onDatasetsStepChange("uc11");
-            }}
+            onClick={() => onDatasetsStepChange("uc11")}
           />
           <DatasetStepButton
             isActive={datasetsStep === "uc12"}
             label="2. Budowa datasetu processed (UC-12)"
-            onClick={() => {
-              setUc14PanelVisible(false);
-              onDatasetsStepChange("uc12");
-            }}
+            onClick={() => onDatasetsStepChange("uc12")}
           />
           <DatasetStepButton
             isActive={datasetsStep === "uc06"}
             label="3. Start i monitoring treningu (UC-06)"
-            onClick={() => {
-              onDatasetsStepChange("uc06");
-              setUc14PanelVisible(true);
-            }}
+            onClick={() => onDatasetsStepChange("uc06")}
           />
           <DatasetStepButton
             isActive={datasetsStep === "uc08"}
             label="4. Katalog runow i modeli (UC-08)"
-            onClick={() => {
-              setUc14PanelVisible(false);
-              onDatasetsStepChange("uc08");
-            }}
+            onClick={() => onDatasetsStepChange("uc08")}
           />
         </div>
       </section>

@@ -3,6 +3,7 @@ import type {
   DigitInferenceApiEntry,
   DigitInferenceApiResponse,
   ImageApiEntry,
+  SudokuCellInferenceParametersApiEntry,
 } from "../types/api";
 
 export class SudokuCellInferenceApiError extends JsonApiError {
@@ -42,11 +43,13 @@ const DEFAULT_DIGIT_INFERENCE_ENTRY: Omit<DigitInferenceApiEntry, "image"> = {
 export async function putSudokuCellInference(
   apiBaseUrl: string,
   entry: ImageApiEntry,
+  parameters?: SudokuCellInferenceParametersApiEntry | null,
   signal?: AbortSignal,
 ): Promise<DigitInferenceApiResponse> {
   const request: DigitInferenceApiEntry = {
     image: entry,
     ...DEFAULT_DIGIT_INFERENCE_ENTRY,
+    ...parameters,
   };
 
   return fetchJson({

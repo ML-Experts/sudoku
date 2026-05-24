@@ -230,8 +230,14 @@
 }
 
 .uc14-parameter-error {
+  margin: 0;
   color: #fca5a5;
   font-size: 0.88rem;
+}
+
+.uc14-aside-header h2,
+.uc14-panel h3 {
+  margin: 0;
 }
 
 .uc12-field input[aria-invalid="true"],
