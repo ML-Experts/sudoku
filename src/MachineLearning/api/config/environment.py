@@ -256,6 +256,9 @@ def get_runtime_settings() -> RuntimeSettings:
         temp_datasets_directory_path=get_env_value(
             "ML_TEMP_DATASETS_DIRECTORY_PATH", "./tmp/datasets"
         ),
+        dataset_previews_directory_path=get_env_value(
+            "ML_DATASET_PREVIEWS_DIRECTORY_PATH", "./tmp/dataset-previews"
+        ),
         examples_uploads_directory_path=get_env_value(
             "ML_EXAMPLES_UPLOADS_DIR", "./examples/uploads"
         ),

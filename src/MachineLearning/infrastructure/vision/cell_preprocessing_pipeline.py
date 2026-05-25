@@ -10,10 +10,13 @@ class CellPreprocessingPipeline:
         self._output_size = output_size
 
     def run(self, cell_image: NDArray[np.uint8]) -> NDArray[np.float32]:
-        binary_image = self.build_foreground_mask(cell_image)
-        centered_image = self._center_foreground(binary_image)
-        normalized_image = centered_image.astype(np.float32) / 255.0
+        preview_image = self.run_uint8(cell_image)
+        normalized_image = preview_image.astype(np.float32) / 255.0
         return normalized_image
+
+    def run_uint8(self, cell_image: NDArray[np.uint8]) -> NDArray[np.uint8]:
+        binary_image = self.build_foreground_mask(cell_image)
+        return self._center_foreground(binary_image)
 
     def build_foreground_mask(
         self,

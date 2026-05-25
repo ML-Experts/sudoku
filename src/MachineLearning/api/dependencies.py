@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 from functools import lru_cache
+from typing import TYPE_CHECKING
 
 from fastapi import Depends, Request
 
@@ -11,29 +14,17 @@ from api.config.runtime_settings import (
 from application.features.datasets.commands.prepare_dataset_artifact.prepare_dataset_artifact_command_handler import (
     PrepareDatasetArtifactCommandHandler,
 )
-from application.features.inference.commands.infer_cell_digit.infer_cell_digit_command_handler import (
-    InferCellDigitCommandHandler,
-)
 from application.features.overlay.commands.render_overlay_cell.render_overlay_cell_command_handler import (
     RenderOverlayCellCommandHandler,
 )
 from application.features.preprocessing.commands.extract_cells.extract_cells_command_handler import (
     ExtractCellsCommandHandler,
 )
-from application.features.inference.commands.test_digit_inference.test_digit_inference_command_handler import (
-    TestDigitInferenceCommandHandler,
-)
 from application.features.preprocessing.commands.preprocess_board.preprocess_board_command_handler import (
     PreprocessBoardCommandHandler,
 )
 from application.features.runtime_status.queries.get_runtime_status.get_runtime_status_query_handler import (
     GetRuntimeStatusQueryHandler,
-)
-from application.features.trainings.commands.cancel_training_run.cancel_training_run_command_handler import (
-    CancelTrainingRunCommandHandler,
-)
-from application.features.trainings.commands.start_training_run.start_training_run_command_handler import (
-    StartTrainingRunCommandHandler,
 )
 from infrastructure.vision.opencv_adaptive_threshold_binarizer import (
     OpenCvAdaptiveThresholdBinarizer,
@@ -71,13 +62,25 @@ from infrastructure.inference.cell_occupancy_detector import (
 from infrastructure.inference.filesystem_test_image_repository import (
     FilesystemTestImageRepository,
 )
-from infrastructure.inference.runtime_model_loader import RuntimeModelLoader
 from infrastructure.reporting.preparation_report_builder import (
     PreparationReportBuilder,
 )
 from infrastructure.storage.npz_dataset_artifact_writer import (
     NpzDatasetArtifactWriter,
 )
+from infrastructure.storage.dataset_preparation_artifact_cleanup import (
+    DatasetPreparationArtifactCleanup,
+)
+from infrastructure.storage.dataset_preview_index_writer import (
+    DatasetPreviewIndexWriter,
+)
+from infrastructure.storage.dataset_preview_path_provider import (
+    DatasetPreviewPathProvider,
+)
+from infrastructure.storage.filesystem_image_artifact_writer import (
+    FilesystemImageArtifactWriter,
+)
+from infrastructure.storage.json_file_writer import JsonFileWriter
 from infrastructure.storage.temp_dataset_path_provider import (
     TempDatasetPathProvider,
 )
@@ -92,19 +95,23 @@ from infrastructure.training.cancellation.cancellation_registry import (
 from infrastructure.training.model.model_manifest_reader import (
     ModelManifestReader,
 )
-from infrastructure.training.data.input_transform_factory import (
-    InputTransformFactory,
-)
-from infrastructure.training.model.model_artifact_loader import (
-    ModelArtifactLoader,
-)
-from infrastructure.training.model.model_factory import ModelFactory
-from infrastructure.training.runners.training_runner_factory import (
-    TrainingRunnerFactory,
-)
 from infrastructure.vision.cell_preprocessing_pipeline import (
     CellPreprocessingPipeline,
 )
+
+if TYPE_CHECKING:
+    from application.features.inference.commands.infer_cell_digit.infer_cell_digit_command_handler import (
+        InferCellDigitCommandHandler,
+    )
+    from application.features.inference.commands.test_digit_inference.test_digit_inference_command_handler import (
+        TestDigitInferenceCommandHandler,
+    )
+    from application.features.trainings.commands.cancel_training_run.cancel_training_run_command_handler import (
+        CancelTrainingRunCommandHandler,
+    )
+    from application.features.trainings.commands.start_training_run.start_training_run_command_handler import (
+        StartTrainingRunCommandHandler,
+    )
 
 
 def get_runtime_settings(request: Request) -> RuntimeSettings:
@@ -216,6 +223,13 @@ def get_start_training_run_command_handler(
         get_cancellation_registry
     ),
 ) -> StartTrainingRunCommandHandler:
+    from application.features.trainings.commands.start_training_run.start_training_run_command_handler import (
+        StartTrainingRunCommandHandler,
+    )
+    from infrastructure.training.runners.training_runner_factory import (
+        TrainingRunnerFactory,
+    )
+
     utc_clock = SystemUtcClock()
     training_runner = TrainingRunnerFactory(
         settings=training_settings,
@@ -238,6 +252,10 @@ def get_cancel_training_run_command_handler(
         get_cancellation_registry
     ),
 ) -> CancelTrainingRunCommandHandler:
+    from application.features.trainings.commands.cancel_training_run.cancel_training_run_command_handler import (
+        CancelTrainingRunCommandHandler,
+    )
+
     return CancelTrainingRunCommandHandler(
         cancellation_registry=cancellation_registry,
     )
@@ -293,6 +311,9 @@ def get_prepare_dataset_artifact_command_handler(
         get_preprocessing_settings
     ),
 ) -> PrepareDatasetArtifactCommandHandler:
+    dataset_preview_path_provider = DatasetPreviewPathProvider(
+        previews_directory_path=runtime_settings.dataset_previews_directory_path
+    )
     return PrepareDatasetArtifactCommandHandler(
         dataset_source_resolver=DatasetSourceResolver(
             boards_subdirectory=runtime_settings.boards_subdirectory,
@@ -310,6 +331,17 @@ def get_prepare_dataset_artifact_command_handler(
             temp_datasets_directory_path=(
                 runtime_settings.temp_datasets_directory_path
             )
+        ),
+        dataset_preview_path_provider=dataset_preview_path_provider,
+        preview_image_artifact_writer=FilesystemImageArtifactWriter(
+            image_codec=OpenCvImageCodec(),
+            output_mime_type="image/png",
+        ),
+        dataset_preview_index_writer=DatasetPreviewIndexWriter(
+            json_file_writer=JsonFileWriter()
+        ),
+        dataset_preparation_artifact_cleanup=DatasetPreparationArtifactCleanup(
+            dataset_preview_path_provider=dataset_preview_path_provider
         ),
         preparation_report_builder=PreparationReportBuilder(),
         grayscale_blur_preprocessor=OpenCvGrayscaleBlurPreprocessor(
@@ -380,6 +412,18 @@ def get_test_digit_inference_command_handler(
     runtime_settings: RuntimeSettings = Depends(get_runtime_settings),
     training_settings: TrainingSettings = Depends(get_training_settings),
 ) -> TestDigitInferenceCommandHandler:
+    from application.features.inference.commands.test_digit_inference.test_digit_inference_command_handler import (
+        TestDigitInferenceCommandHandler,
+    )
+    from infrastructure.inference.runtime_model_loader import RuntimeModelLoader
+    from infrastructure.training.data.input_transform_factory import (
+        InputTransformFactory,
+    )
+    from infrastructure.training.model.model_artifact_loader import (
+        ModelArtifactLoader,
+    )
+    from infrastructure.training.model.model_factory import ModelFactory
+
     return TestDigitInferenceCommandHandler(
         image_repository=FilesystemTestImageRepository(
             directory_path=runtime_settings.examples_uploads_directory_path
@@ -405,6 +449,18 @@ def get_infer_cell_digit_command_handler(
     ),
     inference_settings: InferenceSettings = Depends(get_inference_settings),
 ) -> InferCellDigitCommandHandler:
+    from application.features.inference.commands.infer_cell_digit.infer_cell_digit_command_handler import (
+        InferCellDigitCommandHandler,
+    )
+    from infrastructure.inference.runtime_model_loader import RuntimeModelLoader
+    from infrastructure.training.data.input_transform_factory import (
+        InputTransformFactory,
+    )
+    from infrastructure.training.model.model_artifact_loader import (
+        ModelArtifactLoader,
+    )
+    from infrastructure.training.model.model_factory import ModelFactory
+
     return InferCellDigitCommandHandler(
         image_codec=OpenCvImageCodec(),
         cell_preprocessing_pipeline=CellPreprocessingPipeline(output_size=28),
