@@ -7,6 +7,7 @@ using Sudoku.Application.Examples;
 using Sudoku.Application.ModelsActive;
 using Sudoku.Application.ModelsRegistry;
 using Sudoku.Application.Sudoku;
+using Sudoku.Application.SudokuOverlay;
 using Sudoku.Application.SudokuSolve;
 using Sudoku.Application.Trainings;
 using Sudoku.Configuration;
@@ -57,6 +58,12 @@ builder.Services
     .Validate(
         options => !string.IsNullOrWhiteSpace(options.InferenceProfileName),
         $"{SudokuCellsInferenceOptions.SectionName}:InferenceProfileName is required.")
+    .ValidateOnStart();
+
+builder.Services
+    .AddOptions<SudokuOverlayOptions>()
+    .BindConfiguration(SudokuOverlayOptions.SectionName)
+    .ValidateDataAnnotations()
     .ValidateOnStart();
 
 builder.Services

@@ -65,6 +65,13 @@ public sealed class InferSudokuCellDigitCommandHandlerTests
             LastRequest = request;
             return Task.FromResult(new InferSudokuCellDigitMlResultDto(7));
         }
+
+        public Task<ImageContent> RenderOverlayCellAsync(
+            Sudoku.Application.SudokuOverlay.RenderSudokuOverlayCellMlRequestDto request,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
     }
 
     private sealed class StubActiveModelResolver : IActiveModelResolver

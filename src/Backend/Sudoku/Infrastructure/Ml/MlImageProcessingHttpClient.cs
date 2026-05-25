@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 using Sudoku.Application.Abstractions;
 using Sudoku.Application.Ml;
 using Sudoku.Application.Sudoku;
+using Sudoku.Application.SudokuOverlay;
 using Sudoku.Infrastructure.Configuration;
 using Sudoku.Models.Images;
 
@@ -57,6 +58,13 @@ public sealed class MlImageProcessingHttpClient : IMlImageProcessingGateway
         }
 
         return new InferSudokuCellDigitMlResultDto(payload.Digit);
+    }
+
+    public Task<ImageContent> RenderOverlayCellAsync(
+        RenderSudokuOverlayCellMlRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        return SendOverlayCellAsync(_options.SudokuOverlayCellsPath, request, cancellationToken);
     }
 
     private async Task<ImageContent> SendImageAsync(
@@ -113,6 +121,28 @@ public sealed class MlImageProcessingHttpClient : IMlImageProcessingGateway
         }
     }
 
+    private async Task<ImageContent> SendOverlayCellAsync(
+        string relativePath,
+        RenderSudokuOverlayCellMlRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var payload = new RenderSudokuOverlayCellRequestApiContract(
+            CellImage: new ImageApiContract(
+                MimeType: request.CellImage.MimeType,
+                Base64: Convert.ToBase64String(request.CellImage.Content)),
+            Digit: request.Digit,
+            RowIndex: request.CellPosition?.Row,
+            ColumnIndex: request.CellPosition?.Column);
+
+        var responsePayload = await SendPayloadAsync<RenderSudokuOverlayCellRequestApiContract, ImageApiContract>(
+            HttpMethod.Post,
+            relativePath,
+            payload,
+            cancellationToken);
+
+        return ToImageContent(responsePayload);
+    }
+
     private Task<DigitInferenceApiContract> SendInferDigitAsync(
         string relativePath,
         InferSudokuCellDigitMlRequestDto request,
@@ -138,6 +168,7 @@ public sealed class MlImageProcessingHttpClient : IMlImageProcessingGateway
             ));
 
         return SendPayloadAsync<DigitInferenceRequestApiContract, DigitInferenceApiContract>(
+            HttpMethod.Put,
             relativePath,
             payload,
             cancellationToken);
@@ -153,22 +184,25 @@ public sealed class MlImageProcessingHttpClient : IMlImageProcessingGateway
             Base64: Convert.ToBase64String(image.Content));
 
         return await SendPayloadAsync<ImageApiContract, TResponse>(
+            HttpMethod.Put,
             relativePath,
             payload,
             cancellationToken);
     }
 
     private async Task<TResponse> SendPayloadAsync<TRequest, TResponse>(
+        HttpMethod method,
         string relativePath,
         TRequest payload,
         CancellationToken cancellationToken)
     {
         try
         {
-            using var response = await _httpClient.PutAsJsonAsync(
-                relativePath,
-                payload,
-                cancellationToken);
+            using var requestMessage = new HttpRequestMessage(method, relativePath)
+            {
+                Content = JsonContent.Create(payload)
+            };
+            using var response = await _httpClient.SendAsync(requestMessage, cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -333,6 +367,12 @@ public sealed class MlImageProcessingHttpClient : IMlImageProcessingGateway
     );
 
     private sealed record DigitInferenceApiContract(int? Digit);
+
+    private sealed record RenderSudokuOverlayCellRequestApiContract(
+        ImageApiContract CellImage,
+        int Digit,
+        int? RowIndex,
+        int? ColumnIndex);
 
     private sealed record ErrorApiContract(
         string? ErrorType,

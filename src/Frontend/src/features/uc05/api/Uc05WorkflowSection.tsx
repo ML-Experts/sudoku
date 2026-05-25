@@ -10,6 +10,7 @@ import { Uc05aRecognitionPanel } from "../../uc05a/api";
 import { useUc05aRecognition } from "../../uc05a/application/useUc05aRecognition";
 import { Uc05bSolveSection } from "../../uc05b/api/Uc05bSolveSection";
 import { useUc05bSolve } from "../../uc05b/application/useUc05bSolve";
+import { Uc05dOverlaySection } from "../../uc05d/api";
 import { Uc05eLiveSolvePanel } from "../../uc05e/api/Uc05eLiveSolvePanel";
 import { useUc05eLiveSolve } from "../../uc05e/application/useUc05eLiveSolve";
 import type { Uc14ActiveParameterContext } from "../../uc14/domain/uc14ParameterContext";
@@ -90,6 +91,9 @@ export function Uc05WorkflowSection({
     liveSolve.hasLiveSessionToResume;
   const shouldShowLivePanel =
     solve.state.session !== null || liveSolve.hasLiveSessionToResume;
+  const shouldShowOverlaySection =
+    liveSolve.state.terminalEventType === "completed" ||
+    liveSolve.state.degradedReason !== null;
 
   return (
     <section className="uc05-workflow-section">
@@ -148,6 +152,21 @@ export function Uc05WorkflowSection({
           state={liveSolve.state}
           canRetryMonitoring={liveSolve.hasLiveSessionToResume}
           onRetryMonitoring={liveSolve.retryMonitoring}
+        />
+      ) : null}
+
+      {shouldShowOverlaySection ? (
+        <Uc05dOverlaySection
+          apiBaseUrl={apiBaseUrl}
+          cellsGrid={cellsGrid}
+          inputGrid={liveSolve.state.inputGrid}
+          solvedGrid={
+            liveSolve.state.terminalEventType === "completed"
+              ? liveSolve.visibleGrid
+              : null
+          }
+          terminalEventType={liveSolve.state.terminalEventType}
+          degradedReason={liveSolve.state.degradedReason}
         />
       ) : null}
     </section>

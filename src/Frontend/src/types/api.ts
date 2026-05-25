@@ -20,6 +20,13 @@ export type ImageApiEntry = {
   base64: string;
 };
 
+export type RenderSudokuOverlayCellApiEntry = {
+  cellImage: ImageApiEntry;
+  digit: number;
+  rowIndex?: number;
+  columnIndex?: number;
+};
+
 export type CellsGridApiResponse = {
   cells: ImageApiResponse[][];
 };
