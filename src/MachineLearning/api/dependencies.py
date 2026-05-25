@@ -14,6 +14,9 @@ from application.features.datasets.commands.prepare_dataset_artifact.prepare_dat
 from application.features.inference.commands.infer_cell_digit.infer_cell_digit_command_handler import (
     InferCellDigitCommandHandler,
 )
+from application.features.overlay.commands.render_overlay_cell.render_overlay_cell_command_handler import (
+    RenderOverlayCellCommandHandler,
+)
 from application.features.preprocessing.commands.extract_cells.extract_cells_command_handler import (
     ExtractCellsCommandHandler,
 )
@@ -45,6 +48,9 @@ from infrastructure.vision.opencv_grayscale_blur_preprocessor import (
     OpenCvGrayscaleBlurPreprocessor,
 )
 from infrastructure.vision.opencv_image_codec import OpenCvImageCodec
+from infrastructure.vision.opencv_text_overlay_renderer import (
+    OpenCvTextOverlayRenderer,
+)
 from infrastructure.vision.opencv_perspective_transformer import (
     OpenCvPerspectiveTransformer,
 )
@@ -263,6 +269,20 @@ def get_extract_cells_command_handler(
         expected_grid_cols=preprocessing_settings.cells_grid_cols,
         minimum_cell_size_px=(
             preprocessing_settings.cells_minimum_cell_size_px
+        ),
+    )
+
+
+def get_render_overlay_cell_command_handler(
+    preprocessing_settings: PreprocessingSettings = Depends(
+        get_preprocessing_settings
+    ),
+) -> RenderOverlayCellCommandHandler:
+    return RenderOverlayCellCommandHandler(
+        image_codec=OpenCvImageCodec(),
+        text_overlay_renderer=OpenCvTextOverlayRenderer(),
+        allowed_input_mime_types=(
+            preprocessing_settings.allowed_input_mime_types
         ),
     )
 

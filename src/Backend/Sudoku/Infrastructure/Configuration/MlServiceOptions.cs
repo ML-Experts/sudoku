@@ -22,6 +22,9 @@ public sealed class MlServiceOptions
     public string CellInferencePath { get; init; } = "/ml/cells/inference";
 
     [Required]
+    public string SudokuOverlayCellsPath { get; init; } = "/ml/sudoku/overlay/cells";
+
+    [Required]
     public string PrepareDatasetPath { get; init; } = "/ml/datasets/prepare";
 
     [Required]

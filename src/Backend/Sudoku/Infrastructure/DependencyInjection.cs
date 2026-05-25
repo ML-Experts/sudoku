@@ -40,6 +40,9 @@ public static class DependencyInjection
                 options => options.CellInferencePath.StartsWith("/", StringComparison.Ordinal),
                 $"{MlServiceOptions.SectionName}:CellInferencePath must start with '/'.")
             .Validate(
+                options => options.SudokuOverlayCellsPath.StartsWith("/", StringComparison.Ordinal),
+                $"{MlServiceOptions.SectionName}:SudokuOverlayCellsPath must start with '/'.")
+            .Validate(
                 options => options.PrepareDatasetPath.StartsWith("/", StringComparison.Ordinal),
                 $"{MlServiceOptions.SectionName}:PrepareDatasetPath must start with '/'.")
             .Validate(
