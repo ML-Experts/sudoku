@@ -5,6 +5,7 @@ import numpy as np
 
 from sudoku_board_debug_candidates import DistinctLineCandidate
 from sudoku_board_debug_core import BoardQuad, LineSegment
+from sudoku_board_debug_line_experiment import MergedLineCandidate
 
 
 def show_image(axis, image: np.ndarray, title: str, *, is_bgr: bool = False) -> None:
@@ -138,3 +139,74 @@ def draw_quad_candidate_overlay(
         draw_candidate_segments(overlay, candidate, (0, 255, 255), 3)
 
     return draw_board_quad(overlay, best_candidate.board_quad, color=(0, 255, 0), thickness=5)
+
+
+def candidate_draw_points(
+    candidate: MergedLineCandidate,
+) -> tuple[tuple[int, int], tuple[int, int]]:
+    if candidate.line is None:
+        raise ValueError("Merged line candidate is missing fitted line.")
+    start_point = candidate.line.point + candidate.line.direction * candidate.span_start
+    end_point = candidate.line.point + candidate.line.direction * candidate.span_end
+    return (
+        (int(round(float(start_point[0]))), int(round(float(start_point[1])))),
+        (int(round(float(end_point[0]))), int(round(float(end_point[1])))),
+    )
+
+
+def draw_raw_segments_overlay(
+    base_image: np.ndarray,
+    line_segments: list[LineSegment],
+) -> np.ndarray:
+    overlay = base_image.copy()
+    for line_segment in line_segments:
+        start_point = tuple(int(round(value)) for value in line_segment.start)
+        end_point = tuple(int(round(value)) for value in line_segment.end)
+        cv2.line(overlay, start_point, end_point, (180, 180, 180), 1)
+    return overlay
+
+
+def draw_family_overlay(
+    base_image: np.ndarray,
+    primary_segments: list[LineSegment],
+    secondary_segments: list[LineSegment],
+) -> np.ndarray:
+    overlay = base_image.copy()
+    for line_segment in primary_segments:
+        start_point = tuple(int(round(value)) for value in line_segment.start)
+        end_point = tuple(int(round(value)) for value in line_segment.end)
+        cv2.line(overlay, start_point, end_point, (255, 165, 0), 1)
+    for line_segment in secondary_segments:
+        start_point = tuple(int(round(value)) for value in line_segment.start)
+        end_point = tuple(int(round(value)) for value in line_segment.end)
+        cv2.line(overlay, start_point, end_point, (0, 255, 255), 1)
+    return overlay
+
+
+def draw_merged_candidates_overlay(
+    base_image: np.ndarray,
+    primary_candidates: list[MergedLineCandidate],
+    secondary_candidates: list[MergedLineCandidate],
+) -> np.ndarray:
+    overlay = base_image.copy()
+    for family_prefix, candidates, color in (
+        ("P", primary_candidates, (255, 0, 255)),
+        ("S", secondary_candidates, (0, 220, 0)),
+    ):
+        for candidate_index, candidate in enumerate(candidates):
+            start_point, end_point = candidate_draw_points(candidate)
+            cv2.line(overlay, start_point, end_point, color, 2)
+            anchor_x = int(round((start_point[0] + end_point[0]) / 2.0))
+            anchor_y = int(round((start_point[1] + end_point[1]) / 2.0))
+            label = f"{family_prefix}{candidate_index}|span={candidate.span_length:.0f}"
+            cv2.putText(
+                overlay,
+                label,
+                (max(10, anchor_x - 40), max(20, anchor_y - 4)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.45,
+                color,
+                1,
+                cv2.LINE_AA,
+            )
+    return overlay
