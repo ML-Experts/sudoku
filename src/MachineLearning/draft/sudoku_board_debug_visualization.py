@@ -230,7 +230,8 @@ def build_line_experiment_overlays(
     binary_image: np.ndarray,
     result: LineExperimentResult,
 ) -> LineExperimentOverlays:
-    binary_display_image = cv2.bitwise_not(binary_image)
+    # Keep the adaptive-threshold foreground white on black for debugging.
+    binary_display_image = binary_image.copy()
     binary_debug_image = cv2.cvtColor(binary_display_image, cv2.COLOR_GRAY2BGR)
     return LineExperimentOverlays(
         binary_display_image=binary_display_image,

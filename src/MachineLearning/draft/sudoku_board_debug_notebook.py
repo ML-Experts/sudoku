@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import importlib
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import cv2
 import numpy as np
@@ -19,8 +21,12 @@ from sudoku_board_debug_preprocess import (
     preprocess_image,
     read_exif_orientation_label,
 )
-from sudoku_board_debug_visualization import LineExperimentOverlays, build_line_experiment_overlays
-from sudoku_board_debug_visualization import show_image
+import sudoku_board_debug_visualization as debug_visualization
+
+if TYPE_CHECKING:
+    from sudoku_board_debug_visualization import LineExperimentOverlays
+
+debug_visualization = importlib.reload(debug_visualization)
 
 
 @dataclass(frozen=True)
@@ -36,7 +42,8 @@ class PreparedBoardImage:
 
 
 def to_binary_display_image(binary_image: np.ndarray) -> np.ndarray:
-    return cv2.bitwise_not(binary_image)
+    # Adaptive threshold already returns the foreground as white on black.
+    return binary_image.copy()
 
 
 def to_binary_debug_image(binary_image: np.ndarray) -> np.ndarray:
@@ -104,14 +111,6 @@ def print_cleanup_settings(resolved_cleanup_settings) -> None:
         "Connected components min area px:",
         resolved_cleanup_settings.min_component_area_px,
     )
-    print(
-        "Directional open kernel length:",
-        resolved_cleanup_settings.open_kernel_length,
-    )
-    print(
-        "Directional close kernel length:",
-        resolved_cleanup_settings.close_kernel_length,
-    )
 
 
 def print_line_experiment_report(
@@ -135,8 +134,12 @@ def print_line_experiment_report(
 def build_notebook_debug_view(
     source_image: np.ndarray,
     result: LineExperimentResult,
-) -> LineExperimentOverlays:
-    return build_line_experiment_overlays(source_image, result.binary, result)
+) -> "LineExperimentOverlays":
+    return debug_visualization.build_line_experiment_overlays(
+        source_image,
+        result.binary,
+        result,
+    )
 
 
 def show_display_image(
@@ -148,4 +151,4 @@ def show_display_image(
     is_bgr: bool = False,
 ) -> None:
     oriented_image = orient_image_for_display(image, orientation_label)
-    show_image(axis, oriented_image, title, is_bgr=is_bgr)
+    debug_visualization.show_image(axis, oriented_image, title, is_bgr=is_bgr)
