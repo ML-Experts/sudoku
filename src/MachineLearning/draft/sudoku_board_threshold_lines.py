@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 import cv2
 import numpy as np
 
@@ -103,6 +105,99 @@ def interval_gap(
     return 0.0
 
 
+def merge_overlapping_intervals(
+    intervals: list[tuple[float, float]],
+    join_gap_px: float = 0.0,
+) -> tuple[tuple[float, float], ...]:
+    if not intervals:
+        return ()
+
+    sorted_intervals = sorted(intervals)
+    merged_intervals: list[list[float]] = [
+        [float(sorted_intervals[0][0]), float(sorted_intervals[0][1])]
+    ]
+    for start, end in sorted_intervals[1:]:
+        last_interval = merged_intervals[-1]
+        if float(start) <= last_interval[1] + join_gap_px:
+            last_interval[1] = max(last_interval[1], float(end))
+            continue
+        merged_intervals.append([float(start), float(end)])
+    return tuple((start, end) for start, end in merged_intervals)
+
+
+def merged_interval_length(intervals: tuple[tuple[float, float], ...]) -> float:
+    return float(sum(interval_end - interval_start for interval_start, interval_end in intervals))
+
+
+def point_is_within_intervals(
+    position: float,
+    intervals: tuple[tuple[float, float], ...],
+    tolerance_px: float,
+) -> bool:
+    return any(
+        interval_start - tolerance_px <= position <= interval_end + tolerance_px
+        for interval_start, interval_end in intervals
+    )
+
+
+def cross_product_2d(first_vector: np.ndarray, second_vector: np.ndarray) -> float:
+    return float(first_vector[0] * second_vector[1] - first_vector[1] * second_vector[0])
+
+
+def intersection_point_for_segments(
+    first_segment: DetectedLineSegment,
+    second_segment: DetectedLineSegment,
+    tolerance_px: float,
+) -> np.ndarray | None:
+    first_start = point_array(first_segment.start)
+    first_direction = point_array(first_segment.end) - first_start
+    second_start = point_array(second_segment.start)
+    second_direction = point_array(second_segment.end) - second_start
+
+    denominator = cross_product_2d(first_direction, second_direction)
+    if abs(denominator) <= 1e-6:
+        return None
+
+    first_length = float(np.linalg.norm(first_direction))
+    second_length = float(np.linalg.norm(second_direction))
+    if first_length <= 1e-6 or second_length <= 1e-6:
+        return None
+
+    delta = second_start - first_start
+    first_scale = cross_product_2d(delta, second_direction) / denominator
+    second_scale = cross_product_2d(delta, first_direction) / denominator
+    first_tolerance = tolerance_px / first_length
+    second_tolerance = tolerance_px / second_length
+    if not (-first_tolerance <= first_scale <= 1.0 + first_tolerance):
+        return None
+    if not (-second_tolerance <= second_scale <= 1.0 + second_tolerance):
+        return None
+    return first_start + first_direction * first_scale
+
+
+def deduplicate_touch_points(
+    touch_points: list[np.ndarray],
+    tolerance_px: float,
+) -> tuple[tuple[int, int], ...]:
+    deduplicated_points: list[np.ndarray] = []
+    for touch_point in touch_points:
+        for point_index, existing_point in enumerate(deduplicated_points):
+            if float(np.linalg.norm(touch_point - existing_point)) > tolerance_px:
+                continue
+            deduplicated_points[point_index] = (existing_point + touch_point) / 2.0
+            break
+        else:
+            deduplicated_points.append(touch_point.astype(np.float32))
+
+    return tuple(
+        (
+            int(round(float(touch_point[0]))),
+            int(round(float(touch_point[1]))),
+        )
+        for touch_point in deduplicated_points
+    )
+
+
 def build_merged_line(
     family_name: str,
     family_angle_degrees: float,
@@ -124,31 +219,47 @@ def build_merged_line(
     for line_segment in line_segments:
         endpoint_positions.append(point_position_on_direction(line_segment.start, direction))
         endpoint_positions.append(point_position_on_direction(line_segment.end, direction))
+    support_intervals = merge_overlapping_intervals(
+        [segment_interval_along_direction(line_segment, direction) for line_segment in line_segments]
+    )
 
     projection = float(np.mean(midpoint_projections)) if midpoint_projections else 0.0
     span_start = min(endpoint_positions) if endpoint_positions else 0.0
     span_end = max(endpoint_positions) if endpoint_positions else 0.0
-    start_point = normal * projection + direction * span_start
-    end_point = normal * projection + direction * span_end
     thickness_px = (
         float(max(midpoint_projections) - min(midpoint_projections))
         if midpoint_projections
         else 0.0
     )
+    segment_midpoints = [
+        (
+            (line_segment.start[0] + line_segment.end[0]) / 2.0,
+            (line_segment.start[1] + line_segment.end[1]) / 2.0,
+        )
+        for line_segment in line_segments
+    ]
+    centroid = (
+        int(round(np.mean([midpoint[0] for midpoint in segment_midpoints]))),
+        int(round(np.mean([midpoint[1] for midpoint in segment_midpoints]))),
+    )
     return MergedLine(
         family_name=family_name,
-        start=(int(round(start_point[0])), int(round(start_point[1]))),
-        end=(int(round(end_point[0])), int(round(end_point[1]))),
-        angle_degrees=family_angle_degrees,
+        family_angle_degrees=family_angle_degrees,
         projection=projection,
         span_start=float(span_start),
         span_end=float(span_end),
         span_length=float(span_end - span_start),
+        covered_length=merged_interval_length(support_intervals),
+        support_intervals=support_intervals,
         thickness_px=thickness_px,
         total_segment_length=float(sum(segment.length for segment in line_segments)),
         segment_count=len(line_segments),
+        centroid=centroid,
+        segments=tuple(line_segments),
         touching_line_count=0,
         touching_line_indices=(),
+        touching_point_count=0,
+        touching_points=(),
     )
 
 
@@ -261,10 +372,10 @@ def intersection_point_for_merged_lines(
     first_line: MergedLine,
     second_line: MergedLine,
 ) -> np.ndarray | None:
-    first_direction = direction_vector_from_angle(first_line.angle_degrees)
-    first_normal = normal_vector_from_angle(first_line.angle_degrees)
-    second_direction = direction_vector_from_angle(second_line.angle_degrees)
-    second_normal = normal_vector_from_angle(second_line.angle_degrees)
+    first_direction = direction_vector_from_angle(first_line.family_angle_degrees)
+    first_normal = normal_vector_from_angle(first_line.family_angle_degrees)
+    second_direction = direction_vector_from_angle(second_line.family_angle_degrees)
+    second_normal = normal_vector_from_angle(second_line.family_angle_degrees)
 
     first_anchor = first_normal * first_line.projection
     second_anchor = second_normal * second_line.projection
@@ -285,23 +396,57 @@ def merged_lines_touch(
     second_line: MergedLine,
     touch_tolerance_px: float,
 ) -> bool:
+    return bool(
+        touch_points_for_merged_lines(
+            first_line,
+            second_line,
+            touch_tolerance_px,
+        )
+    )
+
+
+def touch_points_for_merged_lines(
+    first_line: MergedLine,
+    second_line: MergedLine,
+    touch_tolerance_px: float,
+) -> tuple[tuple[int, int], ...]:
+    raw_touch_points: list[np.ndarray] = []
+    for first_segment in first_line.segments:
+        for second_segment in second_line.segments:
+            intersection_point = intersection_point_for_segments(
+                first_segment,
+                second_segment,
+                touch_tolerance_px,
+            )
+            if intersection_point is None:
+                continue
+            raw_touch_points.append(intersection_point)
+
+    if raw_touch_points:
+        return deduplicate_touch_points(raw_touch_points, touch_tolerance_px)
+
     intersection_point = intersection_point_for_merged_lines(first_line, second_line)
     if intersection_point is None:
-        return False
+        return ()
 
-    first_direction = direction_vector_from_angle(first_line.angle_degrees)
-    second_direction = direction_vector_from_angle(second_line.angle_degrees)
+    first_direction = direction_vector_from_angle(first_line.family_angle_degrees)
+    second_direction = direction_vector_from_angle(second_line.family_angle_degrees)
     first_position = float(np.dot(intersection_point, first_direction))
     second_position = float(np.dot(intersection_point, second_direction))
-
-    return (
-        first_line.span_start - touch_tolerance_px
-        <= first_position
-        <= first_line.span_end + touch_tolerance_px
-        and second_line.span_start - touch_tolerance_px
-        <= second_position
-        <= second_line.span_end + touch_tolerance_px
-    )
+    if not (
+        point_is_within_intervals(
+            first_position,
+            first_line.support_intervals,
+            touch_tolerance_px,
+        )
+        and point_is_within_intervals(
+            second_position,
+            second_line.support_intervals,
+            touch_tolerance_px,
+        )
+    ):
+        return ()
+    return deduplicate_touch_points([intersection_point], touch_tolerance_px)
 
 
 def annotate_cross_family_touches(
@@ -311,51 +456,60 @@ def annotate_cross_family_touches(
 ) -> tuple[list[MergedLine], list[MergedLine]]:
     horizontal_touch_indices: list[list[int]] = [[] for _ in horizontal_lines]
     vertical_touch_indices: list[list[int]] = [[] for _ in vertical_lines]
+    horizontal_touch_points: list[list[np.ndarray]] = [[] for _ in horizontal_lines]
+    vertical_touch_points: list[list[np.ndarray]] = [[] for _ in vertical_lines]
 
     for horizontal_index, horizontal_line in enumerate(horizontal_lines):
         for vertical_index, vertical_line in enumerate(vertical_lines):
-            if not merged_lines_touch(
+            touch_points = touch_points_for_merged_lines(
                 horizontal_line,
                 vertical_line,
                 touch_tolerance_px,
-            ):
+            )
+            if not touch_points:
                 continue
             horizontal_touch_indices[horizontal_index].append(vertical_index)
             vertical_touch_indices[vertical_index].append(horizontal_index)
+            horizontal_touch_points[horizontal_index].extend(
+                point_array(touch_point) for touch_point in touch_points
+            )
+            vertical_touch_points[vertical_index].extend(
+                point_array(touch_point) for touch_point in touch_points
+            )
 
     annotated_horizontal_lines = [
-        MergedLine(
-            family_name=horizontal_line.family_name,
-            start=horizontal_line.start,
-            end=horizontal_line.end,
-            angle_degrees=horizontal_line.angle_degrees,
-            projection=horizontal_line.projection,
-            span_start=horizontal_line.span_start,
-            span_end=horizontal_line.span_end,
-            span_length=horizontal_line.span_length,
-            thickness_px=horizontal_line.thickness_px,
-            total_segment_length=horizontal_line.total_segment_length,
-            segment_count=horizontal_line.segment_count,
+        replace(
+            horizontal_line,
             touching_line_count=len(horizontal_touch_indices[index]),
             touching_line_indices=tuple(horizontal_touch_indices[index]),
+            touching_point_count=len(
+                deduplicate_touch_points(
+                    horizontal_touch_points[index],
+                    touch_tolerance_px,
+                )
+            ),
+            touching_points=deduplicate_touch_points(
+                horizontal_touch_points[index],
+                touch_tolerance_px,
+            ),
         )
         for index, horizontal_line in enumerate(horizontal_lines)
     ]
     annotated_vertical_lines = [
-        MergedLine(
-            family_name=vertical_line.family_name,
-            start=vertical_line.start,
-            end=vertical_line.end,
-            angle_degrees=vertical_line.angle_degrees,
-            projection=vertical_line.projection,
-            span_start=vertical_line.span_start,
-            span_end=vertical_line.span_end,
-            span_length=vertical_line.span_length,
-            thickness_px=vertical_line.thickness_px,
-            total_segment_length=vertical_line.total_segment_length,
-            segment_count=vertical_line.segment_count,
+        replace(
+            vertical_line,
             touching_line_count=len(vertical_touch_indices[index]),
             touching_line_indices=tuple(vertical_touch_indices[index]),
+            touching_point_count=len(
+                deduplicate_touch_points(
+                    vertical_touch_points[index],
+                    touch_tolerance_px,
+                )
+            ),
+            touching_points=deduplicate_touch_points(
+                vertical_touch_points[index],
+                touch_tolerance_px,
+            ),
         )
         for index, vertical_line in enumerate(vertical_lines)
     ]
@@ -527,4 +681,5 @@ __all__ = [
     "point_position_on_direction",
     "segment_interval_along_direction",
     "should_merge_line_segments",
+    "touch_points_for_merged_lines",
 ]

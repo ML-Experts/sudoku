@@ -58,18 +58,22 @@ class DetectedLineSegment:
 @dataclass(frozen=True)
 class MergedLine:
     family_name: str
-    start: tuple[int, int]
-    end: tuple[int, int]
-    angle_degrees: float
+    family_angle_degrees: float
     projection: float
     span_start: float
     span_end: float
     span_length: float
+    covered_length: float
+    support_intervals: tuple[tuple[float, float], ...]
     thickness_px: float
     total_segment_length: float
     segment_count: int
+    centroid: tuple[int, int]
+    segments: tuple[DetectedLineSegment, ...]
     touching_line_count: int
     touching_line_indices: tuple[int, ...]
+    touching_point_count: int
+    touching_points: tuple[tuple[int, int], ...]
 
 
 @dataclass(frozen=True)

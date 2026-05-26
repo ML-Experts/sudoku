@@ -3,7 +3,7 @@ from __future__ import annotations
 import cv2
 import numpy as np
 
-from sudoku_board_threshold_models import ExperimentConfig, LineFamilyResult
+from sudoku_board_threshold_models import ExperimentConfig, LineFamilyResult, MergedLine
 
 
 def build_line_family_overlays(
@@ -38,6 +38,76 @@ def build_line_family_overlays(
     return binary_overlay, source_overlay
 
 
+def build_group_color(
+    family_name: str,
+    group_index: int,
+    group_count: int,
+) -> tuple[int, int, int]:
+    if group_count <= 0:
+        group_count = 1
+
+    if family_name == "horizontal":
+        start_hue, end_hue = 8, 32
+    else:
+        start_hue, end_hue = 82, 120
+
+    if group_count == 1:
+        hue = (start_hue + end_hue) // 2
+    else:
+        hue = int(round(start_hue + (end_hue - start_hue) * group_index / (group_count - 1)))
+
+    hsv_pixel = np.array([[[hue, 220, 255]]], dtype=np.uint8)
+    bgr_pixel = cv2.cvtColor(hsv_pixel, cv2.COLOR_HSV2BGR)[0, 0]
+    return int(bgr_pixel[0]), int(bgr_pixel[1]), int(bgr_pixel[2])
+
+
+def draw_logical_line_group(
+    overlay: np.ndarray,
+    merged_line: MergedLine,
+    label: str,
+    color_bgr: tuple[int, int, int],
+    thickness: int,
+) -> None:
+    for segment in merged_line.segments:
+        cv2.line(
+            overlay,
+            segment.start,
+            segment.end,
+            color_bgr,
+            thickness,
+            cv2.LINE_AA,
+        )
+
+    for touch_point in merged_line.touching_points:
+        cv2.circle(
+            overlay,
+            touch_point,
+            radius=max(thickness + 2, 4),
+            color=(255, 255, 255),
+            thickness=1,
+            lineType=cv2.LINE_AA,
+        )
+        cv2.circle(
+            overlay,
+            touch_point,
+            radius=max(thickness, 2),
+            color=color_bgr,
+            thickness=-1,
+            lineType=cv2.LINE_AA,
+        )
+
+    cv2.putText(
+        overlay,
+        label,
+        merged_line.centroid,
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.45,
+        color_bgr,
+        1,
+        cv2.LINE_AA,
+    )
+
+
 def build_merged_line_overlays(
     source_bgr: np.ndarray,
     binary_image: np.ndarray,
@@ -46,51 +116,31 @@ def build_merged_line_overlays(
 ) -> tuple[np.ndarray, np.ndarray]:
     binary_overlay = cv2.cvtColor(binary_image, cv2.COLOR_GRAY2BGR)
     source_overlay = source_bgr.copy()
+    horizontal_count = len(line_family_result.horizontal_merged_lines)
+    vertical_count = len(line_family_result.vertical_merged_lines)
 
     for overlay in (binary_overlay, source_overlay):
         for line_index, merged_line in enumerate(line_family_result.horizontal_merged_lines):
-            cv2.line(
+            draw_logical_line_group(
                 overlay,
-                merged_line.start,
-                merged_line.end,
-                config.horizontal_family_color_bgr,
-                max(config.line_overlay_thickness + 1, 2),
-                cv2.LINE_AA,
-            )
-            cv2.putText(
-                overlay,
+                merged_line,
                 (
-                    f"H{line_index} L={merged_line.span_length:.0f} "
-                    f"T={merged_line.touching_line_count}"
+                    f"H{line_index} C={merged_line.covered_length:.0f} "
+                    f"P={merged_line.touching_point_count}"
                 ),
-                merged_line.start,
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.45,
-                config.horizontal_family_color_bgr,
-                1,
-                cv2.LINE_AA,
+                build_group_color("horizontal", line_index, horizontal_count),
+                max(config.line_overlay_thickness + 1, 2),
             )
         for line_index, merged_line in enumerate(line_family_result.vertical_merged_lines):
-            cv2.line(
+            draw_logical_line_group(
                 overlay,
-                merged_line.start,
-                merged_line.end,
-                config.vertical_family_color_bgr,
-                max(config.line_overlay_thickness + 1, 2),
-                cv2.LINE_AA,
-            )
-            cv2.putText(
-                overlay,
+                merged_line,
                 (
-                    f"V{line_index} L={merged_line.span_length:.0f} "
-                    f"T={merged_line.touching_line_count}"
+                    f"V{line_index} C={merged_line.covered_length:.0f} "
+                    f"P={merged_line.touching_point_count}"
                 ),
-                merged_line.start,
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.45,
-                config.vertical_family_color_bgr,
-                1,
-                cv2.LINE_AA,
+                build_group_color("vertical", line_index, vertical_count),
+                max(config.line_overlay_thickness + 1, 2),
             )
 
     return binary_overlay, source_overlay
