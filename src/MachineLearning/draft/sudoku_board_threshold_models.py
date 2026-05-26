@@ -40,6 +40,8 @@ class ExperimentConfig:
     cross_family_touch_tolerance_ratio: float = 0.02
     min_cross_family_touches_to_keep: int = 9
     drop_zero_touch_lines_after_refresh: bool = True
+    expected_horizontal_line_count: int = 10
+    expected_vertical_line_count: int = 10
     horizontal_family_color_bgr: tuple[int, int, int] = (255, 165, 0)
     vertical_family_color_bgr: tuple[int, int, int] = (0, 255, 255)
     line_overlay_thickness: int = 2
