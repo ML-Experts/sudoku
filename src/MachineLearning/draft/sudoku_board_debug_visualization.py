@@ -1,11 +1,24 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import cv2
 import numpy as np
 
 from sudoku_board_debug_candidates import DistinctLineCandidate
-from sudoku_board_debug_core import BoardQuad, LineSegment
-from sudoku_board_debug_line_experiment import MergedLineCandidate
+from sudoku_board_debug_geometry import BoardQuad, LineSegment
+from sudoku_board_debug_line_experiment import LineExperimentResult, MergedLineCandidate
+
+
+@dataclass(frozen=True)
+class LineExperimentOverlays:
+    binary_display_image: np.ndarray
+    binary_debug_image: np.ndarray
+    raw_segments_overlay: np.ndarray
+    family_overlay: np.ndarray
+    filtered_overlay: np.ndarray
+    final_overlay: np.ndarray
+    final_overlay_on_source: np.ndarray
 
 
 def show_image(axis, image: np.ndarray, title: str, *, is_bgr: bool = False) -> None:
@@ -210,3 +223,40 @@ def draw_merged_candidates_overlay(
                 cv2.LINE_AA,
             )
     return overlay
+
+
+def build_line_experiment_overlays(
+    source_image: np.ndarray,
+    binary_image: np.ndarray,
+    result: LineExperimentResult,
+) -> LineExperimentOverlays:
+    binary_display_image = cv2.bitwise_not(binary_image)
+    binary_debug_image = cv2.cvtColor(binary_display_image, cv2.COLOR_GRAY2BGR)
+    return LineExperimentOverlays(
+        binary_display_image=binary_display_image,
+        binary_debug_image=binary_debug_image,
+        raw_segments_overlay=draw_raw_segments_overlay(
+            binary_debug_image,
+            result.raw_segments,
+        ),
+        family_overlay=draw_family_overlay(
+            binary_debug_image,
+            result.primary_segments,
+            result.secondary_segments,
+        ),
+        filtered_overlay=draw_merged_candidates_overlay(
+            binary_debug_image,
+            result.primary_filtered_candidates,
+            result.secondary_filtered_candidates,
+        ),
+        final_overlay=draw_merged_candidates_overlay(
+            binary_debug_image,
+            result.primary_final_candidates,
+            result.secondary_final_candidates,
+        ),
+        final_overlay_on_source=draw_merged_candidates_overlay(
+            source_image,
+            result.primary_final_candidates,
+            result.secondary_final_candidates,
+        ),
+    )

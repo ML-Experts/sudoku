@@ -6,8 +6,7 @@ import math
 import cv2
 import numpy as np
 
-from sudoku_board_debug_core import (
-    BoardDebugSettings,
+from sudoku_board_debug_geometry import (
     BoardQuad,
     InfiniteLine,
     LineSegment,
@@ -20,6 +19,7 @@ from sudoku_board_debug_core import (
     intersect_lines,
     order_points_clockwise,
 )
+from sudoku_board_debug_preprocess import BoardDebugSettings
 
 
 @dataclass(frozen=True)

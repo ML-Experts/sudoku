@@ -5,11 +5,12 @@ from dataclasses import dataclass, field
 import cv2
 import numpy as np
 
-from sudoku_board_debug_core import (
+from sudoku_board_debug_geometry import (
     InfiniteLine,
     LineSegment,
     angle_difference_degrees,
     build_line_segment,
+    collect_line_family,
     fit_line,
     get_dominant_angle_degrees,
     get_line_normal,
@@ -74,6 +75,22 @@ class LineExperimentResult:
     secondary_filtered_candidates: list[MergedLineCandidate]
     primary_final_candidates: list[MergedLineCandidate]
     secondary_final_candidates: list[MergedLineCandidate]
+
+
+@dataclass(frozen=True)
+class LineExperimentSummary:
+    raw_segment_count: int
+    primary_segment_count: int
+    secondary_segment_count: int
+    primary_angle_label: str
+    secondary_angle_label: str
+    merged_primary_count: int
+    merged_secondary_count: int
+    filtered_primary_count: int
+    filtered_secondary_count: int
+    final_primary_count: int
+    final_secondary_count: int
+    has_target_grid: bool
 
 def resolve_line_merge_settings(
     image_shape: tuple[int, int],
@@ -165,18 +182,6 @@ def extract_raw_line_segments(
     if raw_segments is None:
         return []
     return [build_line_segment(raw_segment[0]) for raw_segment in raw_segments]
-
-def collect_family_segments(
-    line_segments: list[LineSegment],
-    family_angle_degrees: float,
-    angle_tolerance_degrees: float,
-) -> list[LineSegment]:
-    return [
-        line_segment
-        for line_segment in line_segments
-        if angle_difference_degrees(line_segment.angle_degrees, family_angle_degrees)
-        <= angle_tolerance_degrees
-    ]
 
 def build_merged_candidate(
     family_name: str,
@@ -408,6 +413,169 @@ def describe_merged_candidates(
         for candidate in candidates
     ]
 
+
+def format_line_angle(angle_degrees: float | None) -> str:
+    if angle_degrees is None:
+        return "n/a"
+    return f"{angle_degrees:.2f}"
+
+
+def split_into_line_families(
+    raw_segments: list[LineSegment],
+    resolved_settings: ResolvedLineMergeSettings,
+) -> tuple[float, float, list[LineSegment], list[LineSegment]]:
+    primary_angle_degrees = get_dominant_angle_degrees(raw_segments)
+    secondary_angle_degrees = (primary_angle_degrees + 90.0) % 180.0
+    primary_segments = collect_line_family(
+        raw_segments,
+        primary_angle_degrees,
+        resolved_settings.family_angle_tolerance_degrees,
+    )
+    secondary_segments = collect_line_family(
+        raw_segments,
+        secondary_angle_degrees,
+        resolved_settings.family_angle_tolerance_degrees,
+    )
+    return (
+        primary_angle_degrees,
+        secondary_angle_degrees,
+        primary_segments,
+        secondary_segments,
+    )
+
+
+def merge_segment_family(
+    line_segments: list[LineSegment],
+    family_angle_degrees: float,
+    family_name: str,
+    resolved_settings: ResolvedLineMergeSettings,
+) -> tuple[list[MergedLineCandidate], list[MergedLineCandidate], list[MergedLineCandidate]]:
+    merged_candidates = merge_parallel_segments(
+        line_segments,
+        family_angle_degrees,
+        family_name,
+        resolved_settings,
+    )
+    filtered_candidates = filter_merged_candidates(
+        merged_candidates,
+        resolved_settings,
+    )
+    final_candidates = filter_merged_candidates(
+        merge_close_candidates(filtered_candidates, resolved_settings),
+        resolved_settings,
+    )
+    return merged_candidates, filtered_candidates, final_candidates
+
+
+def summarize_line_experiment(
+    result: LineExperimentResult,
+    *,
+    target_line_count: int = 10,
+) -> LineExperimentSummary:
+    return LineExperimentSummary(
+        raw_segment_count=len(result.raw_segments),
+        primary_segment_count=len(result.primary_segments),
+        secondary_segment_count=len(result.secondary_segments),
+        primary_angle_label=format_line_angle(result.primary_angle_degrees),
+        secondary_angle_label=format_line_angle(result.secondary_angle_degrees),
+        merged_primary_count=len(result.primary_merged_candidates),
+        merged_secondary_count=len(result.secondary_merged_candidates),
+        filtered_primary_count=len(result.primary_filtered_candidates),
+        filtered_secondary_count=len(result.secondary_filtered_candidates),
+        final_primary_count=len(result.primary_final_candidates),
+        final_secondary_count=len(result.secondary_final_candidates),
+        has_target_grid=(
+            len(result.primary_final_candidates) >= target_line_count
+            and len(result.secondary_final_candidates) >= target_line_count
+        ),
+    )
+
+
+def describe_line_experiment(
+    result: LineExperimentResult,
+    *,
+    title: str | None = None,
+    target_line_count: int = 10,
+    include_candidate_details: bool = True,
+    indent: str = "",
+) -> list[str]:
+    summary = summarize_line_experiment(
+        result,
+        target_line_count=target_line_count,
+    )
+    lines = []
+    if title is not None:
+        lines.append(f"{indent}{title}")
+    lines.extend(
+        [
+            f"{indent}Raw segments: {summary.raw_segment_count}",
+            (
+                f"{indent}Primary family: {summary.primary_segment_count} segments, "
+                f"angle={summary.primary_angle_label}"
+            ),
+            (
+                f"{indent}Secondary family: {summary.secondary_segment_count} segments, "
+                f"angle={summary.secondary_angle_label}"
+            ),
+            f"{indent}Merged primary candidates: {summary.merged_primary_count}",
+            f"{indent}Merged secondary candidates: {summary.merged_secondary_count}",
+            f"{indent}Filtered primary candidates: {summary.filtered_primary_count}",
+            f"{indent}Filtered secondary candidates: {summary.filtered_secondary_count}",
+            (
+                f"{indent}Final primary candidates after post-merge: "
+                f"{summary.final_primary_count}"
+            ),
+            (
+                f"{indent}Final secondary candidates after post-merge: "
+                f"{summary.final_secondary_count}"
+            ),
+        ]
+    )
+    if include_candidate_details:
+        lines.append(f"{indent}")
+        lines.append(f"{indent}Primary candidates after first merge:")
+        lines.extend(
+            f"{indent}  {description}"
+            for description in describe_merged_candidates(result.primary_filtered_candidates)
+        )
+        lines.append(f"{indent}")
+        lines.append(f"{indent}Secondary candidates after first merge:")
+        lines.extend(
+            f"{indent}  {description}"
+            for description in describe_merged_candidates(
+                result.secondary_filtered_candidates
+            )
+        )
+        lines.append(f"{indent}")
+        lines.append(f"{indent}Primary candidates after post-merge:")
+        lines.extend(
+            f"{indent}  {description}"
+            for description in describe_merged_candidates(result.primary_final_candidates)
+        )
+        lines.append(f"{indent}")
+        lines.append(f"{indent}Secondary candidates after post-merge:")
+        lines.extend(
+            f"{indent}  {description}"
+            for description in describe_merged_candidates(
+                result.secondary_final_candidates
+            )
+        )
+    if not summary.has_target_grid:
+        lines.extend(
+            [
+                f"{indent}",
+                (
+                    f"{indent}Uwaga: po post-merge nadal nie mamy idealnego "
+                    f"ukladu {target_line_count}x{target_line_count}."
+                ),
+                (
+                    f"{indent}To jest oczekiwane na tym etapie: notebook ma pomoc "
+                    f"pokazac, ktore kandydaty dalej sa zdublowane albo za slabe."
+                ),
+            ]
+        )
+    return lines
+
 def run_line_detection_experiment(
     variant_name: str,
     binary_image: np.ndarray,
@@ -433,47 +601,31 @@ def run_line_detection_experiment(
             secondary_final_candidates=[],
         )
 
-    primary_angle_degrees = get_dominant_angle_degrees(raw_segments)
-    secondary_angle_degrees = (primary_angle_degrees + 90.0) % 180.0
-    primary_segments = collect_family_segments(
-        raw_segments,
+    (
         primary_angle_degrees,
-        resolved_settings.family_angle_tolerance_degrees,
-    )
-    secondary_segments = collect_family_segments(
-        raw_segments,
         secondary_angle_degrees,
-        resolved_settings.family_angle_tolerance_degrees,
-    )
+        primary_segments,
+        secondary_segments,
+    ) = split_into_line_families(raw_segments, resolved_settings)
 
-    primary_merged_candidates = merge_parallel_segments(
+    (
+        primary_merged_candidates,
+        primary_filtered_candidates,
+        primary_final_candidates,
+    ) = merge_segment_family(
         primary_segments,
         primary_angle_degrees,
         "primary",
         resolved_settings,
     )
-    secondary_merged_candidates = merge_parallel_segments(
+    (
+        secondary_merged_candidates,
+        secondary_filtered_candidates,
+        secondary_final_candidates,
+    ) = merge_segment_family(
         secondary_segments,
         secondary_angle_degrees,
         "secondary",
-        resolved_settings,
-    )
-
-    primary_filtered_candidates = filter_merged_candidates(
-        primary_merged_candidates,
-        resolved_settings,
-    )
-    secondary_filtered_candidates = filter_merged_candidates(
-        secondary_merged_candidates,
-        resolved_settings,
-    )
-
-    primary_final_candidates = filter_merged_candidates(
-        merge_close_candidates(primary_filtered_candidates, resolved_settings),
-        resolved_settings,
-    )
-    secondary_final_candidates = filter_merged_candidates(
-        merge_close_candidates(secondary_filtered_candidates, resolved_settings),
         resolved_settings,
     )
 
