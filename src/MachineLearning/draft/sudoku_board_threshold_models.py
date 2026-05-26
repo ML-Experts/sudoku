@@ -39,6 +39,7 @@ class ExperimentConfig:
     line_merge_endpoint_gap_ratio: float = 0.025
     cross_family_touch_tolerance_ratio: float = 0.02
     min_cross_family_touches_to_keep: int = 9
+    drop_zero_touch_lines_after_refresh: bool = True
     horizontal_family_color_bgr: tuple[int, int, int] = (255, 165, 0)
     vertical_family_color_bgr: tuple[int, int, int] = (0, 255, 255)
     line_overlay_thickness: int = 2

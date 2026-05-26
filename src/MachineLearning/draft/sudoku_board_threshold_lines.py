@@ -537,6 +537,35 @@ def filter_lines_by_min_cross_family_touches(
     return filtered_horizontal_lines, filtered_vertical_lines
 
 
+def refresh_cross_family_touches(
+    horizontal_lines: list[MergedLine],
+    vertical_lines: list[MergedLine],
+    touch_tolerance_px: float,
+) -> tuple[list[MergedLine], list[MergedLine]]:
+    return annotate_cross_family_touches(
+        horizontal_lines,
+        vertical_lines,
+        touch_tolerance_px,
+    )
+
+
+def drop_zero_touch_lines(
+    horizontal_lines: list[MergedLine],
+    vertical_lines: list[MergedLine],
+) -> tuple[list[MergedLine], list[MergedLine]]:
+    filtered_horizontal_lines = [
+        horizontal_line
+        for horizontal_line in horizontal_lines
+        if horizontal_line.touching_line_count > 0
+    ]
+    filtered_vertical_lines = [
+        vertical_line
+        for vertical_line in vertical_lines
+        if vertical_line.touching_line_count > 0
+    ]
+    return filtered_horizontal_lines, filtered_vertical_lines
+
+
 def is_horizontal_like(angle_degrees: float) -> bool:
     return angle_difference_degrees(angle_degrees, 0.0) <= angle_difference_degrees(
         angle_degrees,
@@ -673,6 +702,21 @@ def detect_line_families(
             config.min_cross_family_touches_to_keep,
         )
     )
+    horizontal_merged_lines, vertical_merged_lines = refresh_cross_family_touches(
+        horizontal_merged_lines,
+        vertical_merged_lines,
+        cross_family_touch_tolerance_px,
+    )
+    if config.drop_zero_touch_lines_after_refresh:
+        horizontal_merged_lines, vertical_merged_lines = drop_zero_touch_lines(
+            horizontal_merged_lines,
+            vertical_merged_lines,
+        )
+        horizontal_merged_lines, vertical_merged_lines = refresh_cross_family_touches(
+            horizontal_merged_lines,
+            vertical_merged_lines,
+            cross_family_touch_tolerance_px,
+        )
 
     return LineFamilyResult(
         raw_segment_count=len(line_segments),
@@ -699,6 +743,7 @@ __all__ = [
     "connected_components",
     "detect_line_families",
     "direction_vector_from_angle",
+    "drop_zero_touch_lines",
     "filter_lines_by_min_cross_family_touches",
     "get_dominant_angle_degrees",
     "intersection_point_for_merged_lines",
@@ -708,6 +753,7 @@ __all__ = [
     "merged_lines_touch",
     "normal_vector_from_angle",
     "point_position_on_direction",
+    "refresh_cross_family_touches",
     "segment_interval_along_direction",
     "should_merge_line_segments",
     "touch_points_for_merged_lines",
