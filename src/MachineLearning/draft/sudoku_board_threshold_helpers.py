@@ -49,6 +49,7 @@ from sudoku_board_threshold_paths import (
     resolve_active_image_path,
 )
 from sudoku_board_threshold_visualization import (
+    build_bridged_line_family_overlays,
     build_line_family_overlays,
     build_merged_line_overlays,
 )
@@ -65,6 +66,7 @@ __all__ = [
     "annotate_cross_family_touches",
     "angle_difference_degrees",
     "build_cleanup_variants",
+    "build_bridged_line_family_overlays",
     "build_denoise_variants",
     "build_line_family_overlays",
     "build_line_segment",

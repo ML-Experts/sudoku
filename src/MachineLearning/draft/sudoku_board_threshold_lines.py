@@ -619,6 +619,8 @@ def detect_line_families(
             cross_family_touch_tolerance_px=cross_family_touch_tolerance_px,
             horizontal_segments=[],
             vertical_segments=[],
+            horizontal_pre_filter_merged_lines=[],
+            vertical_pre_filter_merged_lines=[],
             horizontal_merged_lines=[],
             vertical_merged_lines=[],
         )
@@ -637,6 +639,8 @@ def detect_line_families(
             cross_family_touch_tolerance_px=cross_family_touch_tolerance_px,
             horizontal_segments=[],
             vertical_segments=[],
+            horizontal_pre_filter_merged_lines=[],
+            vertical_pre_filter_merged_lines=[],
             horizontal_merged_lines=[],
             vertical_merged_lines=[],
         )
@@ -695,6 +699,8 @@ def detect_line_families(
         vertical_merged_lines,
         cross_family_touch_tolerance_px,
     )
+    horizontal_pre_filter_merged_lines = list(horizontal_merged_lines)
+    vertical_pre_filter_merged_lines = list(vertical_merged_lines)
     horizontal_merged_lines, vertical_merged_lines = (
         filter_lines_by_min_cross_family_touches(
             horizontal_merged_lines,
@@ -729,6 +735,8 @@ def detect_line_families(
         cross_family_touch_tolerance_px=cross_family_touch_tolerance_px,
         horizontal_segments=horizontal_segments,
         vertical_segments=vertical_segments,
+        horizontal_pre_filter_merged_lines=horizontal_pre_filter_merged_lines,
+        vertical_pre_filter_merged_lines=vertical_pre_filter_merged_lines,
         horizontal_merged_lines=horizontal_merged_lines,
         vertical_merged_lines=vertical_merged_lines,
     )

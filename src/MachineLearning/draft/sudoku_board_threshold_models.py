@@ -92,6 +92,8 @@ class LineFamilyResult:
     cross_family_touch_tolerance_px: float
     horizontal_segments: list[DetectedLineSegment]
     vertical_segments: list[DetectedLineSegment]
+    horizontal_pre_filter_merged_lines: list[MergedLine]
+    vertical_pre_filter_merged_lines: list[MergedLine]
     horizontal_merged_lines: list[MergedLine]
     vertical_merged_lines: list[MergedLine]
 

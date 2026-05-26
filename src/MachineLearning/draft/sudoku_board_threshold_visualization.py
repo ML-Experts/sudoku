@@ -108,19 +108,18 @@ def draw_logical_line_group(
     )
 
 
-def build_merged_line_overlays(
-    source_bgr: np.ndarray,
-    binary_image: np.ndarray,
-    line_family_result: LineFamilyResult,
+def draw_merged_line_groups(
+    binary_overlay: np.ndarray,
+    source_overlay: np.ndarray,
+    horizontal_lines: list[MergedLine],
+    vertical_lines: list[MergedLine],
     config: ExperimentConfig,
 ) -> tuple[np.ndarray, np.ndarray]:
-    binary_overlay = cv2.cvtColor(binary_image, cv2.COLOR_GRAY2BGR)
-    source_overlay = source_bgr.copy()
-    horizontal_count = len(line_family_result.horizontal_merged_lines)
-    vertical_count = len(line_family_result.vertical_merged_lines)
+    horizontal_count = len(horizontal_lines)
+    vertical_count = len(vertical_lines)
 
     for overlay in (binary_overlay, source_overlay):
-        for line_index, merged_line in enumerate(line_family_result.horizontal_merged_lines):
+        for line_index, merged_line in enumerate(horizontal_lines):
             draw_logical_line_group(
                 overlay,
                 merged_line,
@@ -131,7 +130,7 @@ def build_merged_line_overlays(
                 build_group_color("horizontal", line_index, horizontal_count),
                 max(config.line_overlay_thickness + 1, 2),
             )
-        for line_index, merged_line in enumerate(line_family_result.vertical_merged_lines):
+        for line_index, merged_line in enumerate(vertical_lines):
             draw_logical_line_group(
                 overlay,
                 merged_line,
@@ -146,7 +145,42 @@ def build_merged_line_overlays(
     return binary_overlay, source_overlay
 
 
+def build_bridged_line_family_overlays(
+    source_bgr: np.ndarray,
+    binary_image: np.ndarray,
+    line_family_result: LineFamilyResult,
+    config: ExperimentConfig,
+) -> tuple[np.ndarray, np.ndarray]:
+    binary_overlay = cv2.cvtColor(binary_image, cv2.COLOR_GRAY2BGR)
+    source_overlay = source_bgr.copy()
+    return draw_merged_line_groups(
+        binary_overlay,
+        source_overlay,
+        line_family_result.horizontal_pre_filter_merged_lines,
+        line_family_result.vertical_pre_filter_merged_lines,
+        config,
+    )
+
+
+def build_merged_line_overlays(
+    source_bgr: np.ndarray,
+    binary_image: np.ndarray,
+    line_family_result: LineFamilyResult,
+    config: ExperimentConfig,
+) -> tuple[np.ndarray, np.ndarray]:
+    binary_overlay = cv2.cvtColor(binary_image, cv2.COLOR_GRAY2BGR)
+    source_overlay = source_bgr.copy()
+    return draw_merged_line_groups(
+        binary_overlay,
+        source_overlay,
+        line_family_result.horizontal_merged_lines,
+        line_family_result.vertical_merged_lines,
+        config,
+    )
+
+
 __all__ = [
+    "build_bridged_line_family_overlays",
     "build_line_family_overlays",
     "build_merged_line_overlays",
 ]
