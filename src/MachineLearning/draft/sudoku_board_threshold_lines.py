@@ -516,6 +516,27 @@ def annotate_cross_family_touches(
     return annotated_horizontal_lines, annotated_vertical_lines
 
 
+def filter_lines_by_min_cross_family_touches(
+    horizontal_lines: list[MergedLine],
+    vertical_lines: list[MergedLine],
+    minimum_touch_count: int,
+) -> tuple[list[MergedLine], list[MergedLine]]:
+    if minimum_touch_count <= 0:
+        return horizontal_lines, vertical_lines
+
+    filtered_horizontal_lines = [
+        horizontal_line
+        for horizontal_line in horizontal_lines
+        if horizontal_line.touching_line_count >= minimum_touch_count
+    ]
+    filtered_vertical_lines = [
+        vertical_line
+        for vertical_line in vertical_lines
+        if vertical_line.touching_line_count >= minimum_touch_count
+    ]
+    return filtered_horizontal_lines, filtered_vertical_lines
+
+
 def is_horizontal_like(angle_degrees: float) -> bool:
     return angle_difference_degrees(angle_degrees, 0.0) <= angle_difference_degrees(
         angle_degrees,
@@ -645,6 +666,13 @@ def detect_line_families(
         vertical_merged_lines,
         cross_family_touch_tolerance_px,
     )
+    horizontal_merged_lines, vertical_merged_lines = (
+        filter_lines_by_min_cross_family_touches(
+            horizontal_merged_lines,
+            vertical_merged_lines,
+            config.min_cross_family_touches_to_keep,
+        )
+    )
 
     return LineFamilyResult(
         raw_segment_count=len(line_segments),
@@ -671,6 +699,7 @@ __all__ = [
     "connected_components",
     "detect_line_families",
     "direction_vector_from_angle",
+    "filter_lines_by_min_cross_family_touches",
     "get_dominant_angle_degrees",
     "intersection_point_for_merged_lines",
     "interval_gap",
