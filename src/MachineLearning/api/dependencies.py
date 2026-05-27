@@ -324,7 +324,9 @@ def get_prepare_dataset_artifact_command_handler(
         idx_dataset_loader=IdxDatasetLoader(),
         sample_split_assigner=SampleSplitAssigner(),
         cell_preprocessing_pipeline=CellPreprocessingPipeline(
-            output_size=28
+            output_size=28,
+            adaptive_block_size=preprocessing_settings.adaptive_threshold_block_size,
+            adaptive_c=preprocessing_settings.adaptive_threshold_c,
         ),
         npz_dataset_artifact_writer=NpzDatasetArtifactWriter(),
         temp_dataset_path_provider=TempDatasetPathProvider(
@@ -411,6 +413,9 @@ def get_prepare_dataset_artifact_command_handler(
 def get_test_digit_inference_command_handler(
     runtime_settings: RuntimeSettings = Depends(get_runtime_settings),
     training_settings: TrainingSettings = Depends(get_training_settings),
+    preprocessing_settings: PreprocessingSettings = Depends(
+        get_preprocessing_settings
+    ),
 ) -> TestDigitInferenceCommandHandler:
     from application.features.inference.commands.test_digit_inference.test_digit_inference_command_handler import (
         TestDigitInferenceCommandHandler,
@@ -438,7 +443,11 @@ def get_test_digit_inference_command_handler(
         model_factory=ModelFactory(),
         artifact_loader=ModelArtifactLoader(),
         input_transform_factory=InputTransformFactory(),
-        cell_preprocessing_pipeline=CellPreprocessingPipeline(output_size=28),
+        cell_preprocessing_pipeline=CellPreprocessingPipeline(
+            output_size=28,
+            adaptive_block_size=preprocessing_settings.adaptive_threshold_block_size,
+            adaptive_c=preprocessing_settings.adaptive_threshold_c,
+        ),
         device_setting=training_settings.device,
     )
 
@@ -463,7 +472,11 @@ def get_infer_cell_digit_command_handler(
 
     return InferCellDigitCommandHandler(
         image_codec=OpenCvImageCodec(),
-        cell_preprocessing_pipeline=CellPreprocessingPipeline(output_size=28),
+        cell_preprocessing_pipeline=CellPreprocessingPipeline(
+            output_size=28,
+            adaptive_block_size=preprocessing_settings.adaptive_threshold_block_size,
+            adaptive_c=preprocessing_settings.adaptive_threshold_c,
+        ),
         cell_occupancy_detector=CellOccupancyDetector(),
         runtime_model_loader=RuntimeModelLoader(
             manifest_reader=ModelManifestReader(),

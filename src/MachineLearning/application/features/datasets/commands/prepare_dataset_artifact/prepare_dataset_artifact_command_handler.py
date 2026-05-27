@@ -45,6 +45,9 @@ from models.dataset_source_type import DatasetSourceType
 from models.dataset_split import DatasetSplit
 
 LOGGER = logging.getLogger(__name__)
+BOARD_SOURCE_NOT_FOUND_MESSAGE = (
+    "Nie udało się wykryć żadnej poprawnej planszy Sudoku w źródle board."
+)
 
 
 @dataclass(frozen=True)
@@ -531,6 +534,12 @@ class PrepareDatasetArtifactCommandHandler:
                     ),
                     cells=tuple(board_cell_previews),
                 )
+            )
+
+        if not board_previews:
+            raise PrepareDatasetArtifactCommandError(
+                error_type="board_not_found",
+                message=BOARD_SOURCE_NOT_FOUND_MESSAGE,
             )
 
         source_report = self._preparation_report_builder.build_source_report(

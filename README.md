@@ -1,270 +1,400 @@
-## Sudoku Vision — rozpoznawanie i rozwiązywanie sudoku ze zdjęcia
+# Sudoku Vision
 
-### Skład zespołu
-- **Imię Nazwisko** — (np. 123456)
-- **Imię Nazwisko** — (np. 123456)
-- **Imię Nazwisko** — (np. 123456)
+System webowy do rozpoznawania i rozwiązywania Sudoku ze zdjęcia. Projekt składa się z trzech głównych warstw: `Frontend`, `Backend` oraz `MachineLearning`. Oprócz ścieżki solve aplikacja obejmuje również operacje administracyjne związane z datasetami, treningami i wyborem aktywnego modelu.
 
-### Role w zespole
-- **ML / trening modelu**: <kto>
-- **Computer Vision (OpenCV)**: <kto>
-- **Solver (backtracking)**: <kto>
-- **Integracja / API / UI**: <kto 1>, <kto 2> (może być kilka osób; interfejs użytkownika + spięcie end-to-end: web + C# ↔ Python (REST))
-- **Ewaluacja / raport / prezentacja**: <kto 1>, <kto 2> (może być kilka osób; metryki jakości ML + wnioski; przygotowanie demo i slajdów)
+## Skład zespołu
 
----
+- **Osoba 1** - `do uzupełnienia`
+- **Osoba 2** - `do uzupełnienia`
+- **Osoba 3** - `do uzupełnienia`
 
-### Historyjki (backlog) i przypisania (kto co bierze)
-Poniższe ID odpowiadają backlogowi z PRD (sekcja 8). Uzupełnijcie osoby w kolumnach **INFRA/FE/BE/ML** (jeśli pozycja dotyczy kilku obszarów — wpiszcie osoby w kilku kolumnach; jeśli nie dotyczy — zostawcie `—`). **Uwaga**: przypadki użycia (UC) są przekrojowe, więc zwykle będą miały równolegle FE/BE/ML.
+## Cel projektu
 
-Skrótowo:
-- **FE**: interfejs web
-- **BE**: C# backend (ASP.NET Core Web API) + integracja z serwisem Python (REST)
-- **ML**: model (trening + inferencja)
-- **INFRA**: serwer/hosting, domena, SSL, reverse proxy, zabezpieczenia, uruchamianie usług, jakość, dokumentacja (CI/CD opcjonalnie)
+Projekt ma umożliwiać:
+
+- wgranie zdjęcia planszy Sudoku,
+- wykrycie planszy i korekcję perspektywy,
+- podział planszy na siatkę `9x9`,
+- rozpoznanie cyfr `1-9` i pustych pól,
+- rozwiązanie układanki algorytmem backtrackingu,
+- wygenerowanie obrazu z naniesionym rozwiązaniem,
+- przygotowanie datasetów treningowych `.npz`,
+- uruchamianie i monitorowanie treningów modeli,
+- wybór aktywnego modelu inferencyjnego,
+- wdrażanie każdej warstwy niezależnie w modelu release-based.
+
+## Architektura warstwowa
+
+System działa w modelu trójwarstwowym:
+
+- **FE** - `Frontend` w React/Vite, publicznie dostępny przez `nginx`
+- **BE** - `Backend` w ASP.NET Core / .NET 10, wystawia publiczne API i jest głównym `source of truth`
+- **ML** - wewnętrzna usługa Python / FastAPI odpowiedzialna za CV, inferencję, przygotowanie danych i trening
+
+### Zasady komunikacji
+
+Dozwolona komunikacja:
+
+- `Przeglądarka -> nginx -> FE`
+- `Przeglądarka -> nginx -> BE` przez `/api/...`
+- `BE -> ML` przez `http://127.0.0.1:8000`
+
+Niedozwolona komunikacja:
+
+- `FE -> ML` bezpośrednio
+- `Internet -> ML` bezpośrednio
+- `Internet -> BE` z pominięciem `nginx`
+
+### Odpowiedzialność warstw
+
+- **Frontend** odpowiada za UI, formularze, nawigację, wizualizację wyników, monitoring sesji i treningów.
+- **Backend** odpowiada za publiczne API, walidację, autoryzację, workflow, rekordy systemowe, statusy procesów i integrację z ML.
+- **MachineLearning** odpowiada za wykrycie planszy, preprocessing komórek, inferencję, solver, overlay, przygotowanie datasetów i trening modeli.
+
+### Aktualnie funkcjonujące warstwy aplikacyjne
+
+- `src/Frontend` - interfejs użytkownika
+- `src/Backend/Sudoku` - warstwa API i orkiestracji
+- `src/MachineLearning` - warstwa ML / CV / trening
+- `nginx` - publiczna brama wejściowa na serwerze
+- `systemd` - uruchamianie i restart usług `BE` oraz `ML`
+
+## Najważniejsze funkcje systemu
+
+- upload i przegląd przykładów Sudoku,
+- preprocessing planszy i komórek,
+- rozpoznawanie cyfr i rozwiązywanie Sudoku,
+- live solve z eventami czasu rzeczywistego,
+- logowanie administracyjne prostym tokenem,
+- przegląd surowych datasetów,
+- przygotowanie jednego artefaktu `{name}.npz`,
+- uruchamianie treningów i śledzenie postępu przez `SignalR`,
+- przegląd modeli i wybór aktywnego modelu,
+- diagnostyczny podgląd przygotowanego datasetu i artefaktów preview.
+
+## Podział odpowiedzialności i historyjki
+
+Poniższa ramka służy do wpisania odpowiedzialności zespołu za konkretne historyjki. Tam, gdzie dana warstwa nie bierze udziału, pozostawiono `—`.
+
+Skróty:
+
+- `INFRA` - serwer, deploy, runtime, dokumentacja, workflow, jakość
+- `FE` - frontend i interfejs użytkownika
+- `BE` - backend C# / ASP.NET Core i workflow aplikacyjny
+- `ML` - Computer Vision, inferencja, datasety i trening
 
 | ID | Zakres | INFRA | FE | BE | ML |
 |---|---|---|---|---|---|
-| INF-01 | Szkielet repo + README + przykłady do demo | <kto> | — | — | — |
-| INF-02 | Uruchomienie lokalne całego systemu (np. compose/skrypty) | <kto> | — | — | — |
-| INF-03 | Serwer + domena + SSL + reverse proxy + zabezpieczenia | <kto> | — | — | — |
-| INF-04 | Standardy jakości (pre-commit, zasady pracy) | <kto> | — | — | <kto> |
-| INF-05 (opc.) | Serwer Jupyter (JupyterLab) | <kto> | — | — | <kto> |
-| INF-06 (opc.) | CI na PR (lint/test/build) | <kto> | <kto> | <kto> | <kto> |
-| INF-07 (opc.) | CD: deploy na serwer po merge/akceptacji PR | <kto> | <kto> | <kto> | <kto> |
-| INF-08 | Bootstrap rejestru modeli + manifesty + aktywny model | <kto> | — | <kto> | <kto> |
-| UC-01 | Upload pliku sudoku do biblioteki przykładów (examples) | — | <kto> | <kto> | — |
-| UC-02 | Lista dostępnych przykładów sudoku | — | <kto> | <kto> | — |
-| UC-03 | Pobierz wybrany plik przykładowy | — | <kto> | <kto> | — |
-| UC-04 | Wybierz przykład do przetworzenia + wstępna obróbka | — | <kto> | <kto> | <kto> |
-| UC-05 | Rozwiąż wybrany plik przez system | — | <kto> | <kto> | <kto> |
-| UC-06 | Uruchom trening na przygotowanym zestawie `.npz` | — | <kto> | <kto> | <kto> |
-| UC-07 | Postęp treningu + informacja o zakończeniu | — | <kto> | <kto> | <kto> |
-| UC-08 | Lista treningów i modeli | — | <kto> | <kto> | <kto> |
-| UC-09 | Szczegóły treningu + metryki | — | <kto> | <kto> | <kto> |
-| UC-10 | Wybór aktywnego modelu do inferencji | — | <kto> | <kto> | <kto> |
-| UC-11 | Wyświetl dostępne surowe datasety | — | <kto> | <kto> | — |
-| UC-12 | Zarządzaj przygotowaniem zestawu treningowego `.npz` | — | <kto> | <kto> | <kto> |
-| UC-13 | Prosta autoryzacja do operacji administracyjnych | — | <kto> | <kto> | — |
+| `INF-01` | Szkielet repo, README, przykłady do demo | `do uzupełnienia` | — | — | — |
+| `INF-02` | Uruchomienie lokalne całego systemu | `do uzupełnienia` | — | — | — |
+| `INF-03` | Środowisko serwerowe, domena, SSL, reverse proxy, layout runtime | `do uzupełnienia` | — | — | — |
+| `INF-04` | Standardy jakości i zasady pracy | `do uzupełnienia` | — | — | — |
+| `INF-05` | Opcjonalny Jupyter / środowisko eksperymentalne | `do uzupełnienia` | — | — | `do uzupełnienia` |
+| `INF-06` | Opcjonalne CI na PR | `do uzupełnienia` | `do uzupełnienia` | `do uzupełnienia` | `do uzupełnienia` |
+| `INF-07` | CD / deploy na serwer | `do uzupełnienia` | `do uzupełnienia` | `do uzupełnienia` | `do uzupełnienia` |
+| `INF-08` | Bootstrap rejestru modeli i manifestów | `do uzupełnienia` | — | `do uzupełnienia` | `do uzupełnienia` |
+| `UC-00` | Smoke test `FE -> BE -> ML` | — | `do uzupełnienia` | `do uzupełnienia` | `do uzupełnienia` |
+| `UC-01` | Upload pliku Sudoku do `examples` | — | `do uzupełnienia` | `do uzupełnienia` | — |
+| `UC-02` | Lista dostępnych przykładów Sudoku | — | `do uzupełnienia` | `do uzupełnienia` | — |
+| `UC-03` | Pobierz wybrany plik przykładowy | — | `do uzupełnienia` | `do uzupełnienia` | — |
+| `UC-04` | Wybór przykładu i wstępna obróbka | — | `do uzupełnienia` | `do uzupełnienia` | `do uzupełnienia` |
+| `UC-05` | Rozpoznanie cyfr, solve i prezentacja wyniku | — | `do uzupełnienia` | `do uzupełnienia` | `do uzupełnienia` |
+| `UC-06` | Uruchomienie treningu na `.npz` | — | `do uzupełnienia` | `do uzupełnienia` | `do uzupełnienia` |
+| `UC-07` | Postęp treningu i status zakończenia | — | `do uzupełnienia` | `do uzupełnienia` | `do uzupełnienia` |
+| `UC-08` | Lista treningów i modeli | — | `do uzupełnienia` | `do uzupełnienia` | `do uzupełnienia` |
+| `UC-09` | Szczegóły treningu i metryki | — | `do uzupełnienia` | `do uzupełnienia` | `do uzupełnienia` |
+| `UC-10` | Wybór aktywnego modelu do inferencji | — | `do uzupełnienia` | `do uzupełnienia` | `do uzupełnienia` |
+| `UC-11` | Lista surowych datasetów | — | `do uzupełnienia` | `do uzupełnienia` | — |
+| `UC-12` | Przygotowanie datasetu `.npz` | — | `do uzupełnienia` | `do uzupełnienia` | `do uzupełnienia` |
+| `UC-13` | Prosta autoryzacja administracyjna | — | `do uzupełnienia` | `do uzupełnienia` | — |
+| `UC-14` | Parametryzacja funkcjonalności z UI | — | `do uzupełnienia` | `do uzupełnienia` | `do uzupełnienia` |
+| `UC-15` | Spowolnienie live solve | — | `do uzupełnienia` | `do uzupełnienia` | — |
+| `UC-16` | Przegląd przygotowanego datasetu i preview | — | `do uzupełnienia` | `do uzupełnienia` | `do uzupełnienia` |
 
----
+### Podział pracy w formie osobowej
 
-### Opis funkcjonalny programu
-Program potrafi:
-- rozpoznać planszę Sudoku ze zdjęcia,
-- wykryć i zidentyfikować cyfry w polach (ML/CNN w Pythonie),
-- zbudować macierz 9×9 reprezentującą stan gry,
-- rozwiązać sudoku algorytmem backtrackingu,
-- wygenerować obraz wynikowy z naniesionymi cyframi na planszę,
-- przygotować nazwany zestaw `.npz` do uczenia przez wykrycie datasetów w `data/raw`, rozpoznanie formatu wejścia, oczyszczenie próbek i przypisanie ich do `train` / `val` / `test`,
-- utrzymywać rejestr modeli jako wpisy katalogowe z manifestami `model.json` i artefaktami w `models/registry`,
-- przełączać aktywny model inferencyjny przez lekki wskaźnik `models/active/inference.json`, bez kopiowania całego modelu,
-- chronić operacje administracyjne prostym logowaniem hasłowym z tokenem.
+Na końcu można dodatkowo dopisać podsumowanie osobowe, na przykład:
 
----
+- **[Imię Nazwisko]** - `INF-01`, `INF-02`, `INF-03`, `INF-07`
+- **[Imię Nazwisko]** - `UC-01`, `UC-02`, `UC-03`, `UC-04`, `UC-05`
+- **[Imię Nazwisko]** - `UC-06`, `UC-07`, `UC-08`, `UC-09`, `UC-10`, `UC-12`, `UC-16`
 
-### Aktualny doprecyzowany scope
-- Zrealizowane lub rozpoczęte w kodzie: `UC-01`, `UC-02`, `UC-04`.
-- Najbliższy etap backlogu: `UC-11` (chronione pobranie i wyświetlenie listy surowych datasetów), `UC-12` (wybór splitów, zarządzanie przygotowaniem `.npz` i techniczne przetwarzanie próbek), `UC-13` (prosta autoryzacja), `UC-06`/`UC-07` (trening + postęp przez WebSocket).
-- Surowe datasety trafiają na serwer poza aplikacją webową, np. przez Jupyter, do katalogu `data/raw`.
-- Obsługiwane są dwa typy źródeł:
-  - `board` — archiwum `.zip` z parami `.jpg` + `.data`,
-  - `digit` — pary `*.idx3-ubyte` + `*.idx1-ubyte`.
-- `UC-11`: po zalogowaniu `FE` pobiera z chronionego `GET /api/datasets/raw-candidates` listę logicznych rekordów datasetów, np. `[{ "name": "Plansze", "type": "board" }, { "name": "t10k", "type": "digit" }]`.
-- `UC-12`: `FE` wykorzystuje kandydatów z `UC-11`, wybiera splity i wysyła do `BE` nazwę docelowego zestawu oraz listę źródeł z polami `name`, `type`, `splits`.
-- Niezależnie od tego, czy źródła są typu `board`, `digit`, czy mieszane, wynik całego żądania stanowi jeden plik `{name}.npz` zapisany w `data/processed`.
-- Rejestr modeli jest utrzymywany jako katalogi `models/registry/{modelName}` z obowiązkowym `model.json` i katalogiem `artifacts/`.
-- Model bootstrap / seed może istnieć w rejestrze bez własnego `runName`; nadal musi mieć poprawny manifest i może zostać wybrany do treningu lub inferencji.
-- Trening startuje przez wybór jednego wpisu modelu bazowego z rejestru i jednego gotowego zestawu `.npz`; po starcie `BE` tworzy rekord `trainings/metadata/{runName}.json`, a po sukcesie powstaje nowy wpis `models/registry/{producedModelName}`.
-- Aktywny model inferencyjny jest wskazywany przez `models/active/inference.json`; jego zmiana nie kopiuje całych artefaktów modelu.
-- Prosta autoryzacja na teraz oznacza:
-  - modal hasła po wejściu na stronę,
-  - Backend weryfikuje jedną współdzieloną wartość konfiguracyjną i zwraca token JSON,
-  - token chroni przygotowanie datasetu, start treningu i inne operacje zapisu.
+## Layout runtime i katalogi serwera
 
----
-
-### Wymagania środowiskowe
-- **Python uruchamiany w środowisku Unix/Linux**: rekomendowane **WSL2 (Ubuntu)** na Windows.
-- (Do uzupełnienia) Minimalne wersje: Python **3.14+** (uwaga: jeśli biblioteki nie wspierają 3.14, użyj 3.13/3.12), opcjonalnie CUDA, itp.
-
----
-
-### Struktura repozytorium i runtime danych
-Repo przechowuje kod i dokumentację, a artefakty danych / treningów / modeli mogą żyć poza repo w katalogach runtime. Logicznie system zakłada co najmniej następujące grupy katalogów:
+Schemat katalogów runtime i deployu powinien być rozumiany według docelowego layoutu serwera, a nie 1:1 według struktury repo.
 
 ```text
-sudoku/
-├── src/
-├── data/
-│   ├── raw/
-│   ├── processed/
-│   └── benchmark/
-├── models/
-│   ├── registry/
-│   └── active/
-├── trainings/
-│   ├── runs/
-│   ├── reports/
-│   └── metadata/
-├── README.md
-└── examples/
+/opt/sudoku/
+├── backend/                   # aktywna wersja BE
+├── ml/                        # aktywna wersja ML
+├── releases/
+│   ├── backend/               # wrzutnia release'ów BE
+│   ├── ml/                    # wrzutnia release'ów ML
+│   └── fe/                    # wrzutnia release'ów FE
+├── shared/
+│   ├── data/
+│   │   ├── raw/
+│   │   │   ├── boards/
+│   │   │   └── digits/
+│   │   ├── processed/
+│   │   └── benchmark/
+│   ├── models/
+│   │   ├── active/
+│   │   │   └── inference.json
+│   │   └── registry/
+│   │       └── {modelName}/
+│   │           ├── model.json
+│   │           └── artifacts/
+│   ├── trainings/
+│   │   ├── runs/
+│   │   ├── reports/
+│   │   └── metadata/
+│   ├── examples/
+│   │   ├── uploads/
+│   │   └── generated/
+│   └── tmp/
+└── scripts/
+
+/var/www/sudoku/fe             # aktywny frontend dla nginx
+/etc/sudoku/                   # konfiguracja systemowa / dodatki
+/var/log/sudoku/               # logi
 ```
 
-Główne katalogi (logiczny podział odpowiedzialności):
-- `src/` — kod aplikacji (vision / ml / solver / render / interface)
-- `data/` — robocze dane i artefakty ML (często większe; nie zawsze trzymane w repo)
-  - `data/raw/` — surowe pliki datasetów dostarczane poza aplikacją (np. Jupyter/SCP): archiwa `.zip` typu `board` oraz pary `*.idx3-ubyte` / `*.idx1-ubyte` typu `digit`
-  - `data/processed/` — gotowe zestawy `{name}.npz` po unifikacji i preprocessingu, gdzie jeden request przygotowania datasetu kończy się jednym plikiem wynikowym
-  - `data/benchmark/` — wspólny benchmark do porównań modeli
-- `models/registry/` — rejestr modeli; każdy wpis to katalog `models/registry/{modelName}` z `model.json` i `artifacts/`
-- `models/active/` — lekki wskaźnik aktywnego modelu inferencyjnego, np. `models/active/inference.json`
-- `trainings/runs/` — checkpointy, logi i artefakty techniczne pojedynczych runów
-- `trainings/reports/` — raporty ewaluacyjne, confusion matrix, metryki porównawcze
-- `trainings/metadata/` — rekordy `runName` będące systemowym source of truth dla statusów i relacji `run -> model`
-- `examples/` — przykładowe pliki do demo/szybkich testów end-to-end (wejścia i ewentualnie wyniki)
+### Znaczenie katalogów runtime
 
-Uwaga: dokładne ścieżki runtime są konfigurowalne przez `appsettings*.json`, `.env` i zmienne środowiskowe; powyższy układ opisuje semantykę, a nie wymuszoną lokalizację 1:1 w repo.
+- `/opt/sudoku/backend` - aktywny publish `Backendu`
+- `/opt/sudoku/ml` - aktywny kod `MachineLearning`
+- `/opt/sudoku/releases/...` - wrzutnia artefaktów release
+- `/opt/sudoku/shared/...` - trwały stan systemu, który żyje dłużej niż pojedynczy release
+- `/var/www/sudoku/fe` - statyczny build `Frontendu`
 
----
+### Kluczowa zasada runtime
 
-### Instalacja
-W środowisku Unix/WSL:
+Deploy nie może czyścić ani nadpisywać katalogów współdzielonych runtime, takich jak:
+
+- `shared/data`
+- `shared/models`
+- `shared/trainings`
+- `shared/examples`
+
+To jest stan systemu, a nie zawartość pojedynczego release'u.
+
+## Deploy i model wdrożenia
+
+Projekt zakłada deploy **release-based**:
+
+1. workflow buduje artefakt,
+2. artefakt trafia do katalogu `releases`,
+3. uruchamiany jest odpowiedni skrypt deployowy,
+4. release jest promowany do katalogu aktywnego,
+5. usługa jest restartowana.
+
+### Deploy Frontendu
+
+- build wykonywany jest w CI/CD,
+- wynik statyczny trafia do `/opt/sudoku/releases/fe/`,
+- deploy kopiuje build do `/var/www/sudoku/fe`,
+- `nginx` serwuje pliki statyczne,
+- ta warstwa nie wymaga restartu osobnej usługi aplikacyjnej.
+
+### Deploy Backendu
+
+- workflow wykonuje `dotnet restore`, `dotnet build`, testy i `dotnet publish`,
+- release zawiera `appsettings.json` i `appsettings.production.json`,
+- artefakt trafia do `/opt/sudoku/releases/backend/`,
+- deploy promuje go do `/opt/sudoku/backend`,
+- po wdrożeniu restartowana jest usługa `sudoku-backend.service`.
+
+### Deploy warstwy ML
+
+- workflow pakuje kod, `requirements.txt` i `api/.env`,
+- artefakt trafia do `/opt/sudoku/releases/ml/`,
+- deploy promuje go do `/opt/sudoku/ml`,
+- na serwerze utrzymywane jest `.venv`,
+- deploy wykonuje `pip install -r requirements.txt`,
+- po wdrożeniu restartowana jest usługa `sudoku-ml.service`.
+
+### Niezależność wdrożeń
+
+`FE`, `BE` i `ML` powinny móc być wdrażane niezależnie osobnymi workflow.
+
+## Runtime sieciowy
+
+### Publiczne porty
+
+Na zewnątrz powinny być wystawione tylko:
+
+- `80/tcp`
+- `443/tcp`
+- `22/tcp`
+
+### Porty wewnętrzne
+
+- `BE` - `127.0.0.1:5000`
+- `ML` - `127.0.0.1:8000`
+
+Oznacza to, że `Backend` i `ML` słuchają tylko na `localhost`.
+
+## Konfiguracja
+
+### Backend
+
+Backend korzysta z:
+
+- `appsettings.json`
+- `appsettings.{environment}.json`
+- zmiennych środowiskowych
+- argumentów procesu
+
+W środowisku lokalnym wykorzystywany jest `SUDOKU_ENVIRONMENT=local`. W środowisku serwerowym deploy powinien wskazywać `SUDOKU_ENVIRONMENT=production`.
+
+### MachineLearning
+
+Warstwa ML korzysta z:
+
+- `api/.env`
+- `requirements.txt`
+
+Konfiguracja runtime jest dostarczana razem z release'em.
+
+## Uruchomienie lokalne
+
+Uruchom aplikację w trzech terminalach.
+
+### Backend
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-(Jeśli używacie innego sposobu zarządzania zależnościami — opiszcie go tutaj.)
-
----
-
-### Uruchomienie (inferencja end-to-end)
-Uruchom usługi w **3 osobnych terminalach**:
-
-1. **Backend (ASP.NET Core, port `5000`)**
-
-```bash
-cd "src/Backend/Sudoku/Sudoku"
+cd src/Backend/Sudoku/Sudoku
+dotnet restore
 dotnet run --launch-profile Sudoku
 ```
 
-2. **MachineLearning (FastAPI, port `8000`)**
+### MachineLearning
 
 ```bash
-cd "src/MachineLearning"
-python3 -m venv .venv
+cd src/MachineLearning
+python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 python main.py
 ```
 
-3. **Frontend (Vite, port `5173`)**
+### Frontend
 
 ```bash
-cd "src/Frontend"
+cd src/Frontend
 npm install
 npm run dev
 ```
 
-Następnie otwórz aplikację pod:
-
-- `http://localhost:5173`
-
-Szybka weryfikacja po starcie:
+### Smoke test
 
 ```bash
 curl http://127.0.0.1:8000/ml/ping
 curl http://127.0.0.1:5000/api/ping
 ```
 
-Oczekiwane:
+## Najważniejsze endpointy
 
-- `GET /ml/ping` zwraca `"pong"`,
-- `GET /api/ping` zwraca `backendStatus: "ok"` i `mlStatus: "ok"`.
+Backend:
 
----
+- `POST /api/auth/login`
+- `GET /api/examples`
+- `POST /api/examples`
+- `PUT /api/examples/{name}/preprocess/board`
+- `PUT /api/examples/preprocess/cells`
+- `GET /api/datasets/raw-candidates`
+- `POST /api/datasets/processed`
+- `GET /api/datasets/processed`
+- `GET /api/models/registry`
+- `GET /api/models/active`
+- `PUT /api/models/active`
+- `POST /api/trainings`
+- `GET /api/trainings`
+- `GET /api/trainings/{runName}`
+- `GET /api/trainings/active`
+- `POST /api/trainings/{runName}/cancel`
+- `PUT /api/sudoku/cells/inference`
+- `POST /api/sudoku/solve`
 
-### Trening modelu
-(Uzupełnijcie, jeśli trenujecie model w repo. Jeśli korzystacie z gotowego modelu — opiszcie skąd i jak go pobrać.)
+Kanały realtime:
 
-Przed pierwszym treningiem system powinien mieć co najmniej jeden wpis bootstrap w rejestrze modeli:
+- `/ws/trainings/{runName}`
+- `/ws/sudoku/solving/{solveSessionId}`
+
+ML:
+
+- `GET /ml/ping`
+- `GET /ml/health`
+- `PUT /ml/preprocess/board`
+- `PUT /ml/preprocess/cells`
+- `PUT /ml/cells/inference`
+- `POST /ml/datasets/prepare`
+- `POST /ml/trainings`
+
+## Dane, modele i artefakty
+
+### Surowe datasety
+
+Surowe dane są dostarczane poza UI do katalogów runtime:
+
+- `board` - katalogi z parami `.jpg` + `.dat`
+- `digit` - pary `*.idx3-ubyte` + `*.idx1-ubyte`
+
+### Dataset przetworzony
+
+Każde przygotowanie kończy się jednym plikiem `{name}.npz`.
+
+### Rejestr modeli
+
+Każdy model jest osobnym wpisem:
 
 ```text
-models/registry/{modelName}/
+/opt/sudoku/shared/models/registry/{modelName}/
 ├── model.json
 └── artifacts/
-    └── ...
 ```
 
-Minimalna semantyka:
-- model bootstrap / seed ma `sourceType = bootstrap` i nie musi mieć żadnego `trainings/*`,
-- model wytrenowany w systemie ma powiązanie z `runName` i raportami,
-- aktywny model inferencyjny nie jest kopiowany do osobnego katalogu z artefaktami; wskazuje go `models/active/inference.json`.
+Aktywny model inferencyjny wskazuje:
 
-W workflow `UC-06` powinno się wydarzyć co najmniej:
-- `BE` zapisuje `trainings/metadata/{runName}.json`,
-- `ML` zapisuje checkpointy i logi do `trainings/runs/{runName}` oraz raporty do `trainings/reports/{runName}`,
-- `ML` zapisuje końcowe artefakty modelu do `models/registry/{producedModelName}/artifacts`,
-- `BE` finalizuje `models/registry/{producedModelName}/model.json`.
+```text
+/opt/sudoku/shared/models/active/inference.json
+```
 
-Przykład:
+### Treningi
+
+Każdy `runName` ma:
+
+- rekord metadanych w `trainings/metadata`,
+- artefakty techniczne w `trainings/runs`,
+- raporty i metryki w `trainings/reports`.
+
+## Testy
+
+### Backend
 
 ```bash
-python -m src.ml.train --dataset "data/processed/{name}.npz" --model-registry "models/registry" --model "cnn-baseline" --out-model "models/registry/{producedModelName}/artifacts/model.keras"
+dotnet test src/Backend/Sudoku/Application.Tests/Application.Tests.csproj
 ```
 
----
+### MachineLearning
 
-### Ewaluacja jakości (metryki)
-W raporcie pokazujemy co najmniej:
-- accuracy,
-- precision / recall / F1-score,
-- confusion matrix,
-- (opcjonalnie) porównanie: model własny vs transfer learning.
+```bash
+cd src/MachineLearning
+source .venv/bin/activate
+pytest tests
+```
 
-(Uzupełnijcie: gdzie jest skrypt/komenda do ewaluacji i gdzie zapisujecie wyniki.)
+## Ograniczenia
 
----
+- jakość rozpoznania zależy od jakości zdjęcia i warunków oświetlenia,
+- prosta autoryzacja administracyjna nie jest pełnym systemem IAM,
+- skuteczność solve zależy od jakości aktywnego modelu,
+- dane treningowe mogą różnić się domeną od rzeczywistych zdjęć użytkownika,
+- część zakresu z PRD nadal ma charakter rozwojowy.
 
-### Opis głównych funkcji / modułów
-(Uzupełnijcie po implementacji; poniżej przykładowy szkielet.)
+## Zasady pracy w repozytorium
 
-- **Vision (OpenCV)**: wykrycie planszy, korekcja perspektywy (`warpPerspective`), cięcie na 81 komórek, preprocessing.
-- **ML (CNN, Python)**: klasyfikacja cyfry 1–9 (i/lub „empty”), przygotowanie wejścia 28×28, normalizacja 0–1.
-- **Solver**: backtracking + walidacja reguł sudoku.
-- **Render**: overlay rozwiązania na obraz i eksport wyników.
-- **Interface**: web UI + API.
-
----
-
-### Podział pracy (kto co zrobił)
-(Wypełnijcie konkretnie, pod ocenę pracy zespołowej.)
-
-- **Osoba A**: <zakres>
-- **Osoba B**: <zakres>
-- **Osoba C**: <zakres>
-
----
-
-### Ograniczenia i znane problemy
-(Wypiszcie realne ograniczenia — to jest oczekiwane w projekcie.)
-
-- <np. gorsze działanie przy mocnych cieniach / ręcznym piśmie / grubych liniach siatki>
-- <np. konieczność korekty gridu w trudnych przypadkach>
-
----
-
-### Zasady pracy w repozytorium (dla oceny)
-- Każdy członek zespołu: **minimum 3 commity**.
-- Commit messages: **opisowe** (np. `Add ...`, `Fix ...`, `Implement ...`).
-
----
-
-### Prezentacja (5–7 minut) — checklist
-- Demo działania aplikacji na kilku przykładach.
-- Omówienie struktury rozwiązania (moduły i przepływ danych).
-- Opis najważniejszych funkcji.
-- Problemy napotkane + jak je rozwiązaliście.
+- każdy członek zespołu powinien mieć minimum `3` commity,
+- commit messages powinny być opisowe,
+- README powinno odzwierciedlać realny stan architektury, runtime i deployu.
