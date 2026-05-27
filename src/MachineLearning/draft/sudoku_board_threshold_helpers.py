@@ -14,6 +14,7 @@ from sudoku_board_threshold_display import (
     resize_for_display,
     to_rgb,
 )
+from sudoku_board_threshold_frame import find_line_frames
 from sudoku_board_threshold_lines import (
     angle_difference_degrees,
     annotate_cross_family_touches,
@@ -42,8 +43,10 @@ from sudoku_board_threshold_models import (
     DetectedLineSegment,
     EndpointConnection,
     ExperimentConfig,
+    FrameDetectionResult,
     LineBridge,
     LineFamilyResult,
+    LineFrame,
     MergedLine,
 )
 from sudoku_board_threshold_paths import (
@@ -57,6 +60,7 @@ from sudoku_board_threshold_paths import (
 )
 from sudoku_board_threshold_visualization import (
     build_bridged_line_family_overlays,
+    build_line_frame_overlays,
     build_line_family_overlays,
     build_merged_line_overlays,
     build_merged_line_vertex_overlays,
@@ -67,16 +71,19 @@ __all__ = [
     "REPO_ROOT",
     "DetectedLineSegment",
     "ExperimentConfig",
+    "FrameDetectionResult",
     "IMAGE_EXTENSIONS",
     "LineBridge",
     "EndpointConnection",
     "LineFamilyResult",
+    "LineFrame",
     "MergedLine",
     "adaptive_method_code",
     "annotate_cross_family_touches",
     "angle_difference_degrees",
     "build_cleanup_variants",
     "build_bridged_line_family_overlays",
+    "build_line_frame_overlays",
     "build_denoise_variants",
     "build_line_family_overlays",
     "build_line_segment",
@@ -92,6 +99,7 @@ __all__ = [
     "detect_line_families",
     "direction_vector_from_angle",
     "discover_dataset_images",
+    "find_line_frames",
     "find_repo_root",
     "get_dominant_angle_degrees",
     "intersection_point_for_merged_lines",

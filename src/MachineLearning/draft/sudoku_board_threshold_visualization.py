@@ -11,6 +11,7 @@ from sudoku_board_threshold_models import (
     ExperimentConfig,
     LineBridge,
     LineFamilyResult,
+    LineFrame,
     MergedLine,
 )
 
@@ -449,9 +450,97 @@ def build_merged_line_vertex_overlays(
     return binary_overlay, source_overlay
 
 
+def draw_line_frames(
+    overlay: np.ndarray,
+    frames: list[LineFrame],
+    config: ExperimentConfig,
+) -> None:
+    frame_count = len(frames)
+    for frame_index, frame in enumerate(frames):
+        color_bgr = build_vertex_color(frame_index, max(frame_count, 2))
+        polygon = np.array(frame.corners, dtype=np.int32).reshape((-1, 1, 2))
+        cv2.polylines(
+            overlay,
+            [polygon],
+            isClosed=True,
+            color=(255, 255, 255),
+            thickness=max(config.line_overlay_thickness + 3, 4),
+            lineType=cv2.LINE_AA,
+        )
+        cv2.polylines(
+            overlay,
+            [polygon],
+            isClosed=True,
+            color=color_bgr,
+            thickness=max(config.line_overlay_thickness + 1, 2),
+            lineType=cv2.LINE_AA,
+        )
+        for corner in frame.corners:
+            cv2.circle(
+                overlay,
+                corner,
+                radius=max(config.line_overlay_thickness + 3, 5),
+                color=(255, 255, 255),
+                thickness=-1,
+                lineType=cv2.LINE_AA,
+            )
+            cv2.circle(
+                overlay,
+                corner,
+                radius=max(config.line_overlay_thickness + 1, 3),
+                color=color_bgr,
+                thickness=-1,
+                lineType=cv2.LINE_AA,
+            )
+
+        label_anchor = (
+            int(round(sum(point[0] for point in frame.corners) / 4.0)),
+            int(round(sum(point[1] for point in frame.corners) / 4.0)),
+        )
+        label = (
+            f"F{frame_index} "
+            f"H{frame.top_line_index}-{frame.bottom_line_index} "
+            f"V{frame.left_line_index}-{frame.right_line_index}"
+        )
+        cv2.putText(
+            overlay,
+            label,
+            label_anchor,
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.45,
+            (255, 255, 255),
+            3,
+            cv2.LINE_AA,
+        )
+        cv2.putText(
+            overlay,
+            label,
+            label_anchor,
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.45,
+            color_bgr,
+            1,
+            cv2.LINE_AA,
+        )
+
+
+def build_line_frame_overlays(
+    source_bgr: np.ndarray,
+    binary_image: np.ndarray,
+    frames: list[LineFrame],
+    config: ExperimentConfig,
+) -> tuple[np.ndarray, np.ndarray]:
+    binary_overlay = cv2.cvtColor(binary_image, cv2.COLOR_GRAY2BGR)
+    source_overlay = source_bgr.copy()
+    for overlay in (binary_overlay, source_overlay):
+        draw_line_frames(overlay, frames, config)
+    return binary_overlay, source_overlay
+
+
 __all__ = [
     "build_bridged_line_family_overlays",
     "build_line_family_overlays",
+    "build_line_frame_overlays",
     "build_merged_line_overlays",
     "build_merged_line_vertex_overlays",
 ]

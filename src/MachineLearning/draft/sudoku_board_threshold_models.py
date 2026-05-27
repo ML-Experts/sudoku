@@ -45,6 +45,8 @@ class ExperimentConfig:
     drop_zero_touch_lines_after_refresh: bool = True
     expected_horizontal_line_count: int = 10
     expected_vertical_line_count: int = 10
+    frame_min_area_ratio: float = 0.03
+    frame_max_selected_count: int = 8
     horizontal_family_color_bgr: tuple[int, int, int] = (255, 165, 0)
     vertical_family_color_bgr: tuple[int, int, int] = (0, 255, 255)
     line_overlay_thickness: int = 2
@@ -135,11 +137,47 @@ class LineFamilyResult:
     endpoint_connections: tuple[EndpointConnection, ...]
 
 
+@dataclass(frozen=True)
+class LineFrame:
+    top_line_index: int
+    bottom_line_index: int
+    left_line_index: int
+    right_line_index: int
+    top_line: MergedLine
+    bottom_line: MergedLine
+    left_line: MergedLine
+    right_line: MergedLine
+    top_left_connection: EndpointConnection
+    top_right_connection: EndpointConnection
+    bottom_right_connection: EndpointConnection
+    bottom_left_connection: EndpointConnection
+    corners: tuple[tuple[int, int], tuple[int, int], tuple[int, int], tuple[int, int]]
+    area_px: float
+    perimeter_px: float
+    horizontal_line_count: int
+    vertical_line_count: int
+    inner_horizontal_line_count: int
+    inner_vertical_line_count: int
+    shared_horizontal_line_count: int
+    shared_vertical_line_count: int
+    outer_margin_line_count: int
+    grid_distance_score: int
+    priority_score: float
+
+
+@dataclass(frozen=True)
+class FrameDetectionResult:
+    all_frames: list[LineFrame]
+    selected_frames: list[LineFrame]
+
+
 __all__ = [
     "DetectedLineSegment",
     "EndpointConnection",
     "ExperimentConfig",
+    "FrameDetectionResult",
     "LineBridge",
     "LineFamilyResult",
+    "LineFrame",
     "MergedLine",
 ]
