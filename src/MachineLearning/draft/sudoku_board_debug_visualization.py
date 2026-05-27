@@ -23,7 +23,10 @@ class LineExperimentOverlays:
 
 def show_image(axis, image: np.ndarray, title: str, *, is_bgr: bool = False) -> None:
     display_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB) if is_bgr else image
-    axis.imshow(display_image)
+    if not is_bgr and display_image.ndim == 2:
+        axis.imshow(display_image, cmap="gray", vmin=0, vmax=255)
+    else:
+        axis.imshow(display_image)
     axis.set_title(title)
     axis.axis("off")
 

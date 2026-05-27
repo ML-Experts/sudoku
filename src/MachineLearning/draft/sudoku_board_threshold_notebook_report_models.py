@@ -43,8 +43,21 @@ class WarpDebugArtifacts:
     aligned_warp: np.ndarray | None
 
 
+@dataclass(frozen=True)
+class CellDebugArtifacts:
+    selected_frame: object | None
+    board_gray: np.ndarray | None
+    board_contrast: np.ndarray | None
+    board_binary: np.ndarray | None
+    raw_cells: object | None
+    cleaned_cells: object | None
+    raw_contact_sheet: np.ndarray | None
+    cleaned_contact_sheet: np.ndarray | None
+
+
 __all__ = [
     "AlignedCorners",
+    "CellDebugArtifacts",
     "FrameDebugArtifacts",
     "LineDebugArtifacts",
     "WarpDebugArtifacts",

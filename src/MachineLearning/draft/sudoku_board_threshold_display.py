@@ -41,7 +41,19 @@ def plot_named_images(
     figure_scale: float = 5.0,
 ) -> None:
     if not named_images:
-        raise ValueError("No images to display.")
+        figure, axis = plt.subplots(figsize=(columns * figure_scale, figure_scale))
+        axis.axis("off")
+        axis.text(
+            0.5,
+            0.5,
+            "No images to display.",
+            ha="center",
+            va="center",
+            fontsize=14,
+        )
+        figure.tight_layout()
+        plt.show()
+        return
 
     rows = int(np.ceil(len(named_images) / columns))
     figure, axes = plt.subplots(
@@ -56,7 +68,10 @@ def plot_named_images(
 
     for axis, (title, image, is_bgr) in zip(axes_array.flat, named_images):
         display_image = to_rgb(image) if is_bgr else image
-        axis.imshow(display_image)
+        if not is_bgr and display_image.ndim == 2:
+            axis.imshow(display_image, cmap="gray", vmin=0, vmax=255)
+        else:
+            axis.imshow(display_image)
         axis.set_title(title)
         axis.axis("off")
 

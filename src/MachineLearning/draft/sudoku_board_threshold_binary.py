@@ -6,35 +6,93 @@ import numpy as np
 from sudoku_board_threshold_models import ExperimentConfig
 
 
+def _apply_clahe(gray_image: np.ndarray, config: ExperimentConfig) -> np.ndarray:
+    tile_grid_size = max(1, int(config.denoise_clahe_tile_grid_size))
+    clahe = cv2.createCLAHE(
+        clipLimit=float(config.denoise_clahe_clip_limit),
+        tileGridSize=(tile_grid_size, tile_grid_size),
+    )
+    return clahe.apply(gray_image)
+
+
+def _apply_unsharp_mask(
+    gray_image: np.ndarray,
+    config: ExperimentConfig,
+) -> np.ndarray:
+    blurred_image = cv2.GaussianBlur(
+        gray_image,
+        config.unsharp_gaussian_kernel_size,
+        config.unsharp_gaussian_sigma,
+    )
+    sharpened_image = cv2.addWeighted(
+        gray_image,
+        1.0 + float(config.unsharp_amount),
+        blurred_image,
+        -float(config.unsharp_amount),
+        0,
+    )
+    return np.clip(sharpened_image, 0, 255).astype(np.uint8)
+
+
 def build_denoise_variants(
     gray_image: np.ndarray,
     config: ExperimentConfig,
 ) -> dict[str, np.ndarray]:
-    return {
+    gaussian_image = cv2.GaussianBlur(
+        gray_image,
+        config.gaussian_kernel_size,
+        0,
+    )
+    median_image = cv2.medianBlur(
+        gray_image,
+        config.median_kernel_size,
+    )
+    bilateral_image = cv2.bilateralFilter(
+        gray_image,
+        config.bilateral_diameter,
+        config.bilateral_sigma_color,
+        config.bilateral_sigma_space,
+    )
+    nl_means_image = cv2.fastNlMeansDenoising(
+        gray_image,
+        None,
+        h=config.nl_means_strength,
+        templateWindowSize=config.nl_means_template_window_size,
+        searchWindowSize=config.nl_means_search_window_size,
+    )
+    clahe_image = _apply_clahe(gray_image, config)
+    clahe_nl_means_image = cv2.fastNlMeansDenoising(
+        clahe_image,
+        None,
+        h=config.nl_means_strength,
+        templateWindowSize=config.nl_means_template_window_size,
+        searchWindowSize=config.nl_means_search_window_size,
+    )
+
+    variants = {
         "raw_gray": gray_image,
-        f"gaussian_{config.gaussian_kernel_size[0]}": cv2.GaussianBlur(
-            gray_image,
-            config.gaussian_kernel_size,
-            0,
-        ),
-        f"median_{config.median_kernel_size}": cv2.medianBlur(
-            gray_image,
-            config.median_kernel_size,
-        ),
-        "bilateral": cv2.bilateralFilter(
-            gray_image,
-            config.bilateral_diameter,
-            config.bilateral_sigma_color,
-            config.bilateral_sigma_space,
-        ),
-        "nl_means": cv2.fastNlMeansDenoising(
-            gray_image,
-            None,
-            h=config.nl_means_strength,
-            templateWindowSize=config.nl_means_template_window_size,
-            searchWindowSize=config.nl_means_search_window_size,
-        ),
+        f"gaussian_{config.gaussian_kernel_size[0]}": gaussian_image,
+        f"median_{config.median_kernel_size}": median_image,
+        "bilateral": bilateral_image,
+        "nl_means": nl_means_image,
+        "clahe": clahe_image,
+        "clahe_nl_means": clahe_nl_means_image,
     }
+
+    base_variants_for_sharpening = {
+        f"gaussian_{config.gaussian_kernel_size[0]}": gaussian_image,
+        f"median_{config.median_kernel_size}": median_image,
+        "bilateral": bilateral_image,
+        "nl_means": nl_means_image,
+        "clahe_nl_means": clahe_nl_means_image,
+    }
+    for variant_name, variant_image in base_variants_for_sharpening.items():
+        variants[f"{variant_name}_unsharp"] = _apply_unsharp_mask(
+            variant_image,
+            config,
+        )
+
+    return variants
 
 
 def adaptive_method_code(method_name: str) -> int:
@@ -169,6 +227,8 @@ def build_repair_variants(
 
 
 __all__ = [
+    "_apply_clahe",
+    "_apply_unsharp_mask",
     "adaptive_method_code",
     "build_cleanup_variants",
     "build_denoise_variants",
