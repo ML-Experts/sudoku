@@ -51,6 +51,44 @@ def closest_interval_bridge_positions(
     return best_positions[0], best_positions[1], best_gap
 
 
+def component_has_continuous_bridge_projection(
+    component_points: np.ndarray,
+    start_point: tuple[int, int],
+    end_point: tuple[int, int],
+    allowed_projection_hole_px: int = 1,
+) -> bool:
+    if component_points.size == 0:
+        return False
+
+    start_vector = point_array(start_point)
+    end_vector = point_array(end_point)
+    bridge_vector = end_vector - start_vector
+    bridge_length = float(np.linalg.norm(bridge_vector))
+    if bridge_length <= 1e-6:
+        return False
+
+    bridge_direction = bridge_vector / bridge_length
+    component_points_xy = np.column_stack(
+        (component_points[:, 1], component_points[:, 0])
+    ).astype(np.float32)
+    bridge_positions = np.dot(component_points_xy - start_vector, bridge_direction)
+    occupied_positions = np.unique(np.rint(bridge_positions).astype(np.int32))
+    occupied_positions = occupied_positions[
+        (occupied_positions >= 0)
+        & (occupied_positions <= int(round(bridge_length)))
+    ]
+    if occupied_positions.size == 0:
+        return False
+
+    if occupied_positions[0] > 0 or occupied_positions[-1] < int(round(bridge_length)):
+        return False
+
+    projection_steps = np.diff(occupied_positions)
+    if projection_steps.size == 0:
+        return bridge_length <= 1.5
+    return int(np.max(projection_steps)) <= allowed_projection_hole_px + 1
+
+
 def line_bridge_candidate(
     binary_image: np.ndarray,
     first_line: MergedLine,
@@ -171,6 +209,13 @@ def line_bridge_candidate(
     )
     component_points = np.column_stack(np.where(labels == best_label))
     if component_points.size == 0:
+        return None
+
+    if not component_has_continuous_bridge_projection(
+        component_points,
+        ideal_start_point,
+        ideal_end_point,
+    ):
         return None
 
     start_target = np.array(
