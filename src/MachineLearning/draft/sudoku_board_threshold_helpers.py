@@ -36,6 +36,7 @@ from sudoku_board_threshold_lines import (
 from sudoku_board_threshold_models import (
     DetectedLineSegment,
     ExperimentConfig,
+    LineBridge,
     LineFamilyResult,
     MergedLine,
 )
@@ -60,6 +61,7 @@ __all__ = [
     "DetectedLineSegment",
     "ExperimentConfig",
     "IMAGE_EXTENSIONS",
+    "LineBridge",
     "LineFamilyResult",
     "MergedLine",
     "adaptive_method_code",

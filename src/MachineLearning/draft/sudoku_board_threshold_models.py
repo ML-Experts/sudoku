@@ -37,6 +37,9 @@ class ExperimentConfig:
     line_merge_angle_tolerance_degrees: float = 6.0
     line_merge_projection_distance_ratio: float = 0.012
     line_merge_endpoint_gap_ratio: float = 0.025
+    line_bridge_projection_distance_ratio: float = 0.028
+    line_bridge_max_gap_ratio: float = 0.065
+    line_bridge_endpoint_tolerance_ratio: float = 0.028
     cross_family_touch_tolerance_ratio: float = 0.02
     min_cross_family_touches_to_keep: int = 9
     drop_zero_touch_lines_after_refresh: bool = True
@@ -81,6 +84,20 @@ class MergedLine:
 
 
 @dataclass(frozen=True)
+class LineBridge:
+    family_name: str
+    first_line_index: int
+    second_line_index: int
+    segment: DetectedLineSegment
+    ideal_start_point: tuple[int, int]
+    ideal_end_point: tuple[int, int]
+    corridor_polygon: tuple[tuple[int, int], ...]
+    start_box: tuple[tuple[int, int], tuple[int, int]]
+    end_box: tuple[tuple[int, int], tuple[int, int]]
+    gap_px: float
+
+
+@dataclass(frozen=True)
 class LineFamilyResult:
     raw_segment_count: int
     raw_min_line_length_px: int
@@ -89,11 +106,16 @@ class LineFamilyResult:
     vertical_angle_degrees: float | None
     merge_projection_distance_px: float
     merge_endpoint_gap_px: float
+    bridge_projection_tolerance_px: float
+    bridge_max_gap_px: float
+    bridge_endpoint_tolerance_px: float
     cross_family_touch_tolerance_px: float
     horizontal_segments: list[DetectedLineSegment]
     vertical_segments: list[DetectedLineSegment]
     horizontal_pre_filter_merged_lines: list[MergedLine]
     vertical_pre_filter_merged_lines: list[MergedLine]
+    horizontal_bridges: list[LineBridge]
+    vertical_bridges: list[LineBridge]
     horizontal_merged_lines: list[MergedLine]
     vertical_merged_lines: list[MergedLine]
 
@@ -101,6 +123,7 @@ class LineFamilyResult:
 __all__ = [
     "DetectedLineSegment",
     "ExperimentConfig",
+    "LineBridge",
     "LineFamilyResult",
     "MergedLine",
 ]

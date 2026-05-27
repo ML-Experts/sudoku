@@ -3,7 +3,12 @@ from __future__ import annotations
 import cv2
 import numpy as np
 
-from sudoku_board_threshold_models import ExperimentConfig, LineFamilyResult, MergedLine
+from sudoku_board_threshold_models import (
+    ExperimentConfig,
+    LineBridge,
+    LineFamilyResult,
+    MergedLine,
+)
 
 
 def build_line_family_overlays(
@@ -145,6 +150,85 @@ def draw_merged_line_groups(
     return binary_overlay, source_overlay
 
 
+def draw_line_bridges(
+    overlay: np.ndarray,
+    line_bridges: list[LineBridge],
+    group_count: int,
+    config: ExperimentConfig,
+) -> None:
+    for line_bridge in line_bridges:
+        color_bgr = build_group_color(
+            line_bridge.family_name,
+            line_bridge.first_line_index,
+            group_count,
+        )
+        corridor_polygon = np.array(line_bridge.corridor_polygon, dtype=np.int32)
+        cv2.polylines(
+            overlay,
+            [corridor_polygon],
+            isClosed=True,
+            color=(255, 255, 255),
+            thickness=1,
+            lineType=cv2.LINE_AA,
+        )
+        cv2.polylines(
+            overlay,
+            [corridor_polygon],
+            isClosed=True,
+            color=color_bgr,
+            thickness=1,
+            lineType=cv2.LINE_AA,
+        )
+        cv2.rectangle(
+            overlay,
+            line_bridge.start_box[0],
+            line_bridge.start_box[1],
+            color_bgr,
+            thickness=1,
+            lineType=cv2.LINE_AA,
+        )
+        cv2.rectangle(
+            overlay,
+            line_bridge.end_box[0],
+            line_bridge.end_box[1],
+            color_bgr,
+            thickness=1,
+            lineType=cv2.LINE_AA,
+        )
+        cv2.line(
+            overlay,
+            line_bridge.segment.start,
+            line_bridge.segment.end,
+            color=(255, 255, 255),
+            thickness=max(config.line_overlay_thickness + 2, 3),
+            lineType=cv2.LINE_AA,
+        )
+        cv2.line(
+            overlay,
+            line_bridge.segment.start,
+            line_bridge.segment.end,
+            color=color_bgr,
+            thickness=max(config.line_overlay_thickness + 1, 2),
+            lineType=cv2.LINE_AA,
+        )
+        cv2.circle(
+            overlay,
+            line_bridge.ideal_start_point,
+            radius=max(config.line_overlay_thickness + 2, 3),
+            color=(255, 255, 255),
+            thickness=1,
+            lineType=cv2.LINE_AA,
+        )
+        cv2.circle(
+            overlay,
+            line_bridge.ideal_end_point,
+            radius=max(config.line_overlay_thickness + 2, 3),
+            color=(255, 255, 255),
+            thickness=1,
+            lineType=cv2.LINE_AA,
+        )
+
+
 def build_bridged_line_family_overlays(
     source_bgr: np.ndarray,
     binary_image: np.ndarray,
@@ -153,13 +237,27 @@ def build_bridged_line_family_overlays(
 ) -> tuple[np.ndarray, np.ndarray]:
     binary_overlay = cv2.cvtColor(binary_image, cv2.COLOR_GRAY2BGR)
     source_overlay = source_bgr.copy()
-    return draw_merged_line_groups(
+    binary_overlay, source_overlay = draw_merged_line_groups(
         binary_overlay,
         source_overlay,
         line_family_result.horizontal_pre_filter_merged_lines,
         line_family_result.vertical_pre_filter_merged_lines,
         config,
     )
+    for overlay in (binary_overlay, source_overlay):
+        draw_line_bridges(
+            overlay,
+            line_family_result.horizontal_bridges,
+            len(line_family_result.horizontal_pre_filter_merged_lines),
+            config,
+        )
+        draw_line_bridges(
+            overlay,
+            line_family_result.vertical_bridges,
+            len(line_family_result.vertical_pre_filter_merged_lines),
+            config,
+        )
+    return binary_overlay, source_overlay
 
 
 def build_merged_line_overlays(
