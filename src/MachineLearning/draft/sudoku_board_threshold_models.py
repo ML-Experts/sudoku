@@ -98,6 +98,18 @@ class LineBridge:
 
 
 @dataclass(frozen=True)
+class EndpointConnection:
+    horizontal_line_index: int
+    horizontal_vertex_index: int
+    vertical_line_index: int
+    vertical_vertex_index: int
+    horizontal_vertex: tuple[int, int]
+    vertical_vertex: tuple[int, int]
+    aligned_point: tuple[int, int]
+    touch_point: tuple[int, int]
+
+
+@dataclass(frozen=True)
 class LineFamilyResult:
     raw_segment_count: int
     raw_min_line_length_px: int
@@ -118,10 +130,14 @@ class LineFamilyResult:
     vertical_bridges: list[LineBridge]
     horizontal_merged_lines: list[MergedLine]
     vertical_merged_lines: list[MergedLine]
+    horizontal_aligned_vertices: tuple[tuple[tuple[int, int], tuple[int, int]], ...]
+    vertical_aligned_vertices: tuple[tuple[tuple[int, int], tuple[int, int]], ...]
+    endpoint_connections: tuple[EndpointConnection, ...]
 
 
 __all__ = [
     "DetectedLineSegment",
+    "EndpointConnection",
     "ExperimentConfig",
     "LineBridge",
     "LineFamilyResult",

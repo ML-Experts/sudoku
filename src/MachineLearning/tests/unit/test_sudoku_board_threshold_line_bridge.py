@@ -16,6 +16,9 @@ from sudoku_board_threshold_line_bridge import (  # noqa: E402
 )
 from sudoku_board_threshold_line_geometry import build_detected_line_segment  # noqa: E402
 from sudoku_board_threshold_line_merge import build_merged_line  # noqa: E402
+from sudoku_board_threshold_line_touch import (  # noqa: E402
+    resolve_last_touch_endpoint_connections,
+)
 from sudoku_board_threshold_models import ExperimentConfig  # noqa: E402
 
 
@@ -89,6 +92,51 @@ class SudokuBoardThresholdLineBridgeTests(unittest.TestCase):
         self.assertEqual(len(merged_lines), 1)
         self.assertEqual(merged_lines[0].segment_count, 3)
         self.assertEqual(merged_lines[0].support_intervals, ((10.0, 90.0),))
+
+    def test_resolve_last_touch_endpoint_connections_should_snap_mutual_endpoints(
+        self,
+    ) -> None:
+        horizontal_line = build_merged_line(
+            "horizontal",
+            0.0,
+            [build_detected_line_segment((10, 20), (50, 20))],
+        )
+        left_vertical_line = build_merged_line(
+            "vertical",
+            90.0,
+            [build_detected_line_segment((12, 18), (12, 60))],
+        )
+        right_vertical_line = build_merged_line(
+            "vertical",
+            90.0,
+            [build_detected_line_segment((48, 18), (48, 60))],
+        )
+
+        (
+            horizontal_aligned_vertices,
+            vertical_aligned_vertices,
+            endpoint_connections,
+        ) = resolve_last_touch_endpoint_connections(
+            horizontal_lines=[horizontal_line],
+            vertical_lines=[left_vertical_line, right_vertical_line],
+            touch_tolerance_px=4.0,
+        )
+
+        self.assertEqual(len(endpoint_connections), 2)
+        self.assertEqual(
+            horizontal_aligned_vertices,
+            (((12, 20), (48, 20)),),
+        )
+        self.assertEqual(vertical_aligned_vertices[0][0], (12, 20))
+        self.assertEqual(vertical_aligned_vertices[1][0], (48, 20))
+        self.assertEqual(endpoint_connections[0].horizontal_line_index, 0)
+        self.assertEqual(endpoint_connections[0].vertical_line_index, 0)
+        self.assertEqual(endpoint_connections[0].horizontal_vertex_index, 0)
+        self.assertEqual(endpoint_connections[0].vertical_vertex_index, 0)
+        self.assertEqual(endpoint_connections[1].horizontal_line_index, 0)
+        self.assertEqual(endpoint_connections[1].vertical_line_index, 1)
+        self.assertEqual(endpoint_connections[1].horizontal_vertex_index, 1)
+        self.assertEqual(endpoint_connections[1].vertical_vertex_index, 0)
 
 
 if __name__ == "__main__":

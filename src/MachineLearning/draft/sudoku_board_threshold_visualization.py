@@ -370,10 +370,13 @@ def build_merged_line_vertex_overlays(
     vertex_index = 0
 
     for line_index, merged_line in enumerate(line_family_result.horizontal_merged_lines):
-        raw_vertices = resolve_merged_line_vertices(merged_line)
+        if line_index < len(line_family_result.horizontal_aligned_vertices):
+            resolved_vertices = line_family_result.horizontal_aligned_vertices[line_index]
+        else:
+            resolved_vertices = resolve_merged_line_vertices(merged_line)
         vertices = (
-            clamp_point_to_image(raw_vertices[0], source_bgr.shape),
-            clamp_point_to_image(raw_vertices[1], source_bgr.shape),
+            clamp_point_to_image(resolved_vertices[0], source_bgr.shape),
+            clamp_point_to_image(resolved_vertices[1], source_bgr.shape),
         )
         line_descriptors.append(
             (
@@ -394,10 +397,13 @@ def build_merged_line_vertex_overlays(
         vertex_index += 2
 
     for line_index, merged_line in enumerate(line_family_result.vertical_merged_lines):
-        raw_vertices = resolve_merged_line_vertices(merged_line)
+        if line_index < len(line_family_result.vertical_aligned_vertices):
+            resolved_vertices = line_family_result.vertical_aligned_vertices[line_index]
+        else:
+            resolved_vertices = resolve_merged_line_vertices(merged_line)
         vertices = (
-            clamp_point_to_image(raw_vertices[0], source_bgr.shape),
-            clamp_point_to_image(raw_vertices[1], source_bgr.shape),
+            clamp_point_to_image(resolved_vertices[0], source_bgr.shape),
+            clamp_point_to_image(resolved_vertices[1], source_bgr.shape),
         )
         line_descriptors.append(
             (

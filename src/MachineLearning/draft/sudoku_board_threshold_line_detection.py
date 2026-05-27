@@ -18,6 +18,7 @@ from sudoku_board_threshold_line_touch import (
     annotate_cross_family_touches,
     iteratively_filter_lines_by_touch_points,
     refresh_cross_family_touches,
+    resolve_last_touch_endpoint_connections,
 )
 from sudoku_board_threshold_models import ExperimentConfig, LineFamilyResult
 
@@ -49,6 +50,9 @@ def build_empty_line_family_result(
         vertical_bridges=[],
         horizontal_merged_lines=[],
         vertical_merged_lines=[],
+        horizontal_aligned_vertices=(),
+        vertical_aligned_vertices=(),
+        endpoint_connections=(),
     )
 
 
@@ -203,6 +207,15 @@ def detect_line_families(
         vertical_merged_lines,
         cross_family_touch_tolerance_px,
     )
+    (
+        horizontal_aligned_vertices,
+        vertical_aligned_vertices,
+        endpoint_connections,
+    ) = resolve_last_touch_endpoint_connections(
+        horizontal_merged_lines,
+        vertical_merged_lines,
+        cross_family_touch_tolerance_px,
+    )
 
     return LineFamilyResult(
         raw_segment_count=len(line_segments),
@@ -224,6 +237,9 @@ def detect_line_families(
         vertical_bridges=vertical_bridges,
         horizontal_merged_lines=horizontal_merged_lines,
         vertical_merged_lines=vertical_merged_lines,
+        horizontal_aligned_vertices=horizontal_aligned_vertices,
+        vertical_aligned_vertices=vertical_aligned_vertices,
+        endpoint_connections=endpoint_connections,
     )
 
 

@@ -11,8 +11,9 @@ from sudoku_board_threshold_line_geometry import (
     normal_vector_from_angle,
     point_array,
     point_is_within_intervals,
+    resolve_merged_line_vertices,
 )
-from sudoku_board_threshold_models import MergedLine
+from sudoku_board_threshold_models import EndpointConnection, MergedLine
 
 
 def intersection_point_for_merged_lines(
@@ -251,13 +252,200 @@ def drop_zero_touch_lines(
     return filtered_horizontal_lines, filtered_vertical_lines
 
 
+def line_vertex_name(family_name: str, vertex_index: int) -> str:
+    if family_name == "vertical":
+        return "top" if vertex_index == 0 else "bottom"
+    return "left" if vertex_index == 0 else "right"
+
+
+def _nearest_touch_candidate_for_vertex(
+    line: MergedLine,
+    line_index: int,
+    vertex_index: int,
+    opposite_lines: list[MergedLine],
+    touch_tolerance_px: float,
+) -> dict[str, int | tuple[int, int] | float] | None:
+    line_vertices = resolve_merged_line_vertices(line)
+    line_vertex = line_vertices[vertex_index]
+    best_candidate: dict[str, int | tuple[int, int] | float] | None = None
+
+    for opposite_index, opposite_line in enumerate(opposite_lines):
+        touch_points = touch_points_for_merged_lines(
+            line,
+            opposite_line,
+            touch_tolerance_px,
+        )
+        if not touch_points:
+            continue
+
+        opposite_vertices = resolve_merged_line_vertices(opposite_line)
+        nearest_touch_point = min(
+            touch_points,
+            key=lambda touch_point: float(
+                np.hypot(
+                    touch_point[0] - line_vertex[0],
+                    touch_point[1] - line_vertex[1],
+                )
+            ),
+        )
+        nearest_touch_distance = float(
+            np.hypot(
+                nearest_touch_point[0] - line_vertex[0],
+                nearest_touch_point[1] - line_vertex[1],
+            )
+        )
+        opposite_vertex_index = min(
+            range(2),
+            key=lambda candidate_index: float(
+                np.hypot(
+                    opposite_vertices[candidate_index][0] - line_vertex[0],
+                    opposite_vertices[candidate_index][1] - line_vertex[1],
+                )
+            ),
+        )
+        opposite_vertex = opposite_vertices[opposite_vertex_index]
+        vertex_distance = float(
+            np.hypot(
+                opposite_vertex[0] - line_vertex[0],
+                opposite_vertex[1] - line_vertex[1],
+            )
+        )
+        candidate = {
+            "line_index": line_index,
+            "vertex_index": vertex_index,
+            "vertex": line_vertex,
+            "opposite_line_index": opposite_index,
+            "opposite_vertex_index": opposite_vertex_index,
+            "opposite_vertex": opposite_vertex,
+            "touch_point": nearest_touch_point,
+            "touch_distance": nearest_touch_distance,
+            "vertex_distance": vertex_distance,
+        }
+        if best_candidate is None:
+            best_candidate = candidate
+            continue
+
+        if float(candidate["touch_distance"]) < float(best_candidate["touch_distance"]):
+            best_candidate = candidate
+            continue
+        if (
+            float(candidate["touch_distance"]) == float(best_candidate["touch_distance"])
+            and float(candidate["vertex_distance"])
+            < float(best_candidate["vertex_distance"])
+        ):
+            best_candidate = candidate
+
+    return best_candidate
+
+
+def resolve_last_touch_endpoint_connections(
+    horizontal_lines: list[MergedLine],
+    vertical_lines: list[MergedLine],
+    touch_tolerance_px: float,
+) -> tuple[
+    tuple[tuple[tuple[int, int], tuple[int, int]], ...],
+    tuple[tuple[tuple[int, int], tuple[int, int]], ...],
+    tuple[EndpointConnection, ...],
+]:
+    horizontal_vertices = [
+        list(resolve_merged_line_vertices(merged_line)) for merged_line in horizontal_lines
+    ]
+    vertical_vertices = [
+        list(resolve_merged_line_vertices(merged_line)) for merged_line in vertical_lines
+    ]
+    horizontal_candidates: dict[tuple[int, int], dict[str, int | tuple[int, int] | float]] = {}
+    vertical_candidates: dict[tuple[int, int], dict[str, int | tuple[int, int] | float]] = {}
+
+    for horizontal_index, horizontal_line in enumerate(horizontal_lines):
+        for vertex_index in range(2):
+            candidate = _nearest_touch_candidate_for_vertex(
+                horizontal_line,
+                horizontal_index,
+                vertex_index,
+                vertical_lines,
+                touch_tolerance_px,
+            )
+            if candidate is not None:
+                horizontal_candidates[(horizontal_index, vertex_index)] = candidate
+
+    for vertical_index, vertical_line in enumerate(vertical_lines):
+        for vertex_index in range(2):
+            candidate = _nearest_touch_candidate_for_vertex(
+                vertical_line,
+                vertical_index,
+                vertex_index,
+                horizontal_lines,
+                touch_tolerance_px,
+            )
+            if candidate is not None:
+                vertical_candidates[(vertical_index, vertex_index)] = candidate
+
+    endpoint_connections: list[EndpointConnection] = []
+    for horizontal_key, horizontal_candidate in horizontal_candidates.items():
+        vertical_key = (
+            int(horizontal_candidate["opposite_line_index"]),
+            int(horizontal_candidate["opposite_vertex_index"]),
+        )
+        vertical_candidate = vertical_candidates.get(vertical_key)
+        if vertical_candidate is None:
+            continue
+
+        if (
+            int(vertical_candidate["opposite_line_index"]) != horizontal_key[0]
+            or int(vertical_candidate["opposite_vertex_index"]) != horizontal_key[1]
+        ):
+            continue
+
+        horizontal_vertex = (
+            int(horizontal_candidate["vertex"][0]),
+            int(horizontal_candidate["vertex"][1]),
+        )
+        vertical_vertex = (
+            int(horizontal_candidate["opposite_vertex"][0]),
+            int(horizontal_candidate["opposite_vertex"][1]),
+        )
+        aligned_point = (vertical_vertex[0], horizontal_vertex[1])
+        touch_point = (
+            int(horizontal_candidate["touch_point"][0]),
+            int(horizontal_candidate["touch_point"][1]),
+        )
+        horizontal_vertices[horizontal_key[0]][horizontal_key[1]] = aligned_point
+        vertical_vertices[vertical_key[0]][vertical_key[1]] = aligned_point
+        endpoint_connections.append(
+            EndpointConnection(
+                horizontal_line_index=horizontal_key[0],
+                horizontal_vertex_index=horizontal_key[1],
+                vertical_line_index=vertical_key[0],
+                vertical_vertex_index=vertical_key[1],
+                horizontal_vertex=horizontal_vertex,
+                vertical_vertex=vertical_vertex,
+                aligned_point=aligned_point,
+                touch_point=touch_point,
+            )
+        )
+
+    return (
+        tuple(
+            (tuple(line_vertices[0]), tuple(line_vertices[1]))
+            for line_vertices in horizontal_vertices
+        ),
+        tuple(
+            (tuple(line_vertices[0]), tuple(line_vertices[1]))
+            for line_vertices in vertical_vertices
+        ),
+        tuple(endpoint_connections),
+    )
+
+
 __all__ = [
     "annotate_cross_family_touches",
     "drop_zero_touch_lines",
     "filter_lines_by_min_cross_family_touch_points",
     "intersection_point_for_merged_lines",
     "iteratively_filter_lines_by_touch_points",
+    "line_vertex_name",
     "merged_lines_touch",
     "refresh_cross_family_touches",
+    "resolve_last_touch_endpoint_connections",
     "touch_points_for_merged_lines",
 ]

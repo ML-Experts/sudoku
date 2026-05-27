@@ -31,8 +31,10 @@ from sudoku_board_threshold_line_touch import (
     filter_lines_by_min_cross_family_touch_points,
     intersection_point_for_merged_lines,
     iteratively_filter_lines_by_touch_points,
+    line_vertex_name,
     merged_lines_touch,
     refresh_cross_family_touches,
+    resolve_last_touch_endpoint_connections,
     touch_points_for_merged_lines,
 )
 
@@ -53,6 +55,7 @@ __all__ = [
     "intersection_point_for_merged_lines",
     "interval_gap",
     "iteratively_filter_lines_by_touch_points",
+    "line_vertex_name",
     "is_horizontal_like",
     "bridge_line_family_gaps",
     "merge_line_family_segments",
@@ -61,6 +64,7 @@ __all__ = [
     "point_from_line_position",
     "point_position_on_direction",
     "refresh_cross_family_touches",
+    "resolve_last_touch_endpoint_connections",
     "resolve_merged_line_vertices",
     "segment_interval_along_direction",
     "should_merge_line_segments",
