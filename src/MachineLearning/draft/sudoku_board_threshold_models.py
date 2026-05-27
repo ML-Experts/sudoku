@@ -33,6 +33,8 @@ class ExperimentConfig:
     binary_min_component_area_ratio: float = 0.00008
     binary_min_component_area_floor_px: int = 16
     soft_cleanup_area_multiplier: float = 0.35
+    aggressive_cleanup_area_multiplier: float = 1.8
+    cleanup_open_kernel_size: int = 3
     repair_kernel_sizes: tuple[int, ...] = (3, 5)
     repair_directional_kernel_ratio: float = 0.015
     raw_hough_threshold: int = 35

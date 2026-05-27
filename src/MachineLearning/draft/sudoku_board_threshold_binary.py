@@ -61,8 +61,28 @@ def build_denoise_variants(
         searchWindowSize=config.nl_means_search_window_size,
     )
     clahe_image = _apply_clahe(gray_image, config)
+    clahe_bilateral_image = cv2.bilateralFilter(
+        clahe_image,
+        config.bilateral_diameter,
+        config.bilateral_sigma_color,
+        config.bilateral_sigma_space,
+    )
     clahe_nl_means_image = cv2.fastNlMeansDenoising(
         clahe_image,
+        None,
+        h=config.nl_means_strength,
+        templateWindowSize=config.nl_means_template_window_size,
+        searchWindowSize=config.nl_means_search_window_size,
+    )
+    bilateral_nl_means_image = cv2.fastNlMeansDenoising(
+        bilateral_image,
+        None,
+        h=config.nl_means_strength,
+        templateWindowSize=config.nl_means_template_window_size,
+        searchWindowSize=config.nl_means_search_window_size,
+    )
+    clahe_bilateral_nl_means_image = cv2.fastNlMeansDenoising(
+        clahe_bilateral_image,
         None,
         h=config.nl_means_strength,
         templateWindowSize=config.nl_means_template_window_size,
@@ -76,7 +96,10 @@ def build_denoise_variants(
         "bilateral": bilateral_image,
         "nl_means": nl_means_image,
         "clahe": clahe_image,
+        "clahe_bilateral": clahe_bilateral_image,
         "clahe_nl_means": clahe_nl_means_image,
+        "bilateral_nl_means": bilateral_nl_means_image,
+        "clahe_bilateral_nl_means": clahe_bilateral_nl_means_image,
     }
 
     base_variants_for_sharpening = {
@@ -84,7 +107,10 @@ def build_denoise_variants(
         f"median_{config.median_kernel_size}": median_image,
         "bilateral": bilateral_image,
         "nl_means": nl_means_image,
+        "clahe_bilateral": clahe_bilateral_image,
         "clahe_nl_means": clahe_nl_means_image,
+        "bilateral_nl_means": bilateral_nl_means_image,
+        "clahe_bilateral_nl_means": clahe_bilateral_nl_means_image,
     }
     for variant_name, variant_image in base_variants_for_sharpening.items():
         variants[f"{variant_name}_unsharp"] = _apply_unsharp_mask(
@@ -176,8 +202,18 @@ def build_cleanup_variants(
         1,
         int(round(min_component_area_px * config.soft_cleanup_area_multiplier)),
     )
+    aggressive_min_component_area_px = max(
+        1,
+        int(round(min_component_area_px * config.aggressive_cleanup_area_multiplier)),
+    )
+    cleanup_open_kernel_size = max(1, int(config.cleanup_open_kernel_size))
+    opened_binary = open_binary_image(
+        binary_image,
+        (cleanup_open_kernel_size, cleanup_open_kernel_size),
+    )
     cleanup_variants = {
         "adaptive_only": binary_image,
+        f"adaptive_open_{cleanup_open_kernel_size}": opened_binary,
         "adaptive_plus_components_soft": remove_small_connected_components(
             binary_image,
             soft_min_component_area_px,
@@ -185,6 +221,16 @@ def build_cleanup_variants(
         "adaptive_plus_components": remove_small_connected_components(
             binary_image,
             min_component_area_px,
+        ),
+        "adaptive_plus_components_aggressive": remove_small_connected_components(
+            binary_image,
+            aggressive_min_component_area_px,
+        ),
+        f"adaptive_open_{cleanup_open_kernel_size}_plus_components_soft": (
+            remove_small_connected_components(
+                opened_binary,
+                soft_min_component_area_px,
+            )
         ),
     }
     return min_component_area_px, cleanup_variants
@@ -196,6 +242,14 @@ def close_binary_image(
 ) -> np.ndarray:
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, kernel_size)
     return cv2.morphologyEx(binary_image, cv2.MORPH_CLOSE, kernel)
+
+
+def open_binary_image(
+    binary_image: np.ndarray,
+    kernel_size: tuple[int, int],
+) -> np.ndarray:
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, kernel_size)
+    return cv2.morphologyEx(binary_image, cv2.MORPH_OPEN, kernel)
 
 
 def build_repair_variants(
@@ -235,6 +289,7 @@ __all__ = [
     "build_repair_variants",
     "build_threshold_variants",
     "close_binary_image",
+    "open_binary_image",
     "remove_small_connected_components",
     "resolve_min_component_area_px",
 ]
