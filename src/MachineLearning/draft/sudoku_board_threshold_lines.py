@@ -893,23 +893,23 @@ def annotate_cross_family_touches(
     return annotated_horizontal_lines, annotated_vertical_lines
 
 
-def filter_lines_by_min_cross_family_touches(
+def filter_lines_by_min_cross_family_touch_points(
     horizontal_lines: list[MergedLine],
     vertical_lines: list[MergedLine],
-    minimum_touch_count: int,
+    minimum_touch_point_count: int,
 ) -> tuple[list[MergedLine], list[MergedLine]]:
-    if minimum_touch_count <= 0:
+    if minimum_touch_point_count <= 0:
         return horizontal_lines, vertical_lines
 
     filtered_horizontal_lines = [
         horizontal_line
         for horizontal_line in horizontal_lines
-        if horizontal_line.touching_line_count >= minimum_touch_count
+        if horizontal_line.touching_point_count >= minimum_touch_point_count
     ]
     filtered_vertical_lines = [
         vertical_line
         for vertical_line in vertical_lines
-        if vertical_line.touching_line_count >= minimum_touch_count
+        if vertical_line.touching_point_count >= minimum_touch_point_count
     ]
     return filtered_horizontal_lines, filtered_vertical_lines
 
@@ -924,6 +924,44 @@ def refresh_cross_family_touches(
         vertical_lines,
         touch_tolerance_px,
     )
+
+
+def iteratively_filter_lines_by_touch_points(
+    horizontal_lines: list[MergedLine],
+    vertical_lines: list[MergedLine],
+    minimum_touch_point_count: int,
+    touch_tolerance_px: float,
+) -> tuple[list[MergedLine], list[MergedLine]]:
+    if minimum_touch_point_count <= 0:
+        return refresh_cross_family_touches(
+            horizontal_lines,
+            vertical_lines,
+            touch_tolerance_px,
+        )
+
+    current_horizontal_lines, current_vertical_lines = refresh_cross_family_touches(
+        horizontal_lines,
+        vertical_lines,
+        touch_tolerance_px,
+    )
+    while True:
+        filtered_horizontal_lines, filtered_vertical_lines = (
+            filter_lines_by_min_cross_family_touch_points(
+                current_horizontal_lines,
+                current_vertical_lines,
+                minimum_touch_point_count,
+            )
+        )
+        if (
+            len(filtered_horizontal_lines) == len(current_horizontal_lines)
+            and len(filtered_vertical_lines) == len(current_vertical_lines)
+        ):
+            return current_horizontal_lines, current_vertical_lines
+        current_horizontal_lines, current_vertical_lines = refresh_cross_family_touches(
+            filtered_horizontal_lines,
+            filtered_vertical_lines,
+            touch_tolerance_px,
+        )
 
 
 def drop_zero_touch_lines(
@@ -1117,10 +1155,11 @@ def detect_line_families(
     horizontal_pre_filter_merged_lines = list(horizontal_merged_lines)
     vertical_pre_filter_merged_lines = list(vertical_merged_lines)
     horizontal_merged_lines, vertical_merged_lines = (
-        filter_lines_by_min_cross_family_touches(
+        iteratively_filter_lines_by_touch_points(
             horizontal_merged_lines,
             vertical_merged_lines,
             config.min_cross_family_touches_to_keep,
+            cross_family_touch_tolerance_px,
         )
     )
     horizontal_merged_lines, vertical_merged_lines = refresh_cross_family_touches(
@@ -1128,16 +1167,6 @@ def detect_line_families(
         vertical_merged_lines,
         cross_family_touch_tolerance_px,
     )
-    if config.drop_zero_touch_lines_after_refresh:
-        horizontal_merged_lines, vertical_merged_lines = drop_zero_touch_lines(
-            horizontal_merged_lines,
-            vertical_merged_lines,
-        )
-        horizontal_merged_lines, vertical_merged_lines = refresh_cross_family_touches(
-            horizontal_merged_lines,
-            vertical_merged_lines,
-            cross_family_touch_tolerance_px,
-        )
 
     return LineFamilyResult(
         raw_segment_count=len(line_segments),
@@ -1172,10 +1201,11 @@ __all__ = [
     "detect_line_families",
     "direction_vector_from_angle",
     "drop_zero_touch_lines",
-    "filter_lines_by_min_cross_family_touches",
+    "filter_lines_by_min_cross_family_touch_points",
     "get_dominant_angle_degrees",
     "intersection_point_for_merged_lines",
     "interval_gap",
+    "iteratively_filter_lines_by_touch_points",
     "is_horizontal_like",
     "bridge_line_family_gaps",
     "merge_line_family_segments",

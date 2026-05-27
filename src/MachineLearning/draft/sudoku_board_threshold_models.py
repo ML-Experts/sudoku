@@ -41,7 +41,7 @@ class ExperimentConfig:
     line_bridge_max_gap_ratio: float = 0.065
     line_bridge_endpoint_tolerance_ratio: float = 0.028
     cross_family_touch_tolerance_ratio: float = 0.02
-    min_cross_family_touches_to_keep: int = 9
+    min_cross_family_touches_to_keep: int = 2
     drop_zero_touch_lines_after_refresh: bool = True
     expected_horizontal_line_count: int = 10
     expected_vertical_line_count: int = 10
