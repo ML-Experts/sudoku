@@ -29,13 +29,17 @@ def closest_interval_bridge_positions(
                 (float(first_start), float(first_end)),
                 (float(second_start), float(second_end)),
             )
-            if gap <= 0.0:
-                continue
-
-            if float(first_end) < float(second_start):
+            if gap > 0.0 and float(first_end) < float(second_start):
                 candidate_positions = (float(first_end), float(second_start))
-            else:
+            elif gap > 0.0:
                 candidate_positions = (float(first_start), float(second_end))
+            else:
+                # Overlapping spans can still be separate logical lines if they drift
+                # sideways; use a lateral bridge at the shared position.
+                overlap_start = max(float(first_start), float(second_start))
+                overlap_end = min(float(first_end), float(second_end))
+                overlap_position = (overlap_start + overlap_end) / 2.0
+                candidate_positions = (overlap_position, overlap_position)
 
             if best_gap is not None and gap >= best_gap:
                 continue
