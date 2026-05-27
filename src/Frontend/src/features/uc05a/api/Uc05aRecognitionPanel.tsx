@@ -33,6 +33,15 @@ export function Uc05aRecognitionPanel({
   onRetryRecognition,
   onCancelRecognition,
 }: Uc05aRecognitionPanelProps) {
+  const startButtonLabel =
+    state.status === "running"
+      ? "Trwa rozpoznawanie..."
+      : state.status === "completed" ||
+          state.status === "failed" ||
+          state.status === "cancelled"
+        ? "Start od nowa"
+        : "Start rozpoznania";
+
   return (
     <section className="result-card uc05a-section" aria-live="polite">
       <p className="eyebrow">UC-05A — Rozpoznanie pojedynczych komorek</p>
@@ -74,7 +83,7 @@ export function Uc05aRecognitionPanel({
           disabled={!canStartRecognition}
           onClick={() => void onStartRecognition()}
         >
-          {state.status === "running" ? "Trwa rozpoznawanie..." : "Start rozpoznania"}
+          {startButtonLabel}
         </button>
         <button
           className="secondary-button"

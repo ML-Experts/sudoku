@@ -60,6 +60,7 @@
 /data/processed/*
 !/data/processed/.gitkeep
 
+/tmp/*
 /tmp/datasets/
 /data/processed/
 /data/models/

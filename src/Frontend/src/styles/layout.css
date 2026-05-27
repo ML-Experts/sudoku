@@ -138,6 +138,38 @@
   box-shadow: 0 20px 50px rgba(2, 6, 23, 0.35);
 }
 
+.workspace-context-switcher {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.workspace-context-switcher-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.workspace-context-switcher-button {
+  width: 100%;
+  padding: 0.7rem 0.8rem;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  background: rgba(15, 23, 42, 0.55);
+  color: #e2e8f0;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+}
+
+.workspace-context-switcher-button.is-active {
+  border-color: rgba(56, 189, 248, 0.7);
+  background: rgba(14, 116, 144, 0.25);
+  color: #e0f2fe;
+}
+
 @media (max-width: 960px) {
   .workspace-shell.has-context-panel {
     grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);

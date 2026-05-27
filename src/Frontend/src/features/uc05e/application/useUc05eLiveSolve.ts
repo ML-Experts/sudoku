@@ -608,6 +608,17 @@ export function useUc05eLiveSolve({
     );
   }, [solveReadyGrid, solveSession, startMonitoring]);
 
+  const resetLiveState = useCallback(async () => {
+    clearPersistedLiveSolveContext();
+    persistedContextRef.current = null;
+    await disconnectRealtime();
+    dispatch({
+      type: "persistedContextDetected",
+      hasPersistedContext: false,
+    });
+    dispatch({ type: "liveStateReset" });
+  }, [disconnectRealtime]);
+
   const visibleGrid =
     state.visibleGrid ??
     state.inputGrid ??
@@ -617,6 +628,7 @@ export function useUc05eLiveSolve({
     state,
     visibleGrid,
     retryMonitoring,
+    resetLiveState,
     hasLiveSessionToResume:
       solveSession !== null &&
       !solveSession.isSessionStaleForCurrentGrid &&

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 
 import type {
   CellsGridApiResponse,
@@ -10,6 +10,7 @@ import { Uc05aRecognitionPanel } from "../../uc05a/api";
 import { useUc05aRecognition } from "../../uc05a/application/useUc05aRecognition";
 import { Uc05bSolveSection } from "../../uc05b/api/Uc05bSolveSection";
 import { useUc05bSolve } from "../../uc05b/application/useUc05bSolve";
+import { isActiveSolveSessionStatus } from "../../uc05b/domain/solveSessionStatus";
 import { Uc05dOverlaySection } from "../../uc05d/api";
 import { Uc05eLiveSolvePanel } from "../../uc05e/api/Uc05eLiveSolvePanel";
 import { useUc05eLiveSolve } from "../../uc05e/application/useUc05eLiveSolve";
@@ -85,6 +86,25 @@ export function Uc05WorkflowSection({
     onParameterContextChange?.(activeParameterContext);
   }, [activeParameterContext, onParameterContextChange]);
 
+  const hasActiveSolveSession =
+    solve.state.session !== null &&
+    isActiveSolveSessionStatus(solve.state.session.status);
+
+  const handleStartRecognition = useCallback(async () => {
+    if (hasActiveSolveSession) {
+      return;
+    }
+
+    await liveSolve.resetLiveState();
+    solve.resetSolveSession();
+    await recognition.startRecognition();
+  }, [
+    hasActiveSolveSession,
+    liveSolve,
+    recognition,
+    solve,
+  ]);
+
   const shouldShowSolveSection =
     recognition.state.status === "completed" ||
     solve.state.session !== null ||
@@ -114,10 +134,12 @@ export function Uc05WorkflowSection({
         parameterErrorCount={solveCellInferenceParameterErrorCount}
         state={recognition.state}
         progress={recognition.progress}
-        canStartRecognition={recognition.canStartRecognition}
+        canStartRecognition={
+          recognition.canStartRecognition && !hasActiveSolveSession
+        }
         canRetryRecognition={recognition.canRetryRecognition}
         canCancelRecognition={recognition.canCancelRecognition}
-        onStartRecognition={recognition.startRecognition}
+        onStartRecognition={handleStartRecognition}
         onRetryRecognition={recognition.retryRecognition}
         onCancelRecognition={recognition.cancelRecognition}
       />

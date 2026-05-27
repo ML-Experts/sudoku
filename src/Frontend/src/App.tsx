@@ -55,6 +55,14 @@ function countUc14Overrides<TKey extends string>(state: Uc14ContextState<TKey>):
   ).length;
 }
 
+function getExamplesUc14ContextLabel(
+  context: Exclude<Uc14ActiveParameterContext, null>,
+): string {
+  return context === "solveCellInference"
+    ? "Rozpoznanie komorek"
+    : "Live solve";
+}
+
 export default function App() {
   const apiBaseUrl = normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL);
   const pingEndpoint = `${apiBaseUrl}/ping`;
@@ -77,6 +85,8 @@ export default function App() {
   const [activeView, setActiveView] = useState<AppView>("health");
   const [datasetsStep, setDatasetsStep] = useState<DatasetsStep>("uc11");
   const [examplesWorkflowContext, setExamplesWorkflowContext] =
+    useState<Uc14ActiveParameterContext>(null);
+  const [manualExamplesWorkflowContext, setManualExamplesWorkflowContext] =
     useState<Uc14ActiveParameterContext>(null);
   const [solveCellInferenceState, setSolveCellInferenceState] =
     useState<SolveCellInferenceContextState>(() =>
@@ -127,10 +137,28 @@ export default function App() {
     () => validateTrainingRunParameterState(trainingRunParameterState),
     [trainingRunParameterState],
   );
+  const availableExamplesUc14Contexts = useMemo<
+    Array<Exclude<Uc14ActiveParameterContext, null>>
+  >(() => {
+    if (examplesWorkflowContext === "solveLive") {
+      return ["solveCellInference", "solveLive"];
+    }
+
+    if (examplesWorkflowContext === "solveCellInference") {
+      return ["solveCellInference"];
+    }
+
+    return [];
+  }, [examplesWorkflowContext]);
+  const resolvedExamplesWorkflowContext =
+    manualExamplesWorkflowContext !== null &&
+    availableExamplesUc14Contexts.includes(manualExamplesWorkflowContext)
+      ? manualExamplesWorkflowContext
+      : examplesWorkflowContext;
   const activeUc14Context = getUc14ActiveParameterContext({
     activeView,
     datasetsStep,
-    examplesWorkflowContext,
+    examplesWorkflowContext: resolvedExamplesWorkflowContext,
   });
   const hasUc14Panel = activeUc14Context !== null;
 
@@ -340,8 +368,18 @@ export default function App() {
   }, [loginModalOpen]);
 
   useEffect(() => {
+    if (
+      manualExamplesWorkflowContext !== null &&
+      !availableExamplesUc14Contexts.includes(manualExamplesWorkflowContext)
+    ) {
+      setManualExamplesWorkflowContext(null);
+    }
+  }, [availableExamplesUc14Contexts, manualExamplesWorkflowContext]);
+
+  useEffect(() => {
     if (activeView !== "examples" || !examplesModule.selectedProcessName) {
       setExamplesWorkflowContext(null);
+      setManualExamplesWorkflowContext(null);
     }
   }, [activeView, examplesModule.selectedProcessName]);
   return (
@@ -425,6 +463,42 @@ export default function App() {
 
         {hasUc14Panel ? (
           <aside className="workspace-context-panel">
+            {activeView === "examples" && availableExamplesUc14Contexts.length > 1 ? (
+              <section
+                className="workspace-context-switcher"
+                aria-label="Przelacznik kontekstu parametrow UC-14"
+              >
+                <p className="eyebrow">Panel parametrow</p>
+                <p className="muted-copy">
+                  Workflow automatycznie przechodzi do kolejnego etapu, ale tutaj
+                  mozesz wrocic do wczesniejszych parametrow bez zmiany widoku.
+                </p>
+                <div
+                  className="workspace-context-switcher-list"
+                  role="tablist"
+                  aria-label="Konteksty parametrow Examples"
+                >
+                  {availableExamplesUc14Contexts.map((context) => {
+                    const isActive = activeUc14Context === context;
+
+                    return (
+                      <button
+                        key={context}
+                        className={`workspace-context-switcher-button ${
+                          isActive ? "is-active" : ""
+                        }`}
+                        type="button"
+                        role="tab"
+                        aria-selected={isActive}
+                        onClick={() => setManualExamplesWorkflowContext(context)}
+                      >
+                        {getExamplesUc14ContextLabel(context)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            ) : null}
             {activeUc14Context === "solveCellInference" ? (
               <Uc14SolveCellInferenceParametersPanel
                 state={solveCellInferenceState}
