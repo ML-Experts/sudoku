@@ -89,8 +89,8 @@ public static class DependencyInjection
 
         services.AddHttpClient<IMlPingGateway, MlPingHttpClient>(ConfigureMlHttpClient);
         services.AddHttpClient<IMlImageProcessingGateway, MlImageProcessingHttpClient>(ConfigureMlHttpClient);
-        services.AddHttpClient<IMlDatasetsPreparationGateway, MlDatasetsPreparationHttpClient>(ConfigureMlHttpClient);
-        services.AddHttpClient<IMlTrainingsGateway, MlTrainingsHttpClient>(ConfigureMlHttpClient);
+        services.AddHttpClient<IMlDatasetsPreparationGateway, MlDatasetsPreparationHttpClient>(ConfigureLongRunningMlHttpClient);
+        services.AddHttpClient<IMlTrainingsGateway, MlTrainingsHttpClient>(ConfigureLongRunningMlHttpClient);
 
         return services;
     }
@@ -101,5 +101,15 @@ public static class DependencyInjection
 
         client.BaseAddress = new Uri(options.BaseUrl, UriKind.Absolute);
         client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+    }
+
+    private static void ConfigureLongRunningMlHttpClient(IServiceProvider serviceProvider, HttpClient client)
+    {
+        var options = serviceProvider.GetRequiredService<IOptions<MlServiceOptions>>().Value;
+
+        client.BaseAddress = new Uri(options.BaseUrl, UriKind.Absolute);
+        client.Timeout = options.LongRunningTimeoutSeconds <= 0
+            ? Timeout.InfiniteTimeSpan
+            : TimeSpan.FromSeconds(options.LongRunningTimeoutSeconds);
     }
 }
