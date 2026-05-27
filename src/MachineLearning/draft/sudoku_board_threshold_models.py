@@ -47,6 +47,8 @@ class ExperimentConfig:
     expected_vertical_line_count: int = 10
     frame_min_area_ratio: float = 0.03
     frame_max_selected_count: int = 8
+    warp_output_size: int = 600
+    warp_output_padding_pixels: int = 0
     horizontal_family_color_bgr: tuple[int, int, int] = (255, 165, 0)
     vertical_family_color_bgr: tuple[int, int, int] = (0, 255, 255)
     line_overlay_thickness: int = 2
