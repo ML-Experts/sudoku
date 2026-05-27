@@ -102,6 +102,29 @@ class LineBridge:
 
 
 @dataclass(frozen=True)
+class LineBridgeDiagnostic:
+    family_name: str
+    first_line_index: int
+    second_line_index: int
+    accepted: bool
+    reject_reason: str
+    projection_distance_px: float
+    projection_tolerance_px: float
+    candidate_count: int
+    selected_candidate_rank: int | None
+    gap_px: float | None
+    max_gap_px: float
+    ideal_start_point: tuple[int, int] | None
+    ideal_end_point: tuple[int, int] | None
+    corridor_polygon: tuple[tuple[int, int], ...]
+    start_box: tuple[tuple[int, int], tuple[int, int]] | None
+    end_box: tuple[tuple[int, int], tuple[int, int]] | None
+    projection_coverage_start_px: float | None = None
+    projection_coverage_end_px: float | None = None
+    projection_max_hole_px: int | None = None
+
+
+@dataclass(frozen=True)
 class EndpointConnection:
     horizontal_line_index: int
     horizontal_vertex_index: int
@@ -132,6 +155,8 @@ class LineFamilyResult:
     vertical_pre_filter_merged_lines: list[MergedLine]
     horizontal_bridges: list[LineBridge]
     vertical_bridges: list[LineBridge]
+    horizontal_bridge_diagnostics: list[LineBridgeDiagnostic]
+    vertical_bridge_diagnostics: list[LineBridgeDiagnostic]
     horizontal_merged_lines: list[MergedLine]
     vertical_merged_lines: list[MergedLine]
     horizontal_aligned_vertices: tuple[tuple[tuple[int, int], tuple[int, int]], ...]
@@ -179,6 +204,7 @@ __all__ = [
     "ExperimentConfig",
     "FrameDetectionResult",
     "LineBridge",
+    "LineBridgeDiagnostic",
     "LineFamilyResult",
     "LineFrame",
     "MergedLine",

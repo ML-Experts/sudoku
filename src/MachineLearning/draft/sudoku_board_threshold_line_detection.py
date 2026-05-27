@@ -3,11 +3,15 @@ from __future__ import annotations
 import cv2
 import numpy as np
 
-from sudoku_board_threshold_line_bridge import bridge_line_family_gaps
+from sudoku_board_threshold_line_bridge import (
+    bridge_line_family_gaps,
+    inspect_line_family_bridge_candidates,
+)
 from sudoku_board_threshold_line_families import (
     collect_line_family,
     get_dominant_angle_degrees,
     is_horizontal_like,
+    refine_family_angle_degrees,
 )
 from sudoku_board_threshold_line_geometry import (
     angle_difference_degrees,
@@ -48,6 +52,8 @@ def build_empty_line_family_result(
         vertical_pre_filter_merged_lines=[],
         horizontal_bridges=[],
         vertical_bridges=[],
+        horizontal_bridge_diagnostics=[],
+        vertical_bridge_diagnostics=[],
         horizontal_merged_lines=[],
         vertical_merged_lines=[],
         horizontal_aligned_vertices=(),
@@ -100,8 +106,8 @@ def detect_line_families(
         )
 
     line_segments = [build_line_segment(raw_segment[0]) for raw_segment in raw_segments]
-    primary_angle = get_dominant_angle_degrees(line_segments)
-    if primary_angle is None:
+    primary_seed_angle = get_dominant_angle_degrees(line_segments)
+    if primary_seed_angle is None:
         return build_empty_line_family_result(
             raw_min_line_length_px,
             raw_max_line_gap_px,
@@ -110,6 +116,12 @@ def detect_line_families(
             cross_family_touch_tolerance_px,
         )
 
+    primary_segments = collect_line_family(
+        line_segments,
+        primary_seed_angle,
+        config.line_family_angle_tolerance_degrees,
+    )
+    primary_angle = refine_family_angle_degrees(primary_segments, primary_seed_angle)
     primary_segments = collect_line_family(
         line_segments,
         primary_angle,
@@ -125,9 +137,18 @@ def detect_line_families(
         > config.line_family_angle_tolerance_degrees
     ]
 
-    secondary_angle = get_dominant_angle_degrees(remaining_segments)
-    if secondary_angle is None:
-        secondary_angle = (primary_angle + 90.0) % 180.0
+    secondary_seed_angle = get_dominant_angle_degrees(remaining_segments)
+    if secondary_seed_angle is None:
+        secondary_seed_angle = (primary_angle + 90.0) % 180.0
+    secondary_segments = collect_line_family(
+        line_segments,
+        secondary_seed_angle,
+        config.line_family_angle_tolerance_degrees,
+    )
+    secondary_angle = refine_family_angle_degrees(
+        secondary_segments,
+        secondary_seed_angle,
+    )
     secondary_segments = collect_line_family(
         line_segments,
         secondary_angle,
@@ -216,6 +237,22 @@ def detect_line_families(
         vertical_merged_lines,
         cross_family_touch_tolerance_px,
     )
+    horizontal_bridge_diagnostics = inspect_line_family_bridge_candidates(
+        binary_image=binary_image,
+        merged_lines=horizontal_merged_lines,
+        family_angle_degrees=horizontal_angle_degrees,
+        family_name="horizontal",
+        config=config,
+        minimum_dimension=minimum_dimension,
+    )
+    vertical_bridge_diagnostics = inspect_line_family_bridge_candidates(
+        binary_image=binary_image,
+        merged_lines=vertical_merged_lines,
+        family_angle_degrees=vertical_angle_degrees,
+        family_name="vertical",
+        config=config,
+        minimum_dimension=minimum_dimension,
+    )
 
     return LineFamilyResult(
         raw_segment_count=len(line_segments),
@@ -235,6 +272,8 @@ def detect_line_families(
         vertical_pre_filter_merged_lines=vertical_pre_filter_merged_lines,
         horizontal_bridges=horizontal_bridges,
         vertical_bridges=vertical_bridges,
+        horizontal_bridge_diagnostics=horizontal_bridge_diagnostics,
+        vertical_bridge_diagnostics=vertical_bridge_diagnostics,
         horizontal_merged_lines=horizontal_merged_lines,
         vertical_merged_lines=vertical_merged_lines,
         horizontal_aligned_vertices=horizontal_aligned_vertices,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -289,6 +290,121 @@ def _describe_lines_with_vertices(
     return lines
 
 
+def _bridge_diagnostic_sort_key(bridge_diagnostic) -> tuple[float, float, int, int]:
+    projection_ratio = float("inf")
+    if bridge_diagnostic.projection_tolerance_px > 1e-6:
+        projection_ratio = (
+            bridge_diagnostic.projection_distance_px
+            / bridge_diagnostic.projection_tolerance_px
+        )
+    gap_ratio = float("inf")
+    if (
+        bridge_diagnostic.gap_px is not None
+        and bridge_diagnostic.max_gap_px > 1e-6
+    ):
+        gap_ratio = bridge_diagnostic.gap_px / bridge_diagnostic.max_gap_px
+    return (
+        gap_ratio,
+        projection_ratio,
+        bridge_diagnostic.first_line_index,
+        bridge_diagnostic.second_line_index,
+    )
+
+
+def _describe_bridge_diagnostics(
+    line_family_result,
+    family_name: str,
+    family_label: str,
+    family_prefix: str,
+    *,
+    max_entries: int = 12,
+) -> list[str]:
+    bridge_diagnostics = getattr(
+        line_family_result,
+        f"{family_name}_bridge_diagnostics",
+        [],
+    )
+    if not bridge_diagnostics:
+        return []
+
+    rejected_diagnostics = [
+        bridge_diagnostic
+        for bridge_diagnostic in bridge_diagnostics
+        if not bridge_diagnostic.accepted
+    ]
+    accepted_count = len(bridge_diagnostics) - len(rejected_diagnostics)
+    rejected_reason_counts = Counter(
+        bridge_diagnostic.reject_reason for bridge_diagnostic in rejected_diagnostics
+    )
+
+    lines = [
+        "",
+        f"{family_label} same-family bridge diagnostics after refresh:",
+        (
+            f"  accepted={accepted_count}, rejected={len(rejected_diagnostics)}, "
+            f"pairs={len(bridge_diagnostics)}"
+        ),
+    ]
+    if rejected_reason_counts:
+        lines.append(
+            "  rejected_by_reason="
+            + ", ".join(
+                f"{reason}:{count}"
+                for reason, count in sorted(rejected_reason_counts.items())
+            )
+        )
+
+    if not rejected_diagnostics:
+        lines.append("  all pairs already pass current bridge checks")
+        return lines
+
+    lines.append("  closest rejected pairs:")
+    for bridge_diagnostic in sorted(
+        rejected_diagnostics,
+        key=_bridge_diagnostic_sort_key,
+    )[:max_entries]:
+        gap_label = (
+            "n/a"
+            if bridge_diagnostic.gap_px is None
+            else (
+                f"{bridge_diagnostic.gap_px:.1f}/"
+                f"{bridge_diagnostic.max_gap_px:.1f}"
+            )
+        )
+        candidate_label = (
+            "-"
+            if bridge_diagnostic.selected_candidate_rank is None
+            else (
+                f"{bridge_diagnostic.selected_candidate_rank}/"
+                f"{bridge_diagnostic.candidate_count}"
+            )
+        )
+        lines.append(
+            f"  {family_prefix}{bridge_diagnostic.first_line_index} <-> "
+            f"{family_prefix}{bridge_diagnostic.second_line_index}: "
+            f"reason={bridge_diagnostic.reject_reason}, "
+            f"proj={bridge_diagnostic.projection_distance_px:.1f}/"
+            f"{bridge_diagnostic.projection_tolerance_px:.1f}, "
+            f"gap={gap_label}, candidates={candidate_label}"
+        )
+        if bridge_diagnostic.reject_reason == "discontinuous_projection":
+            coverage_start = bridge_diagnostic.projection_coverage_start_px
+            coverage_end = bridge_diagnostic.projection_coverage_end_px
+            coverage_label = "n/a"
+            if coverage_start is not None and coverage_end is not None:
+                coverage_label = f"{coverage_start:.1f}->{coverage_end:.1f}"
+            max_hole_label = (
+                "n/a"
+                if bridge_diagnostic.projection_max_hole_px is None
+                else str(bridge_diagnostic.projection_max_hole_px)
+            )
+            lines.append(
+                f"    projection_coverage={coverage_label}, "
+                f"max_hole_px={max_hole_label}"
+            )
+    return lines
+
+
 def describe_line_debug_artifacts(
     line_debug: LineDebugArtifacts,
     config,
@@ -342,6 +458,22 @@ def describe_line_debug_artifacts(
                 "horizontal",
             )
         )
+    lines.extend(
+        _describe_bridge_diagnostics(
+            line_family_result,
+            "horizontal",
+            "Horizontal",
+            "H",
+        )
+    )
+    lines.extend(
+        _describe_bridge_diagnostics(
+            line_family_result,
+            "vertical",
+            "Vertical",
+            "V",
+        )
+    )
 
     return lines
 
