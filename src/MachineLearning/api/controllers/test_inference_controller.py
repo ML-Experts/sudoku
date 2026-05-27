@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
@@ -9,12 +13,14 @@ from api.models.test_digit_inference_api_response import (
 from application.features.inference.commands.test_digit_inference.test_digit_inference_command import (
     TestDigitInferenceCommand,
 )
-from application.features.inference.commands.test_digit_inference.test_digit_inference_command_handler import (
-    TestDigitInferenceCommandHandler,
-)
 from application.features.inference.errors.test_digit_inference_errors import (
     TestDigitInferenceCommandError,
 )
+
+if TYPE_CHECKING:
+    from application.features.inference.commands.test_digit_inference.test_digit_inference_command_handler import (
+        TestDigitInferenceCommandHandler,
+    )
 
 test_inference_controller = APIRouter(prefix="/ml/test", tags=["test-inference"])
 

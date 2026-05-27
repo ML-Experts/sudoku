@@ -114,10 +114,10 @@ def get_preprocessing_settings() -> PreprocessingSettings:
         ),
         board_output_size=get_env_int("ML_PREPROCESS_BOARD_OUTPUT_SIZE", 600),
         board_output_padding_pixels=get_env_int(
-            "ML_PREPROCESS_BOARD_OUTPUT_PADDING_PIXELS", 8
+            "ML_PREPROCESS_BOARD_OUTPUT_PADDING_PIXELS", 0
         ),
         board_refinement_passes=get_env_int(
-            "ML_PREPROCESS_BOARD_REFINEMENT_PASSES", 1
+            "ML_PREPROCESS_BOARD_REFINEMENT_PASSES", 0
         ),
         cells_grid_rows=get_env_int("ML_PREPROCESS_CELLS_GRID_ROWS", 9),
         cells_grid_cols=get_env_int("ML_PREPROCESS_CELLS_GRID_COLS", 9),
@@ -151,28 +151,28 @@ def get_preprocessing_settings() -> PreprocessingSettings:
             "ML_PREPROCESS_BOARD_EDGE_CANNY_THRESHOLD_2", 150
         ),
         board_edge_hough_threshold=get_env_int(
-            "ML_PREPROCESS_BOARD_EDGE_HOUGH_THRESHOLD", 80
+            "ML_PREPROCESS_BOARD_EDGE_HOUGH_THRESHOLD", 32
         ),
         board_edge_min_line_length_ratio=get_env_float(
-            "ML_PREPROCESS_BOARD_EDGE_MIN_LINE_LENGTH_RATIO", 0.2
+            "ML_PREPROCESS_BOARD_EDGE_MIN_LINE_LENGTH_RATIO", 0.07
         ),
         board_edge_max_line_gap_ratio=get_env_float(
-            "ML_PREPROCESS_BOARD_EDGE_MAX_LINE_GAP_RATIO", 0.04
+            "ML_PREPROCESS_BOARD_EDGE_MAX_LINE_GAP_RATIO", 0.024
         ),
         board_edge_angle_tolerance_degrees=get_env_float(
-            "ML_PREPROCESS_BOARD_EDGE_ANGLE_TOLERANCE_DEGREES", 12.0
+            "ML_PREPROCESS_BOARD_EDGE_ANGLE_TOLERANCE_DEGREES", 20.0
         ),
         board_edge_outer_line_window_ratio=get_env_float(
             "ML_PREPROCESS_BOARD_EDGE_OUTER_LINE_WINDOW_RATIO", 0.1
         ),
         board_edge_minimum_board_area_ratio=get_env_float(
-            "ML_PREPROCESS_BOARD_EDGE_MINIMUM_BOARD_AREA_RATIO", 0.1
+            "ML_PREPROCESS_BOARD_EDGE_MINIMUM_BOARD_AREA_RATIO", 0.03
         ),
         board_edge_minimum_family_segments=get_env_int(
             "ML_PREPROCESS_BOARD_EDGE_MINIMUM_FAMILY_SEGMENTS", 4
         ),
         board_edge_line_position_merge_distance_ratio=get_env_float(
-            "ML_PREPROCESS_BOARD_EDGE_LINE_POSITION_MERGE_DISTANCE_RATIO", 0.03
+            "ML_PREPROCESS_BOARD_EDGE_LINE_POSITION_MERGE_DISTANCE_RATIO", 0.012
         ),
         board_edge_minimum_distinct_lines_per_family=get_env_int(
             "ML_PREPROCESS_BOARD_EDGE_MINIMUM_DISTINCT_LINES_PER_FAMILY", 5
@@ -255,6 +255,9 @@ def get_runtime_settings() -> RuntimeSettings:
         ),
         temp_datasets_directory_path=get_env_value(
             "ML_TEMP_DATASETS_DIRECTORY_PATH", "./tmp/datasets"
+        ),
+        dataset_previews_directory_path=get_env_value(
+            "ML_DATASET_PREVIEWS_DIRECTORY_PATH", "./tmp/dataset-previews"
         ),
         examples_uploads_directory_path=get_env_value(
             "ML_EXAMPLES_UPLOADS_DIR", "./examples/uploads"

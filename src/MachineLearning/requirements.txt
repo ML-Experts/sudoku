@@ -3,6 +3,7 @@ httpx
 numpy
 opencv-python-headless
 pydantic
+pytest
 python-dotenv
 python-slugify
 torch

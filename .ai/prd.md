@@ -72,6 +72,14 @@ Uwaga: w zakresie pozostaje wyłącznie prosta bramka administracyjna oparta o j
 6. Niezależnie od typu i liczby wybranych źródeł system scala wynik przetwarzania do jednego wspólnego zestawu, tworzy docelowe partycje `train` / `val` / `test`, zapisuje gotowy artefakt jako pojedynczy plik `{name}.npz` w katalogu `data/processed` i dołącza raport z przetwarzania.
 7. Przygotowany zestaw `.npz` staje się dostępny do późniejszego treningu i ewaluacji.
 
+#### J4: „Przejrzyj zapisany dataset po przygotowaniu”
+1. Użytkownik loguje się przez prosty modal hasła i przechodzi do obszaru datasetów.
+2. Użytkownik uruchamia przygotowanie datasetu analogicznie jak w `J3`; system od razu zapisuje finalny `.npz`, rekord metadanych oraz artefakty preview potrzebne do późniejszego podglądu.
+3. Po zakończeniu przygotowania użytkownik otwiera widok przeglądarki datasetu dla wybranego zestawu.
+4. Dla źródeł typu `board` użytkownik widzi co najmniej planszę po korekcji perspektywy tuż przed cięciem oraz listę wyciętych elementów gotowych do wejścia do datasetu.
+5. Dla źródeł typu `digit` użytkownik widzi próbki finalne gotowe do wejścia do datasetu.
+6. Użytkownik nie zatwierdza dodatkowo zapisu; ocena jakości danych odbywa się już po zapisaniu artefaktów na dysku.
+
 ### 7) Wymagania funkcjonalne (FR)
 - **FR-01**: System przyjmuje obraz sudoku (jpg/png) z UI i przekazuje go do pipeline’u.
 - **FR-02**: System wykrywa obszar planszy i wykonuje korekcję perspektywy (widok z góry).
@@ -104,6 +112,11 @@ Uwaga: w zakresie pozostaje wyłącznie prosta bramka administracyjna oparta o j
 - **FR-28**: System utrzymuje aktywny model inferencyjny przez lekki plik wskaźnikowy w `models/active` (np. `inference.json`) wskazujący wpis z `models/registry`, bez kopiowania całego katalogu modelu przy każdym przełączeniu.
 - **FR-29**: System zapisuje relację między runem treningowym, modelem wynikowym i raportami tak, aby można było odtworzyć pochodzenie modelu oraz porównać wyniki na wspólnym benchmarku.
 - **FR-30**: System udostępnia kontekstowy panel parametrów funkcjonalnych renderowany w `UI` po przełączeniu na odpowiednią zakładkę; panel jest umieszczony poniżej głównego menu po lewej stronie, a jego pola odpowiadają funkcjonalności aktualnej zakładki. Wartości domyślne pozostają zgodne z obecnym zachowaniem systemu, ale użytkownik może je nadpisać przed wysłaniem żądania do istniejącego endpointu.
+- **FR-31**: Po przygotowaniu datasetu w `UC-12` system zapisuje obok finalnego artefaktu `.npz` i rekordu metadanych także artefakty preview używane później do diagnostycznego podglądu zawartości datasetu.
+- **FR-32**: Dla źródła typu `board` artefakty preview obejmują co najmniej obraz planszy po korekcji perspektywy tuż przed podziałem na komórki oraz listę wyciętych, przetworzonych elementów gotowych do wejścia do datasetu.
+- **FR-33**: Dla źródła typu `digit` artefakty preview obejmują co najmniej finalne próbki po preprocessingu gotowe do wejścia do datasetu.
+- **FR-34**: System udostępnia w `UI` read-only przeglądarkę przygotowanego datasetu, która korzysta z rekordów i artefaktów zapisanych po wcześniejszym przygotowaniu; przeglądanie nie wymaga dodatkowego zatwierdzania ani finalizacji datasetu.
+- **FR-35**: W zakresie `UC-16` system nie usuwa automatycznie pojedynczych `boardów`, komórek ani `digitów`; ewentualne operacje selekcji i przebudowy datasetu należą do późniejszej historyjki.
 
 ### 8) Historyjki (User Stories) + kryteria akceptacji
 Backlog jest podzielony na 4 obszary (strumienie prac):
@@ -463,6 +476,28 @@ Uwaga organizacyjna:
     - Wartość opóźnienia jest przekazywana od warstwy API do miejsca wykonania `sleep`, a nie odczytywana lokalnie z przypadkowej konfiguracji w środku implementacji.
     - `UC-15` jest etapem przejściowym przed pełną parametryzacją z `UC-14`; docelowo to samo pole może zostać wystawione użytkownikowi w panelu parametrów.
 
+#### UC-16 — „Przeglądaj zapisany dataset i artefakty preview po przygotowaniu”
+- **FE**:
+  - Widok administracyjny pozwala wybrać wcześniej przygotowany dataset i otworzyć jego przeglądarkę diagnostyczną bez ponownego uruchamiania preprocessingu.
+  - Dla datasetu typu `board` UI pokazuje co najmniej listę plansz, obraz planszy po korekcji perspektywy tuż przed cięciem oraz listę wyciętych elementów gotowych do wejścia do datasetu.
+  - Dla datasetu typu `digit` UI pokazuje próbki finalne po preprocessingu gotowe do wejścia do datasetu.
+  - Widok ma charakter wyłącznie `read-only`; użytkownik może oglądać zapisane artefakty, ale nie usuwa jeszcze elementów ani nie przebudowuje datasetu.
+- **BE**:
+  - Backend pozostaje właścicielem workflow i rekordów datasetowych: po zakończeniu `UC-12` zapisuje finalny `.npz`, metadane oraz referencje do artefaktów preview.
+  - Backend udostępnia chronione endpointy odczytu szczegółów przygotowanego datasetu oraz artefaktów preview potrzebnych `FE`.
+  - Publiczne API nie wymaga dodatkowego kroku `approve` / `finalize`; zapis i późniejsze przeglądanie są częścią jednego workflow.
+  - W `UC-16` Backend nie wykonuje jeszcze akcji modyfikujących zawartość datasetu i nie usuwa plików źródłowych ani preview.
+- **ML**:
+  - W ramach przygotowania datasetu `ML` zapisuje artefakty preview dla danych `board` i `digit` w sposób deterministyczny, obok technicznego artefaktu tymczasowego albo w dedykowanym katalogu preview.
+  - Dla `board` `ML` zapisuje co najmniej obraz skorygowanej planszy przed cięciem oraz finalne próbki komórek po preprocessingu.
+  - Dla `digit` `ML` zapisuje finalne próbki po preprocessingu.
+  - `ML` nie staje się publicznym API dla `FE`; widok przeglądarki pozostaje dostępny wyłącznie przez `BE`.
+  - **AC**:
+    - Użytkownik może po przygotowaniu datasetu wejść w jego przeglądarkę i zobaczyć, co rzeczywiście zostało zapisane do użytku treningowego.
+    - System nie wymaga osobnego zatwierdzania datasetu pomiędzy zapisem a podglądem.
+    - Finalny `.npz`, metadane i artefakty preview są zapisywane od razu podczas przygotowania datasetu.
+    - `UC-16` nie obejmuje jeszcze odrzucania pojedynczych `boardów`, komórek ani `digitów`; ten zakres należy do późniejszej historyjki.
+
 ### 9) Wymagania niefunkcjonalne (NFR)
 - **NFR-01 (reprodukowalność)**: trening i inferencja mają być uruchamialne skryptami/komendami opisanymi w README.
 - **NFR-02 (czas odpowiedzi)**: ścieżka rozpoznawania i rozwiązania sudoku z obrazu powinna zakończyć się w rozsądnym czasie na CPU (np. < 5 s dla typowego obrazu) — cel orientacyjny.
@@ -591,6 +626,11 @@ Publiczny kontrakt odpowiedzi dla przygotowania datasetu `.npz` jest opisany w d
 - **Fizyczne lokalizacje danych i artefaktów**: katalogi `data`, `examples`, `models`, `benchmark`, `trainings`, `tmp` są systemowymi lokalizacjami konfigurowalnymi; kod nie zakłada ich stałej lokalizacji.
 - **Dostarczanie surowych danych**: pliki i katalogi datasetów trafiają na serwer poza aplikacją webową (np. przez JupyterLab, SCP lub inny kanał administracyjny) do skonfigurowanego katalogu `data/raw`; aplikacja nie realizuje uploadu datasetu przez HTTP.
 - **Walidacja i dopasowanie datasetu**: dataset z Kaggle może być już „wyprostowany”/wycięty (albo mieć inne warunki niż zdjęcia z telefonu), więc przed treningiem sprawdzamy format, etykiety i jakość próbek, czyścimy błędne przypadki oraz dopasowujemy sposób generowania danych treningowych do tego, co model zobaczy później w inferencji.
+- **Artefakty preview przygotowanego datasetu**:
+  - po przygotowaniu datasetu system zapisuje obok finalnego `.npz` i rekordu metadanych także read-only artefakty preview do późniejszego oglądania w `UI`,
+  - dla `board` preview obejmuje co najmniej obraz planszy po korekcji perspektywy oraz zapisane próbki komórek po preprocessingu,
+  - dla `digit` preview obejmuje co najmniej finalne próbki po preprocessingu,
+  - preview służy do diagnostyki jakości danych i nie stanowi jeszcze mechanizmu selekcji ani usuwania próbek.
 - **Obsługiwane formaty wejściowe datasetu**:
   - `digit` — para plików `*.idx3-ubyte` (obrazy) i `*.idx1-ubyte` (etykiety) o wspólnym prefiksie, np. `t10k`,
   - `board` — już rozpakowany katalog będący bezpośrednim dzieckiem `data/raw/boards`; podczas przygotowania datasetu jego zawartość, także w zagnieżdżonych podfolderach, jest skanowana rekurencyjnie w poszukiwaniu par plików `.jpg` + `.dat` o wspólnej nazwie; plik `.dat` zawiera 2 linie metadanych i następnie etykiety planszy jako grid 9×9.
@@ -691,6 +731,7 @@ Publiczny kontrakt odpowiedzi dla przygotowania datasetu `.npz` jest opisany w d
 - **M2**: baseline ML (np. CNN na MNIST/EMNIST lub dataset sudoku) + inferencja na wycinkach.
 - **M3**: end-to-end rozpoznanie sudoku z obrazu + overlay.
 - **M4**: wybór datasetu z `data/raw` + przygotowanie `.npz` + unifikacja / split + prosta autoryzacja dla operacji administracyjnych.
+- **M4.5**: zapis artefaktów preview po przygotowaniu datasetu + read-only przeglądarka diagnostyczna w `UI`.
 - **M5**: integracja usług (Python API + C# backend + UI) + raport ewaluacji + przygotowanie prezentacji.
 
 ### 15) Artefakty do oddania (deliverables)

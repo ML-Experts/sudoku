@@ -14,5 +14,6 @@ class CanonicalPreparedSample:
     source_type: DatasetSourceType
     source_dataset_name: str
     source_board_name: str | None
+    source_sample_key: str | None
     cell_index: int | None
     image_28x28: NDArray[np.float32]

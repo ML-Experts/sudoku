@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 
@@ -10,9 +14,6 @@ from api.models.error_api_response import ErrorApiResponse
 from application.features.inference.commands.infer_cell_digit.infer_cell_digit_command import (
     InferCellDigitCommand,
 )
-from application.features.inference.commands.infer_cell_digit.infer_cell_digit_command_handler import (
-    InferCellDigitCommandHandler,
-)
 from application.features.inference.dto.inference_runtime_configuration_dto import (
     InferenceRuntimeConfigurationDto,
 )
@@ -22,6 +23,11 @@ from application.features.inference.dto.inference_runtime_model_reference_dto im
 from application.features.inference.errors.cell_digit_inference_errors import (
     CellDigitInferenceCommandError,
 )
+
+if TYPE_CHECKING:
+    from application.features.inference.commands.infer_cell_digit.infer_cell_digit_command_handler import (
+        InferCellDigitCommandHandler,
+    )
 
 cell_inference_controller = APIRouter(
     prefix="/ml/cells",

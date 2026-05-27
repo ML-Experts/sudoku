@@ -38,4 +38,7 @@ public sealed class MlServiceOptions
 
     [Range(1, 600)]
     public int TimeoutSeconds { get; init; } = 60;
+
+    [Range(0, int.MaxValue)]
+    public int LongRunningTimeoutSeconds { get; init; } = 0;
 }

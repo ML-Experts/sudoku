@@ -431,6 +431,11 @@ export function useUc05bSolve({
     }
   }, [apiBaseUrl, state.session]);
 
+  const resetSolveSession = useCallback(() => {
+    clearPersistedLiveSolveContext();
+    dispatch({ type: "sessionCleared" });
+  }, []);
+
   const acceptTerminalLiveEvent = useCallback((status: SolveSessionStatus) => {
     if (!isSolveSessionStatus(status)) {
       return;
@@ -478,6 +483,7 @@ export function useUc05bSolve({
     recoverActiveSolve,
     recoverActiveSolveDetailed,
     cancelSolve,
+    resetSolveSession,
     acceptTerminalLiveEvent,
     canStartSolve:
       gridReadiness.isReady &&

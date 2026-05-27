@@ -109,6 +109,22 @@ class TrackingPerspectiveTransformer:
         return np.full((20, 20, 3), self.calls, dtype=np.uint8)
 
 
+class DistinctSourceImageCodec(FakeImageCodec):
+    def decode_image(self, image: PreprocessingImage) -> NDArray[np.uint8]:
+        return np.full((10, 10, 3), 7, dtype=np.uint8)
+
+
+class RecordingPerspectiveTransformer(FakePerspectiveTransformer):
+    def __init__(self) -> None:
+        self.inputs: list[NDArray[np.uint8]] = []
+
+    def transform(
+        self, image: NDArray[np.uint8], board_quad: BoardQuad
+    ) -> NDArray[np.uint8]:
+        self.inputs.append(np.copy(image))
+        return super().transform(image, board_quad)
+
+
 class PreprocessBoardCommandHandlerTests(unittest.TestCase):
     def test_handle_should_return_preprocessed_board_image(self) -> None:
         handler = PreprocessBoardCommandHandler(
@@ -128,6 +144,27 @@ class PreprocessBoardCommandHandlerTests(unittest.TestCase):
 
         self.assertEqual(result.mime_type, "image/png")
         self.assertEqual(result.base64, "ZW5jb2RlZA==")
+
+    def test_handle_should_apply_perspective_transform_to_source_image(self) -> None:
+        perspective_transformer = RecordingPerspectiveTransformer()
+        handler = PreprocessBoardCommandHandler(
+            image_codec=DistinctSourceImageCodec(),
+            grayscale_blur_preprocessor=FakeGrayscaleBlurPreprocessor(),
+            adaptive_threshold_binarizer=FakeAdaptiveThresholdBinarizer(),
+            board_quad_detector=FakeBoardQuadDetector(),
+            perspective_transformer=perspective_transformer,
+            allowed_input_mime_types=("image/jpeg", "image/png"),
+            output_mime_type="image/png",
+        )
+        command = PreprocessBoardCommand(
+            mime_type="image/jpeg", base64_image="aW5wdXQ="
+        )
+
+        handler.handle(command)
+
+        self.assertEqual(len(perspective_transformer.inputs), 1)
+        self.assertEqual(perspective_transformer.inputs[0].shape, (10, 10, 3))
+        self.assertEqual(int(np.max(perspective_transformer.inputs[0])), 7)
 
     def test_handle_should_raise_error_for_not_allowed_mime_type(self) -> None:
         handler = PreprocessBoardCommandHandler(
