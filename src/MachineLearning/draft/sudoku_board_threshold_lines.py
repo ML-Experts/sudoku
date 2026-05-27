@@ -10,10 +10,13 @@ from sudoku_board_threshold_line_families import (
 from sudoku_board_threshold_line_geometry import (
     angle_difference_degrees,
     build_line_segment,
+    clamp_point_to_image,
     direction_vector_from_angle,
     interval_gap,
     normal_vector_from_angle,
+    point_from_line_position,
     point_position_on_direction,
+    resolve_merged_line_vertices,
     segment_interval_along_direction,
 )
 from sudoku_board_threshold_line_merge import (
@@ -39,6 +42,7 @@ __all__ = [
     "annotate_cross_family_touches",
     "build_line_segment",
     "build_merged_line",
+    "clamp_point_to_image",
     "collect_line_family",
     "connected_components",
     "detect_line_families",
@@ -54,8 +58,10 @@ __all__ = [
     "merge_line_family_segments",
     "merged_lines_touch",
     "normal_vector_from_angle",
+    "point_from_line_position",
     "point_position_on_direction",
     "refresh_cross_family_touches",
+    "resolve_merged_line_vertices",
     "segment_interval_along_direction",
     "should_merge_line_segments",
     "touch_points_for_merged_lines",

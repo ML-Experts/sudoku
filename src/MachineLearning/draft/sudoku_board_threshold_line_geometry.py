@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from sudoku_board_threshold_models import DetectedLineSegment
+from sudoku_board_threshold_models import DetectedLineSegment, MergedLine
 
 
 def build_line_segment(raw_segment: np.ndarray) -> DetectedLineSegment:
@@ -58,6 +58,46 @@ def point_position_on_direction(
     direction: np.ndarray,
 ) -> float:
     return float(np.dot(point_array(point), direction))
+
+
+def resolve_merged_line_vertices(
+    merged_line: MergedLine,
+) -> tuple[tuple[int, int], tuple[int, int]]:
+    endpoints: list[tuple[int, int]] = []
+    for segment in merged_line.segments:
+        endpoints.append(segment.start)
+        endpoints.append(segment.end)
+
+    if not endpoints:
+        fallback_point = point_from_line_position(
+            merged_line.projection,
+            merged_line.span_start,
+            merged_line.family_angle_degrees,
+        )
+        return fallback_point, fallback_point
+
+    if merged_line.family_name == "vertical":
+        sorted_endpoints = sorted(endpoints, key=lambda point: (point[1], point[0]))
+    else:
+        sorted_endpoints = sorted(endpoints, key=lambda point: (point[0], point[1]))
+
+    first_vertex = sorted_endpoints[0]
+    second_vertex = sorted_endpoints[-1]
+    if first_vertex != second_vertex:
+        return first_vertex, second_vertex
+
+    return (
+        point_from_line_position(
+            merged_line.projection,
+            merged_line.span_start,
+            merged_line.family_angle_degrees,
+        ),
+        point_from_line_position(
+            merged_line.projection,
+            merged_line.span_end,
+            merged_line.family_angle_degrees,
+        ),
+    )
 
 
 def point_from_line_position(
@@ -271,5 +311,6 @@ __all__ = [
     "point_from_line_position",
     "point_is_within_intervals",
     "point_position_on_direction",
+    "resolve_merged_line_vertices",
     "segment_interval_along_direction",
 ]
