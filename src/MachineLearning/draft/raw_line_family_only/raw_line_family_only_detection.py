@@ -14,9 +14,15 @@ from raw_line_family_only_line_families import (
 from raw_line_family_only_geometry import (
     angle_difference_degrees,
     build_line_segment,
+    classify_line_segment,
     signed_angle_offset_degrees,
 )
-from raw_line_family_only_models import DetectedLineSegment, ExperimentConfig
+from raw_line_family_only_logical_lines import LogicalLine, build_logical_lines
+from raw_line_family_only_models import (
+    DetectedLineSegment,
+    ExperimentConfig,
+    LineFamilyName,
+)
 
 
 @dataclass(frozen=True)
@@ -27,6 +33,8 @@ class RawLineFamilyResult:
     vertical_angle_degrees: float | None
     horizontal_segments: list[DetectedLineSegment]
     vertical_segments: list[DetectedLineSegment]
+    horizontal_logical_lines: list[LogicalLine]
+    vertical_logical_lines: list[LogicalLine]
 
 
 def _build_empty_line_family_result(
@@ -38,6 +46,8 @@ def _build_empty_line_family_result(
         vertical_angle_degrees=None,
         horizontal_segments=[],
         vertical_segments=[],
+        horizontal_logical_lines=[],
+        vertical_logical_lines=[],
     )
 
 
@@ -136,6 +146,14 @@ def detect_line_families(
         horizontal_reference_angle,
         config.line_family_angle_tolerance_degrees,
     )
+    horizontal_segments = [
+        classify_line_segment(line_segment, LineFamilyName.HORIZONTAL)
+        for line_segment in horizontal_segments
+    ]
+    vertical_segments = [
+        classify_line_segment(line_segment, LineFamilyName.VERTICAL)
+        for line_segment in vertical_segments
+    ]
     horizontal_angle_degrees = refine_family_angle_degrees(
         horizontal_segments,
         horizontal_reference_angle,
@@ -144,6 +162,8 @@ def detect_line_families(
         vertical_segments,
         vertical_reference_angle,
     )
+    horizontal_logical_lines = build_logical_lines(horizontal_segments)
+    vertical_logical_lines = build_logical_lines(vertical_segments)
 
     return RawLineFamilyResult(
         raw_segment_count=len(line_segments),
@@ -152,6 +172,8 @@ def detect_line_families(
         vertical_angle_degrees=vertical_angle_degrees,
         horizontal_segments=horizontal_segments,
         vertical_segments=vertical_segments,
+        horizontal_logical_lines=horizontal_logical_lines,
+        vertical_logical_lines=vertical_logical_lines,
     )
 
 

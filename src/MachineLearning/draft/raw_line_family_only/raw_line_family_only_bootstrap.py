@@ -13,6 +13,7 @@ MODULE_RELOAD_ORDER = (
     "raw_line_family_only_binary",
     "raw_line_family_only_geometry",
     "raw_line_family_only_line_families",
+    "raw_line_family_only_logical_lines",
     "raw_line_family_only_detection",
     "raw_line_family_only_visualization",
 )
@@ -33,6 +34,7 @@ class RawLineFamilyOnlyApi:
     apply_directional_close_repair: object
     detect_line_families: object
     build_line_family_overlays: object
+    build_logical_line_overlays: object
 
 
 def _ensure_variant_dir_on_sys_path() -> Path:
@@ -77,6 +79,7 @@ def load_raw_line_family_only_api() -> RawLineFamilyOnlyApi:
         apply_directional_close_repair=binary_module.apply_directional_close_repair,
         detect_line_families=detection.detect_line_families,
         build_line_family_overlays=visualization.build_line_family_overlays,
+        build_logical_line_overlays=visualization.build_logical_line_overlays,
     )
 
 

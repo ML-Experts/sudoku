@@ -36,6 +36,8 @@ class RawLineFamilyArtifacts:
     line_family_result: RawLineFamilyResult
     binary_family_overlay: np.ndarray
     source_family_overlay: np.ndarray
+    binary_logical_line_overlay: np.ndarray
+    source_logical_line_overlay: np.ndarray
 
 
 def configure_manual_image_path(
@@ -133,6 +135,14 @@ def run_raw_line_family_pipeline(
             config,
         )
     )
+    binary_logical_line_overlay, source_logical_line_overlay = (
+        notebook_api.build_logical_line_overlays(
+            display_bgr,
+            repaired_binary,
+            line_family_result,
+            config,
+        )
+    )
 
     return RawLineFamilyArtifacts(
         source_bgr=source_bgr,
@@ -150,6 +160,8 @@ def run_raw_line_family_pipeline(
         line_family_result=line_family_result,
         binary_family_overlay=binary_family_overlay,
         source_family_overlay=source_family_overlay,
+        binary_logical_line_overlay=binary_logical_line_overlay,
+        source_logical_line_overlay=source_logical_line_overlay,
     )
 
 
@@ -173,12 +185,17 @@ def describe_raw_line_family_artifacts(
         f"Horizontal family segments: {len(line_family_result.horizontal_segments)}",
         f"Vertical family segments: {len(line_family_result.vertical_segments)}",
         (
+            "Horizontal logical lines: "
+            f"{len(line_family_result.horizontal_logical_lines)}"
+        ),
+        f"Vertical logical lines: {len(line_family_result.vertical_logical_lines)}",
+        (
             "Horizontal family angle: "
             f"{line_family_result.horizontal_angle_degrees}"
         ),
         f"Vertical family angle: {line_family_result.vertical_angle_degrees}",
         "",
-        "This pipeline stops after assigning raw segments to line families.",
+        "This pipeline now builds logical lines from family segments.",
     ]
 
 
@@ -214,6 +231,12 @@ def build_raw_line_family_plot_items(
             True,
         ),
         ("raw line families on source", artifacts.source_family_overlay, True),
+        (
+            "logical lines on repaired binary",
+            artifacts.binary_logical_line_overlay,
+            True,
+        ),
+        ("logical lines on source", artifacts.source_logical_line_overlay, True),
     ]
 
 
