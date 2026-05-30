@@ -6,7 +6,11 @@ from raw_line_family_only_geometry import (
     LineSegmentIntersectionResult,
     line_segments_intersect,
 )
-from raw_line_family_only_models import LineFamilyName, LineSegment
+from raw_line_family_only_models import (
+    LineFamilyName,
+    LineSegment,
+    ToleranceRectangle,
+)
 
 
 def _segment_sort_key(
@@ -246,4 +250,37 @@ def merge_logical_lines(
     return merged_lines
 
 
-__all__ = ["LogicalLine", "build_logical_lines", "merge_logical_lines"]
+def build_tolerance_rectangles(
+    logical_lines: list[LogicalLine],
+    direction_length: int,
+    padding: int,
+) -> list[ToleranceRectangle]:
+    recognition_vectors = {
+        LineFamilyName.HORIZONTAL: (1.0, 0.0),
+        LineFamilyName.VERTICAL: (0.0, 1.0),
+    }
+
+    tolerance_rectangles: list[ToleranceRectangle] = []
+    for logical_line in logical_lines:
+        recognition_vector = recognition_vectors.get(logical_line.family_name)
+        if recognition_vector is None:
+            continue
+
+        tolerance_rectangles.append(
+            ToleranceRectangle(
+                reference_point=logical_line.end_vertex,
+                recognition_vector=recognition_vector,
+                vector_length=direction_length,
+                padding=padding,
+            )
+        )
+
+    return tolerance_rectangles
+
+
+__all__ = [
+    "LogicalLine",
+    "build_logical_lines",
+    "build_tolerance_rectangles",
+    "merge_logical_lines",
+]

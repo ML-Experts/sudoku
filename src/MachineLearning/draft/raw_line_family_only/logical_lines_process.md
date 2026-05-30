@@ -9,6 +9,7 @@ Opis obejmuje:
 - kolejność wywołań,
 - zasady łączenia segmentów w linie logiczne,
 - sposób tworzenia segmentów tolerancyjnych,
+- sposób tworzenia prostokątów tolerancyjnych,
 - merge linii logicznych,
 - renderowanie wyniku na obrazku,
 - mapowanie odpowiedzialności na konkretne pliki i metody.
@@ -98,6 +99,24 @@ Interpretacja:
   - `axis_*` odnosi się do `y`
   - `cross_axis_*` odnosi się do `x`
 
+### `ToleranceRectangle`
+
+Plik: `raw_line_family_only_models.py`
+
+Model prostokąta tolerancyjnego używanego jako następny krok po `LogicalLine`.
+
+Najważniejsze pola:
+
+- `reference_point`
+- `recognition_vector`
+- `vector_length`
+- `padding`
+
+Model wylicza też pomocniczo:
+
+- `recognition_end_point`
+- `corners`
+
 ## Ogólny przebieg procesu
 
 Budowanie linii logicznych odbywa się w następujących etapach:
@@ -108,7 +127,8 @@ Budowanie linii logicznych odbywa się w następujących etapach:
 4. budowa `LogicalLine` z segmentów jednej rodziny,
 5. dodawanie segmentów tolerancyjnych, jeśli dwa segmenty mieszczą się w dopuszczalnym zakresie,
 6. merge już utworzonych linii logicznych,
-7. renderowanie linii logicznych i segmentów tolerancyjnych.
+7. budowa prostokątów tolerancyjnych dla końców linii logicznych,
+8. renderowanie linii logicznych, segmentów tolerancyjnych i prostokątów tolerancyjnych.
 
 ## Krok po kroku
 
@@ -382,6 +402,28 @@ Jeśli wynik pozwala na połączenie:
 2. wykonywany jest `merge_logical_line()`,
 3. druga linia zostaje scalona z pierwszą.
 
+### Krok 10. Budowa `ToleranceRectangle`
+
+Pliki:
+
+- `raw_line_family_only_logical_lines.py`
+- `raw_line_family_only_detection.py`
+
+Metoda:
+
+- `build_tolerance_rectangles()`
+
+Dla każdej `LogicalLine` tworzony jest prostokąt tolerancyjny:
+
+1. `reference_point` bierze się z `logical_line.end_vertex`,
+2. `recognition_vector` jest stały dla rodziny:
+   - `horizontal` -> w prawo `(1, 0)`
+   - `vertical` -> w dół `(0, 1)`
+3. `vector_length` w warstwie debug renderu bierze się z `tolerance_rectangle_vector_length_px`,
+4. `padding` w warstwie debug renderu bierze się z `tolerance_rectangle_padding_px`.
+
+Taki prostokąt reprezentuje obszar, w którym w następnym kroku można szukać kolejnej linii do połączenia.
+
 ## Renderowanie
 
 ### Render rodzin linii
@@ -411,6 +453,17 @@ To pozwala debugować:
 - które segmenty pochodzą z detekcji,
 - które zostały dopowiedziane przez tolerancję,
 - jaki jest ostateczny przebieg logical line.
+
+### Render prostokątów tolerancyjnych
+
+Plik: `raw_line_family_only_visualization.py`  
+Metoda: `build_tolerance_rectangle_overlays()`
+
+Na tym etapie renderowane są:
+
+- obrys prostokąta tolerancyjnego,
+- punkt odniesienia,
+- strzałka wektora rozpoznawania.
 
 ## Raportowanie w pipeline
 

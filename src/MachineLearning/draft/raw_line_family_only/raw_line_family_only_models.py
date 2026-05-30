@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from enum import Enum
 from dataclasses import dataclass
+from enum import Enum
+import math
 from pathlib import Path
 
 from raw_line_family_only_paths import REPO_ROOT
@@ -33,6 +34,10 @@ class ExperimentConfig:
     logical_line_cross_axis_thickness_px: int = 1
     logical_line_axis_gap_tolerance_px: int = 1
     logical_line_tolerance_segment_color_bgr: tuple[int, int, int] = (255, 0, 255)
+    tolerance_rectangle_vector_length_px: int = 40
+    tolerance_rectangle_padding_px: int = 8
+    tolerance_rectangle_thickness: int = 2
+    tolerance_rectangle_reference_radius: int = 4
 
 
 class LineFamilyName(Enum):
@@ -96,9 +101,61 @@ class LineSegment:
         )
 
 
+@dataclass(frozen=True)
+class ToleranceRectangle:
+    reference_point: tuple[int, int]
+    recognition_vector: tuple[float, float]
+    vector_length: int
+    padding: int
+
+    @property
+    def recognition_end_point(self) -> tuple[int, int]:
+        unit_x, unit_y = self._unit_vector
+        return (
+            int(round(self.reference_point[0] + unit_x * self.vector_length)),
+            int(round(self.reference_point[1] + unit_y * self.vector_length)),
+        )
+
+    @property
+    def corners(self) -> tuple[tuple[int, int], ...]:
+        unit_x, unit_y = self._unit_vector
+        normal_x = -unit_y
+        normal_y = unit_x
+        reference_x, reference_y = self.reference_point
+        far_x = reference_x + unit_x * self.vector_length
+        far_y = reference_y + unit_y * self.vector_length
+
+        near_left = (
+            int(round(reference_x - normal_x * self.padding)),
+            int(round(reference_y - normal_y * self.padding)),
+        )
+        near_right = (
+            int(round(reference_x + normal_x * self.padding)),
+            int(round(reference_y + normal_y * self.padding)),
+        )
+        far_right = (
+            int(round(far_x + normal_x * self.padding)),
+            int(round(far_y + normal_y * self.padding)),
+        )
+        far_left = (
+            int(round(far_x - normal_x * self.padding)),
+            int(round(far_y - normal_y * self.padding)),
+        )
+        return (near_left, near_right, far_right, far_left)
+
+    @property
+    def _unit_vector(self) -> tuple[float, float]:
+        vector_x, vector_y = self.recognition_vector
+        vector_norm = math.hypot(vector_x, vector_y)
+        if vector_norm == 0.0:
+            raise ValueError("ToleranceRectangle recognition_vector cannot be zero.")
+        return vector_x / vector_norm, vector_y / vector_norm
+
+
 __all__ = [
     "ExperimentConfig",
     "LineFamilyName",
     "LineSegment",
     "SegmentOrigin",
+    "ToleranceRectangle",
 ]

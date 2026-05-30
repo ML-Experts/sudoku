@@ -17,11 +17,16 @@ from raw_line_family_only_geometry import (
     classify_line_segment,
     signed_angle_offset_degrees,
 )
-from raw_line_family_only_logical_lines import LogicalLine, build_logical_lines
+from raw_line_family_only_logical_lines import (
+    LogicalLine,
+    build_logical_lines,
+    build_tolerance_rectangles,
+)
 from raw_line_family_only_models import (
     ExperimentConfig,
     LineFamilyName,
     LineSegment,
+    ToleranceRectangle,
 )
 
 
@@ -35,6 +40,8 @@ class RawLineFamilyResult:
     vertical_segments: list[LineSegment]
     horizontal_logical_lines: list[LogicalLine]
     vertical_logical_lines: list[LogicalLine]
+    horizontal_tolerance_rectangles: list[ToleranceRectangle]
+    vertical_tolerance_rectangles: list[ToleranceRectangle]
 
 
 def _build_empty_line_family_result(
@@ -48,6 +55,8 @@ def _build_empty_line_family_result(
         vertical_segments=[],
         horizontal_logical_lines=[],
         vertical_logical_lines=[],
+        horizontal_tolerance_rectangles=[],
+        vertical_tolerance_rectangles=[],
     )
 
 
@@ -172,6 +181,16 @@ def detect_line_families(
         cross_axis_thickness_px=config.logical_line_cross_axis_thickness_px,
         axis_gap_tolerance_px=config.logical_line_axis_gap_tolerance_px,
     )
+    horizontal_tolerance_rectangles = build_tolerance_rectangles(
+        horizontal_logical_lines,
+        direction_length=config.tolerance_rectangle_vector_length_px,
+        padding=config.tolerance_rectangle_padding_px,
+    )
+    vertical_tolerance_rectangles = build_tolerance_rectangles(
+        vertical_logical_lines,
+        direction_length=config.tolerance_rectangle_vector_length_px,
+        padding=config.tolerance_rectangle_padding_px,
+    )
 
     return RawLineFamilyResult(
         raw_segment_count=len(line_segments),
@@ -182,6 +201,8 @@ def detect_line_families(
         vertical_segments=vertical_segments,
         horizontal_logical_lines=horizontal_logical_lines,
         vertical_logical_lines=vertical_logical_lines,
+        horizontal_tolerance_rectangles=horizontal_tolerance_rectangles,
+        vertical_tolerance_rectangles=vertical_tolerance_rectangles,
     )
 
 

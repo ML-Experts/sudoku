@@ -39,6 +39,8 @@ class RawLineFamilyArtifacts:
     source_family_overlay: np.ndarray
     binary_logical_line_overlay: np.ndarray
     source_logical_line_overlay: np.ndarray
+    binary_tolerance_rectangle_overlay: np.ndarray
+    source_tolerance_rectangle_overlay: np.ndarray
 
 
 def configure_manual_image_path(
@@ -144,6 +146,14 @@ def run_raw_line_family_pipeline(
             config,
         )
     )
+    binary_tolerance_rectangle_overlay, source_tolerance_rectangle_overlay = (
+        notebook_api.build_tolerance_rectangle_overlays(
+            display_bgr,
+            repaired_binary,
+            line_family_result,
+            config,
+        )
+    )
 
     return RawLineFamilyArtifacts(
         source_bgr=source_bgr,
@@ -163,6 +173,8 @@ def run_raw_line_family_pipeline(
         source_family_overlay=source_family_overlay,
         binary_logical_line_overlay=binary_logical_line_overlay,
         source_logical_line_overlay=source_logical_line_overlay,
+        binary_tolerance_rectangle_overlay=binary_tolerance_rectangle_overlay,
+        source_tolerance_rectangle_overlay=source_tolerance_rectangle_overlay,
     )
 
 
@@ -182,6 +194,25 @@ def describe_raw_line_family_artifacts(
         for line_segment in logical_line.line_segments
         if line_segment.origin == SegmentOrigin.TOLERANCE
     )
+    horizontal_tolerance_rectangles = len(
+        line_family_result.horizontal_tolerance_rectangles
+    )
+    vertical_tolerance_rectangles = len(
+        line_family_result.vertical_tolerance_rectangles
+    )
+    sample_tolerance_rectangle = None
+    if line_family_result.horizontal_tolerance_rectangles:
+        sample_tolerance_rectangle = line_family_result.horizontal_tolerance_rectangles[0]
+    elif line_family_result.vertical_tolerance_rectangles:
+        sample_tolerance_rectangle = line_family_result.vertical_tolerance_rectangles[0]
+
+    tolerance_rectangle_geometry = "n/a"
+    if sample_tolerance_rectangle is not None:
+        tolerance_rectangle_geometry = (
+            f"length={sample_tolerance_rectangle.vector_length}, "
+            f"padding={sample_tolerance_rectangle.padding}"
+        )
+
     return [
         f"Original shape: {artifacts.source_bgr.shape}",
         f"Display shape:  {artifacts.display_bgr.shape}",
@@ -204,6 +235,9 @@ def describe_raw_line_family_artifacts(
         f"Vertical logical lines: {len(line_family_result.vertical_logical_lines)}",
         f"Horizontal tolerance segments: {horizontal_tolerance_segments}",
         f"Vertical tolerance segments: {vertical_tolerance_segments}",
+        f"Horizontal tolerance rectangles: {horizontal_tolerance_rectangles}",
+        f"Vertical tolerance rectangles: {vertical_tolerance_rectangles}",
+        f"Tolerance rectangle geometry: {tolerance_rectangle_geometry}",
         (
             "Horizontal family angle: "
             f"{line_family_result.horizontal_angle_degrees}"
@@ -252,6 +286,16 @@ def build_raw_line_family_plot_items(
             True,
         ),
         ("logical lines on source", artifacts.source_logical_line_overlay, True),
+        (
+            "tolerance rectangles on repaired binary",
+            artifacts.binary_tolerance_rectangle_overlay,
+            True,
+        ),
+        (
+            "tolerance rectangles on source",
+            artifacts.source_tolerance_rectangle_overlay,
+            True,
+        ),
     ]
 
 
