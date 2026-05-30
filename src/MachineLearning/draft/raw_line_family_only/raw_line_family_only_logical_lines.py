@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from raw_line_family_only_geometry import line_segments_intersect
-from raw_line_family_only_models import DetectedLineSegment, LineFamilyName
+from raw_line_family_only_geometry import (
+    LineSegmentIntersectionResult,
+    line_segments_intersect,
+)
+from raw_line_family_only_models import LineFamilyName, LineSegment
 
 
 def _segment_sort_key(
-    line_segment: DetectedLineSegment,
+    line_segment: LineSegment,
 ) -> tuple[int, int, int, int]:
     return (
         line_segment.axis_start,
@@ -20,12 +23,12 @@ def _segment_sort_key(
 @dataclass(slots=True)
 class LogicalLine:
     family_name: LineFamilyName
-    detected_line_segments: list[DetectedLineSegment] = field(
+    line_segments: list[LineSegment] = field(
         init=False,
         default_factory=list,
     )
-    start_segment: DetectedLineSegment | None = field(init=False, default=None)
-    end_segment: DetectedLineSegment | None = field(init=False, default=None)
+    start_segment: LineSegment | None = field(init=False, default=None)
+    end_segment: LineSegment | None = field(init=False, default=None)
 
     @property
     def start_vertex(self) -> tuple[int, int]:
@@ -63,37 +66,54 @@ class LogicalLine:
             raise ValueError("LogicalLine does not have an end segment yet.")
         return self.end_segment.cross_axis_end
 
-    def add_segment(self, line_segment: DetectedLineSegment) -> None:
+    def add_segment(self, line_segment: LineSegment) -> None:
         self._validate_family(line_segment.family_name)
 
-        insertion_index = len(self.detected_line_segments)
-        for current_index, current_segment in enumerate(self.detected_line_segments):
+        insertion_index = len(self.line_segments)
+        for current_index, current_segment in enumerate(self.line_segments):
             if _segment_sort_key(line_segment) < _segment_sort_key(current_segment):
                 insertion_index = current_index
                 break
 
-        self.detected_line_segments.insert(insertion_index, line_segment)
+        self.line_segments.insert(insertion_index, line_segment)
         self._refresh_boundary_segments()
 
     def merge_logical_line(self, other_line: "LogicalLine") -> None:
         self._validate_family(other_line.family_name)
-        for line_segment in other_line.detected_line_segments:
+        for line_segment in other_line.line_segments:
             self.add_segment(line_segment)
 
-    def does_segment_touch(self, line_segment: DetectedLineSegment) -> bool:
+    def does_segment_touch(
+        self,
+        line_segment: LineSegment,
+        cross_axis_thickness_px: int,
+        axis_gap_tolerance_px: int,
+    ) -> LineSegmentIntersectionResult:
         self._validate_family(line_segment.family_name)
-        if not self.detected_line_segments:
-            return True
+        if not self.line_segments:
+            return LineSegmentIntersectionResult(intersects=True)
 
         if line_segment.axis_start >= self.axis_start and line_segment.axis_end <= self.axis_end:
-            return False
+            return LineSegmentIntersectionResult(intersects=False)
 
-        return any(
-            line_segments_intersect(existing_segment, line_segment)
-            for existing_segment in self.detected_line_segments
-        )
+        for existing_segment in self.line_segments:
+            intersection_result = line_segments_intersect(
+                existing_segment,
+                line_segment,
+                cross_axis_thickness_px=cross_axis_thickness_px,
+                axis_gap_tolerance_px=axis_gap_tolerance_px,
+            )
+            if intersection_result.intersects:
+                return intersection_result
 
-    def does_logical_line_touch(self, other_line: "LogicalLine") -> bool:
+        return LineSegmentIntersectionResult(intersects=False)
+
+    def does_logical_line_touch(
+        self,
+        other_line: "LogicalLine",
+        cross_axis_thickness_px: int,
+        axis_gap_tolerance_px: int,
+    ) -> bool:
         self._validate_family(other_line.family_name)
         if self.start_segment is None or self.end_segment is None:
             return False
@@ -106,30 +126,37 @@ class LogicalLine:
             (self.end_segment, other_line.start_segment),
             (self.end_segment, other_line.end_segment),
         )
-        if any(
-            line_segments_intersect(first_segment, second_segment)
-            for first_segment, second_segment in edge_pairs
-        ):
+        for first_segment, second_segment in edge_pairs:
+            intersection_result = line_segments_intersect(
+                first_segment,
+                second_segment,
+                cross_axis_thickness_px=cross_axis_thickness_px,
+                axis_gap_tolerance_px=axis_gap_tolerance_px,
+            )
+            if not intersection_result.intersects:
+                continue
+            if intersection_result.bridge_segment is not None:
+                self.add_segment(intersection_result.bridge_segment)
             self.merge_logical_line(other_line)
             return True
 
         return False
 
     def _refresh_boundary_segments(self) -> None:
-        if not self.detected_line_segments:
+        if not self.line_segments:
             self.start_segment = None
             self.end_segment = None
             return
 
         self.start_segment = min(
-            self.detected_line_segments,
+            self.line_segments,
             key=lambda current_segment: (
                 current_segment.axis_start,
                 current_segment.axis_end,
             ),
         )
         self.end_segment = max(
-            self.detected_line_segments,
+            self.line_segments,
             key=lambda current_segment: (
                 current_segment.axis_end,
                 current_segment.axis_start,
@@ -144,7 +171,9 @@ class LogicalLine:
 
 
 def build_logical_lines(
-    line_segments: list[DetectedLineSegment],
+    line_segments: list[LineSegment],
+    cross_axis_thickness_px: int,
+    axis_gap_tolerance_px: int,
 ) -> list[LogicalLine]:
     if not line_segments:
         return []
@@ -160,9 +189,16 @@ def build_logical_lines(
         has_changes = True
         while has_changes:
             has_changes = False
-            remaining_segments: list[DetectedLineSegment] = []
+            remaining_segments: list[LineSegment] = []
             for line_segment in sorted_segments:
-                if logical_line.does_segment_touch(line_segment):
+                intersection_result = logical_line.does_segment_touch(
+                    line_segment,
+                    cross_axis_thickness_px=cross_axis_thickness_px,
+                    axis_gap_tolerance_px=axis_gap_tolerance_px,
+                )
+                if intersection_result.intersects:
+                    if intersection_result.bridge_segment is not None:
+                        logical_line.add_segment(intersection_result.bridge_segment)
                     logical_line.add_segment(line_segment)
                     has_changes = True
                     continue
@@ -171,10 +207,18 @@ def build_logical_lines(
 
         logical_lines.append(logical_line)
 
-    return merge_logical_lines(logical_lines)
+    return merge_logical_lines(
+        logical_lines,
+        cross_axis_thickness_px=cross_axis_thickness_px,
+        axis_gap_tolerance_px=axis_gap_tolerance_px,
+    )
 
 
-def merge_logical_lines(logical_lines: list[LogicalLine]) -> list[LogicalLine]:
+def merge_logical_lines(
+    logical_lines: list[LogicalLine],
+    cross_axis_thickness_px: int,
+    axis_gap_tolerance_px: int,
+) -> list[LogicalLine]:
     merged_lines = list(logical_lines)
     has_changes = True
 
@@ -185,7 +229,11 @@ def merge_logical_lines(logical_lines: list[LogicalLine]) -> list[LogicalLine]:
         for first_index, first_line in enumerate(merged_lines):
             for second_index in range(first_index + 1, len(merged_lines)):
                 second_line = merged_lines[second_index]
-                if not first_line.does_logical_line_touch(second_line):
+                if not first_line.does_logical_line_touch(
+                    second_line,
+                    cross_axis_thickness_px=cross_axis_thickness_px,
+                    axis_gap_tolerance_px=axis_gap_tolerance_px,
+                ):
                     continue
 
                 del merged_lines[second_index]

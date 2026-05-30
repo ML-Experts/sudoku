@@ -3,11 +3,11 @@ from __future__ import annotations
 import numpy as np
 
 from raw_line_family_only_geometry import angle_difference_degrees
-from raw_line_family_only_models import DetectedLineSegment
+from raw_line_family_only_models import LineSegment
 
 
 def get_dominant_angle_degrees(
-    line_segments: list[DetectedLineSegment],
+    line_segments: list[LineSegment],
 ) -> float | None:
     if not line_segments:
         return None
@@ -20,7 +20,7 @@ def get_dominant_angle_degrees(
 
 
 def refine_family_angle_degrees(
-    line_segments: list[DetectedLineSegment],
+    line_segments: list[LineSegment],
     fallback_angle_degrees: float,
 ) -> float:
     if not line_segments:
@@ -44,10 +44,10 @@ def refine_family_angle_degrees(
 
 
 def collect_line_family(
-    line_segments: list[DetectedLineSegment],
+    line_segments: list[LineSegment],
     target_angle_degrees: float,
     angle_tolerance_degrees: float,
-) -> list[DetectedLineSegment]:
+) -> list[LineSegment]:
     return [
         line_segment
         for line_segment in line_segments

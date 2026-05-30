@@ -19,9 +19,9 @@ from raw_line_family_only_geometry import (
 )
 from raw_line_family_only_logical_lines import LogicalLine, build_logical_lines
 from raw_line_family_only_models import (
-    DetectedLineSegment,
     ExperimentConfig,
     LineFamilyName,
+    LineSegment,
 )
 
 
@@ -31,8 +31,8 @@ class RawLineFamilyResult:
     orientation_offset_degrees: float | None
     horizontal_angle_degrees: float | None
     vertical_angle_degrees: float | None
-    horizontal_segments: list[DetectedLineSegment]
-    vertical_segments: list[DetectedLineSegment]
+    horizontal_segments: list[LineSegment]
+    vertical_segments: list[LineSegment]
     horizontal_logical_lines: list[LogicalLine]
     vertical_logical_lines: list[LogicalLine]
 
@@ -52,7 +52,7 @@ def _build_empty_line_family_result(
 
 
 def _estimate_orientation_offset_degrees(
-    line_segments: list[DetectedLineSegment],
+    line_segments: list[LineSegment],
     angle_tolerance_degrees: float,
 ) -> float | None:
     dominant_seed_angle = get_dominant_angle_degrees(line_segments)
@@ -75,12 +75,12 @@ def _estimate_orientation_offset_degrees(
 
 
 def _collect_family_by_reference_angle(
-    line_segments: list[DetectedLineSegment],
+    line_segments: list[LineSegment],
     family_reference_angle_degrees: float,
     opposite_reference_angle_degrees: float,
     angle_tolerance_degrees: float,
-) -> list[DetectedLineSegment]:
-    family_segments: list[DetectedLineSegment] = []
+) -> list[LineSegment]:
+    family_segments: list[LineSegment] = []
     for line_segment in line_segments:
         family_angle_difference = angle_difference_degrees(
             line_segment.angle_degrees,
@@ -162,8 +162,16 @@ def detect_line_families(
         vertical_segments,
         vertical_reference_angle,
     )
-    horizontal_logical_lines = build_logical_lines(horizontal_segments)
-    vertical_logical_lines = build_logical_lines(vertical_segments)
+    horizontal_logical_lines = build_logical_lines(
+        horizontal_segments,
+        cross_axis_thickness_px=config.logical_line_cross_axis_thickness_px,
+        axis_gap_tolerance_px=config.logical_line_axis_gap_tolerance_px,
+    )
+    vertical_logical_lines = build_logical_lines(
+        vertical_segments,
+        cross_axis_thickness_px=config.logical_line_cross_axis_thickness_px,
+        axis_gap_tolerance_px=config.logical_line_axis_gap_tolerance_px,
+    )
 
     return RawLineFamilyResult(
         raw_segment_count=len(line_segments),

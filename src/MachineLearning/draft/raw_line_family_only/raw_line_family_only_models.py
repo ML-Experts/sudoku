@@ -30,6 +30,9 @@ class ExperimentConfig:
     vertical_family_color_bgr: tuple[int, int, int] = (0, 255, 255)
     line_overlay_thickness: int = 2
     logical_line_vertex_radius: int = 5
+    logical_line_cross_axis_thickness_px: int = 1
+    logical_line_axis_gap_tolerance_px: int = 1
+    logical_line_tolerance_segment_color_bgr: tuple[int, int, int] = (255, 0, 255)
 
 
 class LineFamilyName(Enum):
@@ -38,13 +41,19 @@ class LineFamilyName(Enum):
     VERTICAL = "vertical"
 
 
+class SegmentOrigin(Enum):
+    RAW = "raw"
+    TOLERANCE = "tolerance"
+
+
 @dataclass(frozen=True)
-class DetectedLineSegment:
+class LineSegment:
     family_name: LineFamilyName
     start: tuple[int, int]
     end: tuple[int, int]
     length: float
     angle_degrees: float
+    origin: SegmentOrigin = SegmentOrigin.RAW
 
     @property
     def axis_start(self) -> int:
@@ -87,4 +96,9 @@ class DetectedLineSegment:
         )
 
 
-__all__ = ["DetectedLineSegment", "ExperimentConfig", "LineFamilyName"]
+__all__ = [
+    "ExperimentConfig",
+    "LineFamilyName",
+    "LineSegment",
+    "SegmentOrigin",
+]

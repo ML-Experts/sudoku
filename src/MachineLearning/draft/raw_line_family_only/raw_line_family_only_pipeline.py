@@ -8,6 +8,7 @@ import cv2
 import numpy as np
 
 from raw_line_family_only_detection import RawLineFamilyResult
+from raw_line_family_only_models import SegmentOrigin
 
 if TYPE_CHECKING:
     from raw_line_family_only_bootstrap import RawLineFamilyOnlyApi
@@ -169,6 +170,18 @@ def describe_raw_line_family_artifacts(
     artifacts: RawLineFamilyArtifacts,
 ) -> list[str]:
     line_family_result = artifacts.line_family_result
+    horizontal_tolerance_segments = sum(
+        1
+        for logical_line in line_family_result.horizontal_logical_lines
+        for line_segment in logical_line.line_segments
+        if line_segment.origin == SegmentOrigin.TOLERANCE
+    )
+    vertical_tolerance_segments = sum(
+        1
+        for logical_line in line_family_result.vertical_logical_lines
+        for line_segment in logical_line.line_segments
+        if line_segment.origin == SegmentOrigin.TOLERANCE
+    )
     return [
         f"Original shape: {artifacts.source_bgr.shape}",
         f"Display shape:  {artifacts.display_bgr.shape}",
@@ -189,6 +202,8 @@ def describe_raw_line_family_artifacts(
             f"{len(line_family_result.horizontal_logical_lines)}"
         ),
         f"Vertical logical lines: {len(line_family_result.vertical_logical_lines)}",
+        f"Horizontal tolerance segments: {horizontal_tolerance_segments}",
+        f"Vertical tolerance segments: {vertical_tolerance_segments}",
         (
             "Horizontal family angle: "
             f"{line_family_result.horizontal_angle_degrees}"

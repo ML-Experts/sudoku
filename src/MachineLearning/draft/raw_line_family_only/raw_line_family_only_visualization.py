@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 
 from raw_line_family_only_detection import RawLineFamilyResult
-from raw_line_family_only_models import ExperimentConfig
+from raw_line_family_only_models import ExperimentConfig, SegmentOrigin
 
 
 def build_line_family_overlays(
@@ -68,14 +68,18 @@ def build_logical_line_overlays(
     for overlay in (binary_overlay, source_overlay):
         for line_index, logical_line in enumerate(logical_lines):
             line_color = _build_logical_line_color(line_index, len(logical_lines))
-            cv2.line(
-                overlay,
-                logical_line.start_vertex,
-                logical_line.end_vertex,
-                line_color,
-                config.line_overlay_thickness,
-                cv2.LINE_AA,
-            )
+            for line_segment in logical_line.line_segments:
+                segment_color = line_color
+                if line_segment.origin == SegmentOrigin.TOLERANCE:
+                    segment_color = config.logical_line_tolerance_segment_color_bgr
+                cv2.line(
+                    overlay,
+                    line_segment.start,
+                    line_segment.end,
+                    segment_color,
+                    config.line_overlay_thickness,
+                    cv2.LINE_AA,
+                )
             cv2.circle(
                 overlay,
                 logical_line.start_vertex,
