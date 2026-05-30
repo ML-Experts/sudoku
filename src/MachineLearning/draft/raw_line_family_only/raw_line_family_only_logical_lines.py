@@ -146,6 +146,20 @@ class LogicalLine:
 
         return False
 
+    def build_tolerance_rectangle(
+        self,
+        reference_vertex: tuple[int, int],
+        direction_length: int,
+        padding: int,
+    ) -> ToleranceRectangle:
+        recognition_vector = self._recognition_vector_for_vertex(reference_vertex)
+        return ToleranceRectangle(
+            reference_point=reference_vertex,
+            recognition_vector=recognition_vector,
+            vector_length=direction_length,
+            padding=padding,
+        )
+
     def _refresh_boundary_segments(self) -> None:
         if not self.line_segments:
             self.start_segment = None
@@ -165,6 +179,28 @@ class LogicalLine:
                 current_segment.axis_end,
                 current_segment.axis_start,
             ),
+        )
+
+    def _recognition_vector_for_vertex(
+        self,
+        reference_vertex: tuple[int, int],
+    ) -> tuple[float, float]:
+        if self.family_name == LineFamilyName.HORIZONTAL:
+            forward_vector = (1.0, 0.0)
+        elif self.family_name == LineFamilyName.VERTICAL:
+            forward_vector = (0.0, 1.0)
+        else:
+            raise NotImplementedError(
+                "Tolerance rectangles are available only for classified logical lines."
+            )
+
+        if reference_vertex == self.end_vertex:
+            return forward_vector
+        if reference_vertex == self.start_vertex:
+            return (-forward_vector[0], -forward_vector[1])
+
+        raise ValueError(
+            "reference_vertex must match LogicalLine.start_vertex or LogicalLine.end_vertex."
         )
 
     def _validate_family(self, family_name: LineFamilyName) -> None:
@@ -250,37 +286,8 @@ def merge_logical_lines(
     return merged_lines
 
 
-def build_tolerance_rectangles(
-    logical_lines: list[LogicalLine],
-    direction_length: int,
-    padding: int,
-) -> list[ToleranceRectangle]:
-    recognition_vectors = {
-        LineFamilyName.HORIZONTAL: (1.0, 0.0),
-        LineFamilyName.VERTICAL: (0.0, 1.0),
-    }
-
-    tolerance_rectangles: list[ToleranceRectangle] = []
-    for logical_line in logical_lines:
-        recognition_vector = recognition_vectors.get(logical_line.family_name)
-        if recognition_vector is None:
-            continue
-
-        tolerance_rectangles.append(
-            ToleranceRectangle(
-                reference_point=logical_line.end_vertex,
-                recognition_vector=recognition_vector,
-                vector_length=direction_length,
-                padding=padding,
-            )
-        )
-
-    return tolerance_rectangles
-
-
 __all__ = [
     "LogicalLine",
     "build_logical_lines",
-    "build_tolerance_rectangles",
     "merge_logical_lines",
 ]

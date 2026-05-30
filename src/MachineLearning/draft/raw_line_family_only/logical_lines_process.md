@@ -411,16 +411,18 @@ Pliki:
 
 Metoda:
 
-- `build_tolerance_rectangles()`
+- `LogicalLine.build_tolerance_rectangle()`
 
-Dla każdej `LogicalLine` tworzony jest prostokąt tolerancyjny:
+Dla każdej `LogicalLine` metoda obiektu wylicza prostokąt tolerancyjny na żądanie dla wskazanego wierzchołka:
 
-1. `reference_point` bierze się z `logical_line.end_vertex`,
-2. `recognition_vector` jest stały dla rodziny:
+1. jako `reference_vertex` przekazywany jest jawnie `logical_line.start_vertex` albo `logical_line.end_vertex`,
+2. jeśli przekazany punkt nie jest jednym z granicznych wierzchołków danej linii, metoda zgłasza błąd,
+3. `recognition_vector` dla `end_vertex` jest stały dla rodziny:
    - `horizontal` -> w prawo `(1, 0)`
    - `vertical` -> w dół `(0, 1)`
-3. `vector_length` w warstwie debug renderu bierze się z `tolerance_rectangle_vector_length_px`,
-4. `padding` w warstwie debug renderu bierze się z `tolerance_rectangle_padding_px`.
+4. `recognition_vector` dla `start_vertex` jest odwrócony o 180 stopni względem wektora z `end_vertex`,
+5. `vector_length` w warstwie debug renderu bierze się z `tolerance_rectangle_vector_length_px`,
+6. `padding` w warstwie debug renderu bierze się z `tolerance_rectangle_padding_px`.
 
 Taki prostokąt reprezentuje obszar, w którym w następnym kroku można szukać kolejnej linii do połączenia.
 
