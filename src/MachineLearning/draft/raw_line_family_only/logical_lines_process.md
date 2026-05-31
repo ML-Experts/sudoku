@@ -65,8 +65,10 @@ Enum opisujący pochodzenie segmentu:
 
 - `RAW`
   - segment pochodzi bezpośrednio z detekcji
-- `TOLERANCE`
-  - segment został sztucznie dodany przez algorytm jako mostek między dwoma segmentami
+- `SAME_AXIS_CONNECTION`
+  - segment został dodany po połączeniu linii tej samej osi
+- `CROSS_AXIS_CONNECTION`
+  - segment został dodany po walidowanym przejściu BFS do linii osi przecinającej
 
 ### `LineSegment`
 
@@ -305,7 +307,7 @@ Jeśli wszystkie są spełnione:
 - `intersects=True`
 - opcjonalnie tworzony jest `bridge_segment`
 
-### Krok 7. Tworzenie segmentu tolerancyjnego
+### Krok 7. Tworzenie segmentu połączeniowego tej samej osi
 
 Plik: `raw_line_family_only_geometry.py`  
 Metody:
@@ -322,7 +324,7 @@ algorytm tworzy segment mostkujący.
 
 Taki segment:
 
-- ma `origin=SegmentOrigin.TOLERANCE`,
+- ma `origin=SegmentOrigin.SAME_AXIS_CONNECTION`,
 - należy do tej samej rodziny co segmenty wejściowe,
 - trafia do tej samej listy `line_segments` w `LogicalLine`.
 
@@ -583,8 +585,8 @@ Odpowiada za:
 
 ## Najważniejsze założenia obecnej wersji
 
-1. Segment tolerancyjny jest pełnoprawnym segmentem należącym do `LogicalLine`.
-2. Segment `SegmentOrigin.TOLERANCE` zachowuje się tak samo jak `SegmentOrigin.RAW` w:
+1. Segment połączeniowy jest pełnoprawnym segmentem należącym do `LogicalLine`.
+2. Segmenty `SegmentOrigin.SAME_AXIS_CONNECTION` i `SegmentOrigin.CROSS_AXIS_CONNECTION` zachowują się tak samo jak `SegmentOrigin.RAW` w:
    - sortowaniu,
    - wyznaczaniu `start_segment`,
    - wyznaczaniu `end_segment`,

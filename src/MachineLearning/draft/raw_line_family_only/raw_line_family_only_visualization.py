@@ -74,8 +74,10 @@ def build_logical_line_overlays(
             line_color = _build_logical_line_color(line_index, len(logical_lines))
             for line_segment in logical_line.line_segments:
                 segment_color = line_color
-                if line_segment.origin == SegmentOrigin.TOLERANCE:
-                    segment_color = config.logical_line_tolerance_segment_color_bgr
+                if line_segment.origin == SegmentOrigin.SAME_AXIS_CONNECTION:
+                    segment_color = config.same_axis_connection_segment_color_bgr
+                elif line_segment.origin == SegmentOrigin.CROSS_AXIS_CONNECTION:
+                    segment_color = config.cross_axis_connection_segment_color_bgr
                 cv2.line(
                     overlay,
                     line_segment.start,

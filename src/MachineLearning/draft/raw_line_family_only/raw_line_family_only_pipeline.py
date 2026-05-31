@@ -182,17 +182,29 @@ def describe_raw_line_family_artifacts(
     artifacts: RawLineFamilyArtifacts,
 ) -> list[str]:
     line_family_result = artifacts.line_family_result
-    horizontal_tolerance_segments = sum(
+    horizontal_same_axis_segments = sum(
         1
         for logical_line in line_family_result.horizontal_logical_lines
         for line_segment in logical_line.line_segments
-        if line_segment.origin == SegmentOrigin.TOLERANCE
+        if line_segment.origin == SegmentOrigin.SAME_AXIS_CONNECTION
     )
-    vertical_tolerance_segments = sum(
+    vertical_same_axis_segments = sum(
         1
         for logical_line in line_family_result.vertical_logical_lines
         for line_segment in logical_line.line_segments
-        if line_segment.origin == SegmentOrigin.TOLERANCE
+        if line_segment.origin == SegmentOrigin.SAME_AXIS_CONNECTION
+    )
+    horizontal_cross_axis_segments = sum(
+        1
+        for logical_line in line_family_result.horizontal_logical_lines
+        for line_segment in logical_line.line_segments
+        if line_segment.origin == SegmentOrigin.CROSS_AXIS_CONNECTION
+    )
+    vertical_cross_axis_segments = sum(
+        1
+        for logical_line in line_family_result.vertical_logical_lines
+        for line_segment in logical_line.line_segments
+        if line_segment.origin == SegmentOrigin.CROSS_AXIS_CONNECTION
     )
     horizontal_tolerance_rectangles = len(
         line_family_result.horizontal_tolerance_rectangles
@@ -233,8 +245,10 @@ def describe_raw_line_family_artifacts(
             f"{len(line_family_result.horizontal_logical_lines)}"
         ),
         f"Vertical logical lines: {len(line_family_result.vertical_logical_lines)}",
-        f"Horizontal tolerance segments: {horizontal_tolerance_segments}",
-        f"Vertical tolerance segments: {vertical_tolerance_segments}",
+        f"Horizontal same-axis connection segments: {horizontal_same_axis_segments}",
+        f"Vertical same-axis connection segments: {vertical_same_axis_segments}",
+        f"Horizontal cross-axis connection segments: {horizontal_cross_axis_segments}",
+        f"Vertical cross-axis connection segments: {vertical_cross_axis_segments}",
         f"Horizontal tolerance rectangles: {horizontal_tolerance_rectangles}",
         f"Vertical tolerance rectangles: {vertical_tolerance_rectangles}",
         f"Tolerance rectangle geometry: {tolerance_rectangle_geometry}",
@@ -244,7 +258,7 @@ def describe_raw_line_family_artifacts(
         ),
         f"Vertical family angle: {line_family_result.vertical_angle_degrees}",
         "",
-        "This pipeline now builds logical lines from family segments.",
+        "This pipeline now builds logical lines and pixel-validated connections.",
     ]
 
 

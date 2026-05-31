@@ -17,7 +17,11 @@ from raw_line_family_only_geometry import (
     classify_line_segment,
     signed_angle_offset_degrees,
 )
-from raw_line_family_only_logical_lines import LogicalLine, build_logical_lines
+from raw_line_family_only_logical_lines import (
+    LogicalLine,
+    build_logical_lines,
+    connect_logical_lines_by_pixels,
+)
 from raw_line_family_only_models import (
     ExperimentConfig,
     LineFamilyName,
@@ -104,6 +108,28 @@ def _collect_family_by_reference_angle(
     return family_segments
 
 
+def _build_tolerance_rectangles(
+    logical_lines: list[LogicalLine],
+    config: ExperimentConfig,
+) -> list[ToleranceRectangle]:
+    return [
+        tolerance_rectangle
+        for logical_line in logical_lines
+        for tolerance_rectangle in (
+            logical_line.build_tolerance_rectangle(
+                reference_vertex=logical_line.start_vertex,
+                direction_length=config.tolerance_rectangle_vector_length_px,
+                padding=config.tolerance_rectangle_padding_px,
+            ),
+            logical_line.build_tolerance_rectangle(
+                reference_vertex=logical_line.end_vertex,
+                direction_length=config.tolerance_rectangle_vector_length_px,
+                padding=config.tolerance_rectangle_padding_px,
+            ),
+        )
+    ]
+
+
 def detect_line_families(
     binary_image: np.ndarray,
     config: ExperimentConfig,
@@ -177,38 +203,23 @@ def detect_line_families(
         cross_axis_thickness_px=config.logical_line_cross_axis_thickness_px,
         axis_gap_tolerance_px=config.logical_line_axis_gap_tolerance_px,
     )
-    horizontal_tolerance_rectangles = [
-        tolerance_rectangle
-        for logical_line in horizontal_logical_lines
-        for tolerance_rectangle in (
-            logical_line.build_tolerance_rectangle(
-                reference_vertex=logical_line.start_vertex,
-                direction_length=config.tolerance_rectangle_vector_length_px,
-                padding=config.tolerance_rectangle_padding_px,
-            ),
-            logical_line.build_tolerance_rectangle(
-                reference_vertex=logical_line.end_vertex,
-                direction_length=config.tolerance_rectangle_vector_length_px,
-                padding=config.tolerance_rectangle_padding_px,
-            ),
-        )
-    ]
-    vertical_tolerance_rectangles = [
-        tolerance_rectangle
-        for logical_line in vertical_logical_lines
-        for tolerance_rectangle in (
-            logical_line.build_tolerance_rectangle(
-                reference_vertex=logical_line.start_vertex,
-                direction_length=config.tolerance_rectangle_vector_length_px,
-                padding=config.tolerance_rectangle_padding_px,
-            ),
-            logical_line.build_tolerance_rectangle(
-                reference_vertex=logical_line.end_vertex,
-                direction_length=config.tolerance_rectangle_vector_length_px,
-                padding=config.tolerance_rectangle_padding_px,
-            ),
-        )
-    ]
+    horizontal_logical_lines, vertical_logical_lines = connect_logical_lines_by_pixels(
+        binary_image,
+        horizontal_logical_lines,
+        vertical_logical_lines,
+        axis_gap_tolerance_px=config.logical_line_axis_gap_tolerance_px,
+        cross_axis_thickness_px=config.logical_line_cross_axis_thickness_px,
+        rectangle_vector_length_px=config.tolerance_rectangle_vector_length_px,
+        rectangle_padding_px=config.tolerance_rectangle_padding_px,
+    )
+    horizontal_tolerance_rectangles = _build_tolerance_rectangles(
+        horizontal_logical_lines,
+        config,
+    )
+    vertical_tolerance_rectangles = _build_tolerance_rectangles(
+        vertical_logical_lines,
+        config,
+    )
 
     return RawLineFamilyResult(
         raw_segment_count=len(line_segments),

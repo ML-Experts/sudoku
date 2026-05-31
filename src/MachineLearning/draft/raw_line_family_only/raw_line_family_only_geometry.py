@@ -101,7 +101,7 @@ def _build_tolerance_bridge_segment(
         start=leading_segment.end,
         end=trailing_segment.start,
         family_name=leading_segment.family_name,
-        origin=SegmentOrigin.TOLERANCE,
+        origin=SegmentOrigin.SAME_AXIS_CONNECTION,
     )
 
 

@@ -24,8 +24,8 @@ class ExperimentConfig:
     soft_cleanup_area_multiplier: float = 0.35
     repair_directional_kernel_ratio: float = 0.015
     raw_hough_threshold: int = 35
-    raw_min_line_length_ratio: float = 0.08
-    raw_max_line_gap_ratio: float = 0.02
+    raw_min_line_length_ratio: float = 0.10
+    raw_max_line_gap_ratio: float = 0.03
     line_family_angle_tolerance_degrees: float = 20.0
     horizontal_family_color_bgr: tuple[int, int, int] = (255, 165, 0)
     vertical_family_color_bgr: tuple[int, int, int] = (0, 255, 255)
@@ -33,9 +33,10 @@ class ExperimentConfig:
     logical_line_vertex_radius: int = 5
     logical_line_cross_axis_thickness_px: int = 1
     logical_line_axis_gap_tolerance_px: int = 1
-    logical_line_tolerance_segment_color_bgr: tuple[int, int, int] = (255, 0, 255)
-    tolerance_rectangle_vector_length_px: int = 40
-    tolerance_rectangle_padding_px: int = 8
+    same_axis_connection_segment_color_bgr: tuple[int, int, int] = (255, 0, 255)
+    cross_axis_connection_segment_color_bgr: tuple[int, int, int] = (0, 0, 255)
+    tolerance_rectangle_vector_length_px: int = 350
+    tolerance_rectangle_padding_px: int = 18
     tolerance_rectangle_thickness: int = 2
     tolerance_rectangle_reference_radius: int = 4
 
@@ -48,7 +49,8 @@ class LineFamilyName(Enum):
 
 class SegmentOrigin(Enum):
     RAW = "raw"
-    TOLERANCE = "tolerance"
+    SAME_AXIS_CONNECTION = "same_axis_connection"
+    CROSS_AXIS_CONNECTION = "cross_axis_connection"
 
 
 @dataclass(frozen=True)
