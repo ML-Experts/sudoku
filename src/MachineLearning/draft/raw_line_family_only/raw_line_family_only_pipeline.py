@@ -126,15 +126,21 @@ def run_raw_line_family_pipeline(
         config,
     )
 
-    line_family_result = notebook_api.detect_line_families(
-        repaired_binary,
+    family_detection_result = notebook_api.detect_line_families(
+        clean_binary,
         config,
+        include_logical_lines=False,
+    )
+    line_family_result = notebook_api.detect_line_families(
+        clean_binary,
+        config,
+        pixel_connection_binary_image=repaired_binary,
     )
     binary_family_overlay, source_family_overlay = (
         notebook_api.build_line_family_overlays(
             display_bgr,
-            repaired_binary,
-            line_family_result,
+            clean_binary,
+            family_detection_result,
             config,
         )
     )
@@ -289,19 +295,19 @@ def build_raw_line_family_plot_items(
             False,
         ),
         (
-            "raw line families on repaired binary",
+            "raw line families on cleanup binary",
             artifacts.binary_family_overlay,
             True,
         ),
         ("raw line families on source", artifacts.source_family_overlay, True),
         (
-            "logical lines on repaired binary",
+            "logical lines on repair binary",
             artifacts.binary_logical_line_overlay,
             True,
         ),
         ("logical lines on source", artifacts.source_logical_line_overlay, True),
         (
-            "tolerance rectangles on repaired binary",
+            "tolerance rectangles on repair binary",
             artifacts.binary_tolerance_rectangle_overlay,
             True,
         ),

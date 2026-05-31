@@ -221,17 +221,17 @@ def try_connect_cross_axis_candidate(
     if reciprocal_path_points is None:
         return False
 
-    add_path_segments(
+    source_added_segment_count = add_path_segments(
         source_line,
         source_path_points,
         origin=SegmentOrigin.CROSS_AXIS_CONNECTION,
     )
-    add_path_segments(
+    target_added_segment_count = add_path_segments(
         candidate.target_line,
         reciprocal_path_points,
         origin=SegmentOrigin.CROSS_AXIS_CONNECTION,
     )
-    return True
+    return (source_added_segment_count + target_added_segment_count) > 0
 
 
 def connect_logical_lines_by_pixels(

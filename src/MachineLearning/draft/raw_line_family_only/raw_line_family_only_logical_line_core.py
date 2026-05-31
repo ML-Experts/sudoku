@@ -76,8 +76,10 @@ class LogicalLine:
             raise ValueError("LogicalLine does not have an end segment yet.")
         return self.end_segment.cross_axis_end
 
-    def add_segment(self, line_segment: LineSegment) -> None:
+    def add_segment(self, line_segment: LineSegment) -> bool:
         self._validate_family(line_segment.family_name)
+        if line_segment in self.line_segments:
+            return False
 
         insertion_index = len(self.line_segments)
         for current_index, current_segment in enumerate(self.line_segments):
@@ -87,6 +89,7 @@ class LogicalLine:
 
         self.line_segments.insert(insertion_index, line_segment)
         self._refresh_boundary_segments()
+        return True
 
     def merge_logical_line(self, other_line: "LogicalLine") -> None:
         self._validate_family(other_line.family_name)

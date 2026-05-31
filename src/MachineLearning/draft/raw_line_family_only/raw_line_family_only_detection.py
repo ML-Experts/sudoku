@@ -130,10 +130,10 @@ def _build_tolerance_rectangles(
     ]
 
 
-def detect_line_families(
+def _detect_raw_segments(
     binary_image: np.ndarray,
     config: ExperimentConfig,
-) -> RawLineFamilyResult:
+) -> list[LineSegment]:
     minimum_dimension = min(binary_image.shape[:2])
     min_line_length_px = max(
         8,
@@ -143,7 +143,6 @@ def detect_line_families(
         2,
         int(round(minimum_dimension * config.raw_max_line_gap_ratio)),
     )
-
     raw_segments = cv2.HoughLinesP(
         binary_image,
         rho=1,
@@ -153,11 +152,60 @@ def detect_line_families(
         maxLineGap=max_line_gap_px,
     )
     if raw_segments is None:
+        return []
+
+    return [build_line_segment(raw_segment[0]) for raw_segment in raw_segments]
+
+
+def _collect_classified_family_segments(
+    line_segments: list[LineSegment],
+    horizontal_reference_angle: float,
+    vertical_reference_angle: float,
+    angle_tolerance_degrees: float,
+) -> tuple[list[LineSegment], list[LineSegment]]:
+    horizontal_segments = _collect_family_by_reference_angle(
+        line_segments,
+        horizontal_reference_angle,
+        vertical_reference_angle,
+        angle_tolerance_degrees,
+    )
+    vertical_segments = _collect_family_by_reference_angle(
+        line_segments,
+        vertical_reference_angle,
+        horizontal_reference_angle,
+        angle_tolerance_degrees,
+    )
+    return (
+        [
+            classify_line_segment(line_segment, LineFamilyName.HORIZONTAL)
+            for line_segment in horizontal_segments
+        ],
+        [
+            classify_line_segment(line_segment, LineFamilyName.VERTICAL)
+            for line_segment in vertical_segments
+        ],
+    )
+
+
+def detect_line_families(
+    family_detection_binary_image: np.ndarray,
+    config: ExperimentConfig,
+    pixel_connection_binary_image: np.ndarray | None = None,
+    include_logical_lines: bool = True,
+) -> RawLineFamilyResult:
+    pixel_connection_binary = pixel_connection_binary_image
+    if pixel_connection_binary is None:
+        pixel_connection_binary = family_detection_binary_image
+
+    family_detection_segments = _detect_raw_segments(
+        family_detection_binary_image,
+        config,
+    )
+    if not family_detection_segments:
         return _build_empty_line_family_result()
 
-    line_segments = [build_line_segment(raw_segment[0]) for raw_segment in raw_segments]
     orientation_offset_degrees = _estimate_orientation_offset_degrees(
-        line_segments,
+        family_detection_segments,
         config.line_family_angle_tolerance_degrees,
     )
     if orientation_offset_degrees is None:
@@ -165,34 +213,40 @@ def detect_line_families(
 
     horizontal_reference_angle = orientation_offset_degrees % 180.0
     vertical_reference_angle = (horizontal_reference_angle + 90.0) % 180.0
-    horizontal_segments = _collect_family_by_reference_angle(
-        line_segments,
-        horizontal_reference_angle,
-        vertical_reference_angle,
-        config.line_family_angle_tolerance_degrees,
+
+    family_horizontal_segments, family_vertical_segments = (
+        _collect_classified_family_segments(
+            family_detection_segments,
+            horizontal_reference_angle,
+            vertical_reference_angle,
+            config.line_family_angle_tolerance_degrees,
+        )
     )
-    vertical_segments = _collect_family_by_reference_angle(
-        line_segments,
-        vertical_reference_angle,
-        horizontal_reference_angle,
-        config.line_family_angle_tolerance_degrees,
-    )
-    horizontal_segments = [
-        classify_line_segment(line_segment, LineFamilyName.HORIZONTAL)
-        for line_segment in horizontal_segments
-    ]
-    vertical_segments = [
-        classify_line_segment(line_segment, LineFamilyName.VERTICAL)
-        for line_segment in vertical_segments
-    ]
     horizontal_angle_degrees = refine_family_angle_degrees(
-        horizontal_segments,
+        family_horizontal_segments,
         horizontal_reference_angle,
     )
     vertical_angle_degrees = refine_family_angle_degrees(
-        vertical_segments,
+        family_vertical_segments,
         vertical_reference_angle,
     )
+
+    if not include_logical_lines:
+        return RawLineFamilyResult(
+            raw_segment_count=len(family_detection_segments),
+            orientation_offset_degrees=orientation_offset_degrees,
+            horizontal_angle_degrees=horizontal_angle_degrees,
+            vertical_angle_degrees=vertical_angle_degrees,
+            horizontal_segments=family_horizontal_segments,
+            vertical_segments=family_vertical_segments,
+            horizontal_logical_lines=[],
+            vertical_logical_lines=[],
+            horizontal_tolerance_rectangles=[],
+            vertical_tolerance_rectangles=[],
+        )
+
+    horizontal_segments = family_horizontal_segments
+    vertical_segments = family_vertical_segments
     horizontal_logical_lines = build_logical_lines(
         horizontal_segments,
         cross_axis_thickness_px=config.logical_line_cross_axis_thickness_px,
@@ -204,7 +258,7 @@ def detect_line_families(
         axis_gap_tolerance_px=config.logical_line_axis_gap_tolerance_px,
     )
     horizontal_logical_lines, vertical_logical_lines = connect_logical_lines_by_pixels(
-        binary_image,
+        pixel_connection_binary,
         horizontal_logical_lines,
         vertical_logical_lines,
         axis_gap_tolerance_px=config.logical_line_axis_gap_tolerance_px,
@@ -222,7 +276,7 @@ def detect_line_families(
     )
 
     return RawLineFamilyResult(
-        raw_segment_count=len(line_segments),
+        raw_segment_count=len(family_detection_segments),
         orientation_offset_degrees=orientation_offset_degrees,
         horizontal_angle_degrees=horizontal_angle_degrees,
         vertical_angle_degrees=vertical_angle_degrees,

@@ -260,13 +260,16 @@ def add_path_segments(
     logical_line: LogicalLine,
     path_points: list[tuple[int, int]],
     origin: SegmentOrigin,
-) -> None:
+) -> int:
+    added_segment_count = 0
     for line_segment in path_to_segments(
         path_points,
         family_name=logical_line.family_name,
         origin=origin,
     ):
-        logical_line.add_segment(line_segment)
+        if logical_line.add_segment(line_segment):
+            added_segment_count += 1
+    return added_segment_count
 
 
 def build_same_axis_goal_sets(

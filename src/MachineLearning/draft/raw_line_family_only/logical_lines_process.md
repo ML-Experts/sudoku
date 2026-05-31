@@ -126,9 +126,9 @@ Budowanie linii logicznych odbywa się w następujących etapach:
 1. detekcja surowych segmentów z Hougha,
 2. przypisanie segmentów do rodzin `horizontal` i `vertical`,
 3. normalizacja kierunku segmentów w obrębie rodziny,
-4. budowa `LogicalLine` z segmentów jednej rodziny,
-5. dodawanie segmentów tolerancyjnych, jeśli dwa segmenty mieszczą się w dopuszczalnym zakresie,
-6. merge już utworzonych linii logicznych,
+4. wyznaczenie referencyjnych kątów rodzin na `cleanup`,
+5. budowa `LogicalLine` z tych samych segmentów wykrytych na `cleanup`,
+6. pixel-validated merge już utworzonych linii logicznych na obrazie użytym do połączeń, na przykład na `repair`,
 7. budowa prostokątów tolerancyjnych dla końców linii logicznych,
 8. renderowanie linii logicznych, segmentów tolerancyjnych i prostokątów tolerancyjnych.
 
@@ -199,7 +199,18 @@ To jest bardzo ważne, bo późniejsze:
 
 zakładają spójny kierunek segmentu.
 
-### Krok 4. Start budowy `LogicalLine`
+### Krok 4. Wyznaczenie referencyjnych kątów rodzin
+
+Plik: `raw_line_family_only_detection.py`
+
+Po przypisaniu segmentów z `cleanup` do rodzin wyznaczane są:
+
+- `horizontal_angle_degrees`
+- `vertical_angle_degrees`
+
+Te kąty są używane dalej w tym samym przebiegu budowania rodzin i linii logicznych na `cleanup`.
+
+### Krok 5. Start budowy `LogicalLine`
 
 Plik: `raw_line_family_only_logical_lines.py`  
 Metoda: `build_logical_lines()`
@@ -228,7 +239,7 @@ Następnie:
 3. segment trafia do niej przez `add_segment()`,
 4. algorytm próbuje dołączać kolejne segmenty pasujące do tej linii.
 
-### Krok 5. Dodanie segmentu do `LogicalLine`
+### Krok 6. Dodanie segmentu do `LogicalLine`
 
 Plik: `raw_line_family_only_logical_lines.py`  
 Metoda: `LogicalLine.add_segment()`
@@ -247,7 +258,7 @@ Ważne:
 są traktowane identycznie pod względem logiki.  
 Pochodzenie segmentu nie wpływa na sortowanie ani na wybór krańcowych segmentów.
 
-### Krok 6. Sprawdzenie czy segment może zostać dołączony
+### Krok 7. Sprawdzenie czy segment może zostać dołączony
 
 Pliki:
 
@@ -259,7 +270,7 @@ Metody:
 - `LogicalLine.does_segment_touch()`
 - `line_segments_intersect()`
 
-#### 6.1. `LogicalLine.does_segment_touch()`
+#### 7.1. `LogicalLine.does_segment_touch()`
 
 Ta metoda:
 
@@ -269,7 +280,7 @@ Ta metoda:
 Nie porównuje tylko skrajnych segmentów.  
 Na tym etapie sprawdzane są wszystkie segmenty należące do danej `LogicalLine`.
 
-#### 6.2. `line_segments_intersect()`
+#### 7.2. `line_segments_intersect()`
 
 Ta funkcja nie jest już klasycznym przecięciem geometrii 2D.  
 W obecnym eksperymencie odpowiada za logiczne pytanie:
@@ -289,7 +300,7 @@ Wynik:
   - `intersects`
   - `bridge_segment`
 
-#### 6.3. Warunki uznania, że segmenty się łączą
+#### 7.3. Warunki uznania, że segmenty się łączą
 
 Funkcja `line_segments_intersect()` sprawdza:
 
@@ -307,7 +318,7 @@ Jeśli wszystkie są spełnione:
 - `intersects=True`
 - opcjonalnie tworzony jest `bridge_segment`
 
-### Krok 7. Tworzenie segmentu połączeniowego tej samej osi
+### Krok 8. Tworzenie segmentu połączeniowego tej samej osi
 
 Plik: `raw_line_family_only_geometry.py`  
 Metody:
@@ -335,7 +346,7 @@ To oznacza, że później:
 - może zostać `end_segment`,
 - bierze udział w dalszych merge'ach.
 
-### Krok 8. Domknięcie jednej `LogicalLine`
+### Krok 9. Domknięcie jednej `LogicalLine`
 
 Plik: `raw_line_family_only_logical_lines.py`  
 Metoda: `build_logical_lines()`
@@ -356,55 +367,30 @@ Jeżeli:
 
 segment trafia do `remaining_segments` i będzie rozpatrywany później, być może jako początek nowej linii logicznej.
 
-### Krok 9. Merge gotowych linii logicznych
+### Krok 10. Pixel-validated merge gotowych linii logicznych
 
-Plik: `raw_line_family_only_logical_lines.py`  
-Metody:
+Pliki:
 
-- `merge_logical_lines()`
-- `LogicalLine.does_logical_line_touch()`
-- `LogicalLine.merge_logical_line()`
+- `raw_line_family_only_detection.py`
+- `raw_line_family_only_logical_line_connections.py`
+- `raw_line_family_only_logical_line_search.py`
 
-Po utworzeniu wstępnej listy `LogicalLine` wykonywany jest dodatkowy merge.
+Po zbudowaniu wstępnych `LogicalLine` wykonywany jest merge walidowany pikselami.
 
-#### 9.1. `merge_logical_lines()`
+Najważniejsze założenie obecnej wersji:
 
-Metoda:
+- rodziny, kąty referencyjne i segmenty wejściowe do `LogicalLine` pochodzą z jednego przebiegu Hougha na `cleanup`,
+- BFS po białych pikselach może działać na innej tablicy, jeśli eksperyment tego wymaga, na przykład na `repair`.
 
-- sortuje linie logiczne po `axis_start` i `axis_end`,
-- przechodzi po parach linii,
-- próbuje je połączyć,
-- po każdym udanym merge wykonuje kolejny przebieg.
+Algorytm:
 
-To trwa aż do stabilizacji, czyli do momentu, gdy w całym przebiegu nie uda się połączyć żadnych dwóch linii.
+1. buduje prostokąt tolerancji dla każdego końca linii,
+2. zbiera kandydatów samej osi i osi poprzecznej,
+3. próbuje znaleźć ścieżkę po białych pikselach wewnątrz obszaru wyszukiwania,
+4. po sukcesie dodaje segmenty ścieżki jako `SAME_AXIS_CONNECTION` albo `CROSS_AXIS_CONNECTION`,
+5. powtarza przebiegi aż do stabilizacji.
 
-#### 9.2. `LogicalLine.does_logical_line_touch()`
-
-Metoda porównuje segmenty krańcowe:
-
-- `start_segment`
-- `end_segment`
-
-obu linii logicznych.
-
-Tworzone są cztery pary:
-
-- `self.start_segment` z `other.start_segment`
-- `self.start_segment` z `other.end_segment`
-- `self.end_segment` z `other.start_segment`
-- `self.end_segment` z `other.end_segment`
-
-Dla każdej pary wywoływane jest:
-
-- `line_segments_intersect()`
-
-Jeśli wynik pozwala na połączenie:
-
-1. ewentualny `bridge_segment` trafia do bieżącej linii,
-2. wykonywany jest `merge_logical_line()`,
-3. druga linia zostaje scalona z pierwszą.
-
-### Krok 10. Budowa `ToleranceRectangle`
+### Krok 11. Budowa `ToleranceRectangle`
 
 Pliki:
 
