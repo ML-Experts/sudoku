@@ -563,7 +563,8 @@ Odpowiada za:
 
 - render rodzin,
 - render linii logicznych,
-- wyróżnienie segmentów tolerancyjnych osobnym kolorem.
+- wyróżnienie segmentów tolerancyjnych osobnym kolorem,
+- render punktów przecięcia/styczności na osobnych overlayach.
 
 ### `raw_line_family_only_pipeline.py`
 
@@ -572,6 +573,15 @@ Odpowiada za:
 - spięcie etapu preprocessing + detekcja,
 - przygotowanie artefaktów do notebooka,
 - tekstowy opis wyniku.
+
+### `raw_line_family_only_intersections.py`
+
+Odpowiada za:
+
+- klasyczne przecięcie geometrii 2D między segmentem `horizontal` i `vertical`,
+- rozróżnienie `cross` i `touch`,
+- wybór tylko pierwszego trafionego punktu dla pary `horizontal logical line` / `vertical logical line`,
+- przygotowanie listy przecięć dla późniejszego renderu i dalszej logiki.
 
 ## Najważniejsze założenia obecnej wersji
 
@@ -583,3 +593,8 @@ Odpowiada za:
    - dalszych merge'ach.
 3. Jedyna różnica między `RAW` i `TOLERANCE` to pochodzenie segmentu i sposób renderowania.
 4. `line_segments_intersect()` w tym eksperymencie oznacza obecnie logiczne łączenie segmentów z uwzględnieniem tolerancji, a nie klasyczne przecięcie geometrii 2D.
+5. Szukanie przecięć/styczności między rodzinami jest osobnym krokiem wykonywanym dopiero po zbudowaniu i domknięciu wszystkich `LogicalLine`.
+6. Dla jednej pary `horizontal logical line` / `vertical logical line` zapisujemy najwyżej jeden punkt:
+   - iterujemy segmenty w aktualnej kolejności `LogicalLine.line_segments`,
+   - pierwszy znaleziony kontakt przerywa dalsze szukanie dla tej pary.
+7. `touch` oznacza kontakt na końcu któregoś z segmentów, a `cross` przecięcie wewnątrz obu segmentów.

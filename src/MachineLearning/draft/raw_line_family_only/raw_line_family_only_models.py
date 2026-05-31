@@ -39,6 +39,9 @@ class ExperimentConfig:
     tolerance_rectangle_padding_px: int = 18
     tolerance_rectangle_thickness: int = 2
     tolerance_rectangle_reference_radius: int = 4
+    logical_line_intersection_radius: int = 7
+    logical_line_intersection_cross_color_bgr: tuple[int, int, int] = (0, 255, 0)
+    logical_line_intersection_touch_color_bgr: tuple[int, int, int] = (255, 0, 0)
 
 
 class LineFamilyName(Enum):

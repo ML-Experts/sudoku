@@ -17,6 +17,10 @@ from raw_line_family_only_geometry import (
     classify_line_segment,
     signed_angle_offset_degrees,
 )
+from raw_line_family_only_intersections import (
+    LogicalLineIntersection,
+    find_logical_line_intersections,
+)
 from raw_line_family_only_logical_lines import (
     LogicalLine,
     build_logical_lines,
@@ -42,6 +46,7 @@ class RawLineFamilyResult:
     vertical_logical_lines: list[LogicalLine]
     horizontal_tolerance_rectangles: list[ToleranceRectangle]
     vertical_tolerance_rectangles: list[ToleranceRectangle]
+    logical_line_intersections: list[LogicalLineIntersection]
 
 
 def _build_empty_line_family_result(
@@ -57,6 +62,7 @@ def _build_empty_line_family_result(
         vertical_logical_lines=[],
         horizontal_tolerance_rectangles=[],
         vertical_tolerance_rectangles=[],
+        logical_line_intersections=[],
     )
 
 
@@ -243,6 +249,7 @@ def detect_line_families(
             vertical_logical_lines=[],
             horizontal_tolerance_rectangles=[],
             vertical_tolerance_rectangles=[],
+            logical_line_intersections=[],
         )
 
     horizontal_segments = family_horizontal_segments
@@ -274,6 +281,10 @@ def detect_line_families(
         vertical_logical_lines,
         config,
     )
+    logical_line_intersections = find_logical_line_intersections(
+        horizontal_logical_lines,
+        vertical_logical_lines,
+    )
 
     return RawLineFamilyResult(
         raw_segment_count=len(family_detection_segments),
@@ -286,6 +297,7 @@ def detect_line_families(
         vertical_logical_lines=vertical_logical_lines,
         horizontal_tolerance_rectangles=horizontal_tolerance_rectangles,
         vertical_tolerance_rectangles=vertical_tolerance_rectangles,
+        logical_line_intersections=logical_line_intersections,
     )
 
 

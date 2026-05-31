@@ -17,6 +17,7 @@ MODULE_RELOAD_ORDER = (
     "raw_line_family_only_logical_line_search",
     "raw_line_family_only_logical_line_merging",
     "raw_line_family_only_logical_line_connections",
+    "raw_line_family_only_intersections",
     "raw_line_family_only_logical_lines",
     "raw_line_family_only_detection",
     "raw_line_family_only_visualization",
@@ -39,6 +40,7 @@ class RawLineFamilyOnlyApi:
     detect_line_families: object
     build_line_family_overlays: object
     build_logical_line_overlays: object
+    build_logical_line_intersection_overlays: object
     build_tolerance_rectangle_overlays: object
 
 
@@ -85,6 +87,9 @@ def load_raw_line_family_only_api() -> RawLineFamilyOnlyApi:
         detect_line_families=detection.detect_line_families,
         build_line_family_overlays=visualization.build_line_family_overlays,
         build_logical_line_overlays=visualization.build_logical_line_overlays,
+        build_logical_line_intersection_overlays=(
+            visualization.build_logical_line_intersection_overlays
+        ),
         build_tolerance_rectangle_overlays=(
             visualization.build_tolerance_rectangle_overlays
         ),

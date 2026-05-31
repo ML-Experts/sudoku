@@ -8,6 +8,7 @@ import cv2
 import numpy as np
 
 from raw_line_family_only_detection import RawLineFamilyResult
+from raw_line_family_only_intersections import LogicalLineIntersectionKind
 from raw_line_family_only_models import SegmentOrigin
 
 if TYPE_CHECKING:
@@ -39,6 +40,8 @@ class RawLineFamilyArtifacts:
     source_family_overlay: np.ndarray
     binary_logical_line_overlay: np.ndarray
     source_logical_line_overlay: np.ndarray
+    binary_logical_line_intersection_overlay: np.ndarray
+    source_logical_line_intersection_overlay: np.ndarray
     binary_tolerance_rectangle_overlay: np.ndarray
     source_tolerance_rectangle_overlay: np.ndarray
 
@@ -152,6 +155,15 @@ def run_raw_line_family_pipeline(
             config,
         )
     )
+    (
+        binary_logical_line_intersection_overlay,
+        source_logical_line_intersection_overlay,
+    ) = notebook_api.build_logical_line_intersection_overlays(
+        display_bgr,
+        repaired_binary,
+        line_family_result,
+        config,
+    )
     binary_tolerance_rectangle_overlay, source_tolerance_rectangle_overlay = (
         notebook_api.build_tolerance_rectangle_overlays(
             display_bgr,
@@ -179,6 +191,12 @@ def run_raw_line_family_pipeline(
         source_family_overlay=source_family_overlay,
         binary_logical_line_overlay=binary_logical_line_overlay,
         source_logical_line_overlay=source_logical_line_overlay,
+        binary_logical_line_intersection_overlay=(
+            binary_logical_line_intersection_overlay
+        ),
+        source_logical_line_intersection_overlay=(
+            source_logical_line_intersection_overlay
+        ),
         binary_tolerance_rectangle_overlay=binary_tolerance_rectangle_overlay,
         source_tolerance_rectangle_overlay=source_tolerance_rectangle_overlay,
     )
@@ -217,6 +235,17 @@ def describe_raw_line_family_artifacts(
     )
     vertical_tolerance_rectangles = len(
         line_family_result.vertical_tolerance_rectangles
+    )
+    logical_line_intersection_count = len(line_family_result.logical_line_intersections)
+    logical_line_cross_intersection_count = sum(
+        1
+        for logical_line_intersection in line_family_result.logical_line_intersections
+        if logical_line_intersection.kind == LogicalLineIntersectionKind.CROSS
+    )
+    logical_line_touch_intersection_count = sum(
+        1
+        for logical_line_intersection in line_family_result.logical_line_intersections
+        if logical_line_intersection.kind == LogicalLineIntersectionKind.TOUCH
     )
     sample_tolerance_rectangle = None
     if line_family_result.horizontal_tolerance_rectangles:
@@ -257,6 +286,12 @@ def describe_raw_line_family_artifacts(
         f"Vertical cross-axis connection segments: {vertical_cross_axis_segments}",
         f"Horizontal tolerance rectangles: {horizontal_tolerance_rectangles}",
         f"Vertical tolerance rectangles: {vertical_tolerance_rectangles}",
+        f"Logical line intersections: {logical_line_intersection_count}",
+        (
+            "Logical line crosses / touches: "
+            f"{logical_line_cross_intersection_count} / "
+            f"{logical_line_touch_intersection_count}"
+        ),
         f"Tolerance rectangle geometry: {tolerance_rectangle_geometry}",
         (
             "Horizontal family angle: "
@@ -306,6 +341,16 @@ def build_raw_line_family_plot_items(
             True,
         ),
         ("logical lines on source", artifacts.source_logical_line_overlay, True),
+        (
+            "logical line intersections on repair binary",
+            artifacts.binary_logical_line_intersection_overlay,
+            True,
+        ),
+        (
+            "logical line intersections on source",
+            artifacts.source_logical_line_intersection_overlay,
+            True,
+        ),
         (
             "tolerance rectangles on repair binary",
             artifacts.binary_tolerance_rectangle_overlay,

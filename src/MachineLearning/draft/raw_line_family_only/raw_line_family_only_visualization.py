@@ -4,6 +4,7 @@ import cv2
 import numpy as np
 
 from raw_line_family_only_detection import RawLineFamilyResult
+from raw_line_family_only_intersections import LogicalLineIntersectionKind
 from raw_line_family_only_models import (
     ExperimentConfig,
     SegmentOrigin,
@@ -171,8 +172,50 @@ def build_tolerance_rectangle_overlays(
     return binary_overlay, source_overlay
 
 
+def _draw_logical_line_intersection(
+    overlay: np.ndarray,
+    intersection_point: tuple[int, int],
+    intersection_kind: LogicalLineIntersectionKind,
+    config: ExperimentConfig,
+) -> None:
+    point_color = config.logical_line_intersection_cross_color_bgr
+    if intersection_kind == LogicalLineIntersectionKind.TOUCH:
+        point_color = config.logical_line_intersection_touch_color_bgr
+
+    cv2.circle(
+        overlay,
+        intersection_point,
+        config.logical_line_intersection_radius,
+        point_color,
+        thickness=-1,
+        lineType=cv2.LINE_AA,
+    )
+
+
+def build_logical_line_intersection_overlays(
+    source_bgr: np.ndarray,
+    binary_image: np.ndarray,
+    line_family_result: RawLineFamilyResult,
+    config: ExperimentConfig,
+) -> tuple[np.ndarray, np.ndarray]:
+    binary_overlay = cv2.cvtColor(binary_image, cv2.COLOR_GRAY2BGR)
+    source_overlay = source_bgr.copy()
+
+    for overlay in (binary_overlay, source_overlay):
+        for logical_line_intersection in line_family_result.logical_line_intersections:
+            _draw_logical_line_intersection(
+                overlay,
+                logical_line_intersection.point,
+                logical_line_intersection.kind,
+                config,
+            )
+
+    return binary_overlay, source_overlay
+
+
 __all__ = [
     "build_line_family_overlays",
+    "build_logical_line_intersection_overlays",
     "build_logical_line_overlays",
     "build_tolerance_rectangle_overlays",
 ]
