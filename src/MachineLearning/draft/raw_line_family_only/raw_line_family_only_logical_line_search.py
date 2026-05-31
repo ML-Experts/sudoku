@@ -113,6 +113,26 @@ def build_segment_window_points(
     )
 
 
+def build_logical_line_window_points(
+    binary_image: np.ndarray,
+    logical_line: LogicalLine,
+    search_area: SearchArea,
+) -> list[tuple[int, int]]:
+    seen_points: set[tuple[int, int]] = set()
+    logical_line_points: list[tuple[int, int]] = []
+    for line_segment in logical_line.line_segments:
+        for point in build_segment_window_points(
+            binary_image,
+            line_segment,
+            search_area,
+        ):
+            if point in seen_points:
+                continue
+            seen_points.add(point)
+            logical_line_points.append(point)
+    return logical_line_points
+
+
 def build_start_points(
     binary_image: np.ndarray,
     source_line: LogicalLine,
@@ -272,6 +292,41 @@ def add_path_segments(
     return added_segment_count
 
 
+def build_cross_axis_span_goal_points(
+    binary_image: np.ndarray,
+    search_area: SearchArea,
+    source_line: LogicalLine,
+    target_line: LogicalLine,
+    source_cross_axis_anchor: int,
+) -> list[tuple[int, int]]:
+    target_points = build_logical_line_window_points(
+        binary_image,
+        target_line,
+        search_area,
+    )
+    if not target_points:
+        return []
+
+    if source_line.family_name == LineFamilyName.HORIZONTAL:
+        best_anchor_distance = min(
+            abs(point[1] - source_cross_axis_anchor) for point in target_points
+        )
+        return [
+            point
+            for point in target_points
+            if abs(point[1] - source_cross_axis_anchor) == best_anchor_distance
+        ]
+
+    best_anchor_distance = min(
+        abs(point[0] - source_cross_axis_anchor) for point in target_points
+    )
+    return [
+        point
+        for point in target_points
+        if abs(point[0] - source_cross_axis_anchor) == best_anchor_distance
+    ]
+
+
 def build_same_axis_goal_sets(
     binary_image: np.ndarray,
     search_area: SearchArea,
@@ -372,13 +427,65 @@ def try_find_path(
     return None
 
 
+def is_path_white_and_in_search_area(
+    binary_image: np.ndarray,
+    search_area: SearchArea,
+    path_points: list[tuple[int, int]],
+) -> bool:
+    for point in path_points:
+        x_coord, y_coord = point
+        if not is_point_in_search_area(point, search_area):
+            return False
+        if binary_image[y_coord, x_coord] != 255:
+            return False
+    return True
+
+
+def try_find_straight_path(
+    binary_image: np.ndarray,
+    search_area: SearchArea,
+    start_points: list[tuple[int, int]],
+    goal_points: list[tuple[int, int]],
+) -> list[tuple[int, int]] | None:
+    candidate_pairs: list[
+        tuple[int, float, int, tuple[int, int], tuple[int, int]]
+    ] = []
+    for start_rank, start_point in enumerate(start_points):
+        for goal_point in goal_points:
+            delta_x = goal_point[0] - start_point[0]
+            delta_y = goal_point[1] - start_point[1]
+            candidate_pairs.append(
+                (
+                    start_rank,
+                    float(np.hypot(delta_x, delta_y)),
+                    abs(delta_x) + abs(delta_y),
+                    start_point,
+                    goal_point,
+                )
+            )
+
+    candidate_pairs.sort(key=lambda item: (item[0], item[1], item[2]))
+    for _, _, _, start_point, goal_point in candidate_pairs:
+        path_points = rasterize_line_points(start_point, goal_point)
+        if is_path_white_and_in_search_area(
+            binary_image,
+            search_area,
+            path_points,
+        ):
+            return path_points
+    return None
+
+
 __all__ = [
     "SearchArea",
     "add_path_segments",
     "build_cross_axis_goal_sets",
+    "build_cross_axis_span_goal_points",
+    "build_logical_line_window_points",
     "build_same_axis_goal_sets",
     "build_search_area",
     "build_start_points",
     "is_point_in_search_area",
+    "try_find_straight_path",
     "try_find_path",
 ]

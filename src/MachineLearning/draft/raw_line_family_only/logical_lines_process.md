@@ -385,10 +385,14 @@ Najważniejsze założenie obecnej wersji:
 Algorytm:
 
 1. buduje prostokąt tolerancji dla każdego końca linii,
-2. zbiera kandydatów samej osi i osi poprzecznej,
-3. próbuje znaleźć ścieżkę po białych pikselach wewnątrz obszaru wyszukiwania,
-4. po sukcesie dodaje segmenty ścieżki jako `SAME_AXIS_CONNECTION` albo `CROSS_AXIS_CONNECTION`,
-5. powtarza przebiegi aż do stabilizacji.
+2. zbiera kandydatów samej osi, kandydatów osi poprzecznej opartych o wierzchołek oraz kandydatów osi poprzecznej opartych o fragment linii w prostokącie,
+3. dla wariantu opartego o fragment linii poprzecznej najpierw próbuje znaleźć najkrótszy prosty łącznik po białych pikselach, a dopiero potem fallbackuje do BFS,
+4. próbuje znaleźć ścieżkę po białych pikselach wewnątrz obszaru wyszukiwania,
+5. po sukcesie dodaje segmenty ścieżki jako `SAME_AXIS_CONNECTION` albo `CROSS_AXIS_CONNECTION`,
+6. wariant oparty o fragment linii poprzecznej rozszerza tylko `source_line`; linia poprzeczna pozostaje bez zmian,
+7. kandydat osi poprzecznej oparty o fragment linii jest ważny tylko wtedy, gdy `cross_axis_start` albo `cross_axis_end` linii źródłowej wpada w zakres `axis_start..axis_end` linii poprzecznej,
+8. miejsce styku jest wybierane wyłącznie z białych pikseli segmentów linii poprzecznej, które znajdują się w obrębie prostokąta tolerancji,
+9. powtarza przebiegi aż do stabilizacji.
 
 ### Krok 11. Budowa `ToleranceRectangle`
 
