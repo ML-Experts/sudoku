@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import TYPE_CHECKING
 
 from raw_line_family_only_geometry import (
     LineSegmentIntersectionResult,
@@ -12,6 +13,9 @@ from raw_line_family_only_models import (
     LineSegment,
     ToleranceRectangle,
 )
+
+if TYPE_CHECKING:
+    from raw_line_family_only_intersections import LogicalLineIntersection
 
 
 def segment_sort_key(
@@ -43,6 +47,10 @@ class LogicalLine:
     family_name: LineFamilyName
     frame_side: FrameSide = FrameSide.NONE
     line_segments: list[LineSegment] = field(
+        init=False,
+        default_factory=list,
+    )
+    intersections: list["LogicalLineIntersection"] = field(
         init=False,
         default_factory=list,
     )

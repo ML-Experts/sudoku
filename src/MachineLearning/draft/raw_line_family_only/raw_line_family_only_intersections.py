@@ -63,6 +63,11 @@ class LogicalLineIntersection:
     def is_mutual_boundary(self) -> bool:
         return self.is_horizontal_boundary and self.is_vertical_boundary
 
+    def correct_intersection(self) -> None:
+        raise NotImplementedError(
+            "LogicalLineIntersection.correct_intersection() is not implemented yet."
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class LogicalLineBorderPair:
@@ -85,6 +90,58 @@ class LogicalLineFrame:
             self.left_line,
             self.right_line,
         )
+
+
+@dataclass(frozen=True, slots=True)
+class LogicalLineIntersectionAnalysis:
+    frame: LogicalLineFrame | None
+    horizontal_lines: list[LogicalLine]
+    vertical_lines: list[LogicalLine]
+    intersections: list[LogicalLineIntersection]
+
+    @property
+    def logical_lines(self) -> list[LogicalLine]:
+        return [*self.horizontal_lines, *self.vertical_lines]
+
+
+@dataclass(slots=True)
+class _LogicalLineIntersectionCandidate:
+    ref_horizontal_line: LogicalLine
+    ref_vertical_line: LogicalLine
+    ref_horizontal_segment: LineSegment
+    ref_vertical_segment: LineSegment
+    point: tuple[int, int]
+    kind: LogicalLineIntersectionKind
+    horizontal_order: IntersectionOrder = IntersectionOrder.NONE
+    vertical_order: IntersectionOrder = IntersectionOrder.NONE
+
+    @property
+    def horizontal_axis_value(self) -> int:
+        return self.point[0]
+
+    @property
+    def vertical_axis_value(self) -> int:
+        return self.point[1]
+
+    @property
+    def is_horizontal_boundary(self) -> bool:
+        return self.horizontal_order in {
+            IntersectionOrder.START,
+            IntersectionOrder.END,
+            IntersectionOrder.BOTH,
+        }
+
+    @property
+    def is_vertical_boundary(self) -> bool:
+        return self.vertical_order in {
+            IntersectionOrder.START,
+            IntersectionOrder.END,
+            IntersectionOrder.BOTH,
+        }
+
+    @property
+    def is_mutual_boundary(self) -> bool:
+        return self.is_horizontal_boundary and self.is_vertical_boundary
 
 
 def _cross_product(
@@ -274,10 +331,10 @@ def _select_representative_segment_intersection(
     return sorted_candidates[0]
 
 
-def find_logical_line_intersection(
+def _find_logical_line_intersection_candidate(
     horizontal_line: LogicalLine,
     vertical_line: LogicalLine,
-) -> LogicalLineIntersection | None:
+) -> _LogicalLineIntersectionCandidate | None:
     candidates = _collect_segment_intersection_candidates(
         horizontal_line,
         vertical_line,
@@ -294,7 +351,7 @@ def find_logical_line_intersection(
         intersection_point,
         intersection_kind,
     ) = representative_intersection
-    return LogicalLineIntersection(
+    return _LogicalLineIntersectionCandidate(
         ref_horizontal_line=horizontal_line,
         ref_vertical_line=vertical_line,
         ref_horizontal_segment=horizontal_segment,
@@ -304,12 +361,32 @@ def find_logical_line_intersection(
     )
 
 
+def find_logical_line_intersection(
+    horizontal_line: LogicalLine,
+    vertical_line: LogicalLine,
+) -> LogicalLineIntersection | None:
+    candidate = _find_logical_line_intersection_candidate(
+        horizontal_line,
+        vertical_line,
+    )
+    if candidate is None:
+        return None
+    return LogicalLineIntersection(
+        ref_horizontal_line=candidate.ref_horizontal_line,
+        ref_vertical_line=candidate.ref_vertical_line,
+        ref_horizontal_segment=candidate.ref_horizontal_segment,
+        ref_vertical_segment=candidate.ref_vertical_segment,
+        point=candidate.point,
+        kind=candidate.kind,
+    )
+
+
 def _build_line_lookup(
     horizontal_logical_lines: list[LogicalLine],
     vertical_logical_lines: list[LogicalLine],
-) -> tuple[dict[int, LogicalLine], dict[int, list[LogicalLineIntersection]]]:
+) -> tuple[dict[int, LogicalLine], dict[int, list[object]]]:
     lines_by_key: dict[int, LogicalLine] = {}
-    intersections_by_key: dict[int, list[LogicalLineIntersection]] = {}
+    intersections_by_key: dict[int, list[object]] = {}
     for logical_line in (*horizontal_logical_lines, *vertical_logical_lines):
         line_key = id(logical_line)
         lines_by_key[line_key] = logical_line
@@ -318,9 +395,31 @@ def _build_line_lookup(
     return lines_by_key, intersections_by_key
 
 
+def _sort_line_intersections(
+    line_intersections: list[object],
+    family_name: LineFamilyName,
+) -> list[object]:
+    if family_name == LineFamilyName.HORIZONTAL:
+        return sorted(
+            line_intersections,
+            key=lambda intersection: (
+                intersection.horizontal_axis_value,
+                intersection.vertical_axis_value,
+            ),
+        )
+
+    return sorted(
+        line_intersections,
+        key=lambda intersection: (
+            intersection.vertical_axis_value,
+            intersection.horizontal_axis_value,
+        ),
+    )
+
+
 def _assign_boundary_orders(
     lines_by_key: dict[int, LogicalLine],
-    intersections_by_key: dict[int, list[LogicalLineIntersection]],
+    intersections_by_key: dict[int, list[object]],
     family_name: LineFamilyName,
 ) -> None:
     for line_key, logical_line in lines_by_key.items():
@@ -331,23 +430,13 @@ def _assign_boundary_orders(
         if family_name == LineFamilyName.HORIZONTAL:
             for intersection in line_intersections:
                 intersection.horizontal_order = IntersectionOrder.NONE
-            sorted_intersections = sorted(
-                line_intersections,
-                key=lambda intersection: (
-                    intersection.horizontal_axis_value,
-                    intersection.vertical_axis_value,
-                ),
-            )
         else:
             for intersection in line_intersections:
                 intersection.vertical_order = IntersectionOrder.NONE
-            sorted_intersections = sorted(
-                line_intersections,
-                key=lambda intersection: (
-                    intersection.vertical_axis_value,
-                    intersection.horizontal_axis_value,
-                ),
-            )
+        sorted_intersections = _sort_line_intersections(
+            line_intersections,
+            family_name,
+        )
 
         if not sorted_intersections:
             continue
@@ -373,8 +462,103 @@ def _assign_boundary_orders(
             sorted_intersections[-1].vertical_order = IntersectionOrder.END
 
 
+def _collect_candidate_intersections(
+    horizontal_logical_lines: list[LogicalLine],
+    vertical_logical_lines: list[LogicalLine],
+) -> list[_LogicalLineIntersectionCandidate]:
+    intersections: list[_LogicalLineIntersectionCandidate] = []
+    for horizontal_line in horizontal_logical_lines:
+        for vertical_line in vertical_logical_lines:
+            intersection = _find_logical_line_intersection_candidate(
+                horizontal_line,
+                vertical_line,
+            )
+            if intersection is not None:
+                intersections.append(intersection)
+    return intersections
+
+
+def _build_candidate_lookup(
+    horizontal_logical_lines: list[LogicalLine],
+    vertical_logical_lines: list[LogicalLine],
+    intersections: list[_LogicalLineIntersectionCandidate],
+) -> tuple[
+    dict[int, LogicalLine],
+    dict[int, list[_LogicalLineIntersectionCandidate]],
+]:
+    lines_by_key, intersections_by_key = _build_line_lookup(
+        horizontal_logical_lines,
+        vertical_logical_lines,
+    )
+    typed_lookup: dict[int, list[_LogicalLineIntersectionCandidate]] = {
+        line_key: []
+        for line_key in intersections_by_key
+    }
+    for intersection in intersections:
+        typed_lookup[id(intersection.ref_horizontal_line)].append(intersection)
+        typed_lookup[id(intersection.ref_vertical_line)].append(intersection)
+    return lines_by_key, typed_lookup
+
+
+def _prune_lines_by_minimum_intersection_count(
+    horizontal_logical_lines: list[LogicalLine],
+    vertical_logical_lines: list[LogicalLine],
+    intersections: list[_LogicalLineIntersectionCandidate],
+    minimum_intersection_count: int,
+    protected_line_keys: set[int] | None = None,
+) -> tuple[
+    list[LogicalLine],
+    list[LogicalLine],
+    list[_LogicalLineIntersectionCandidate],
+]:
+    active_horizontal_lines = list(horizontal_logical_lines)
+    active_vertical_lines = list(vertical_logical_lines)
+    active_intersections = list(intersections)
+    protected_keys = protected_line_keys or set()
+
+    while True:
+        _, intersections_by_key = _build_candidate_lookup(
+            active_horizontal_lines,
+            active_vertical_lines,
+            active_intersections,
+        )
+        removable_line_keys = {
+            line_key
+            for line_key in intersections_by_key
+            if (
+                line_key not in protected_keys
+                and len(intersections_by_key[line_key]) < minimum_intersection_count
+            )
+        }
+        if not removable_line_keys:
+            return (
+                active_horizontal_lines,
+                active_vertical_lines,
+                active_intersections,
+            )
+
+        active_horizontal_lines = [
+            logical_line
+            for logical_line in active_horizontal_lines
+            if id(logical_line) not in removable_line_keys
+        ]
+        active_vertical_lines = [
+            logical_line
+            for logical_line in active_vertical_lines
+            if id(logical_line) not in removable_line_keys
+        ]
+        active_intersections = [
+            intersection
+            for intersection in active_intersections
+            if (
+                id(intersection.ref_horizontal_line) not in removable_line_keys
+                and id(intersection.ref_vertical_line) not in removable_line_keys
+            )
+        ]
+
+
 def _build_pair_border_line_lookup(
-    intersections: list[LogicalLineIntersection],
+    intersections: list[object],
 ) -> tuple[dict[int, LogicalLine], dict[int, set[int]]]:
     lines_by_key: dict[int, LogicalLine] = {}
     pair_border_line_lookup: dict[int, set[int]] = defaultdict(set)
@@ -434,7 +618,7 @@ def _line_cross_axis_center(logical_line: LogicalLine) -> float:
     return (logical_line.cross_axis_start + logical_line.cross_axis_end) / 2.0
 
 
-def _build_frame_from_lines(
+def _create_frame_from_lines(
     horizontal_lines: tuple[LogicalLine, LogicalLine],
     vertical_lines: tuple[LogicalLine, LogicalLine],
 ) -> LogicalLineFrame:
@@ -446,10 +630,6 @@ def _build_frame_from_lines(
         vertical_lines,
         key=_line_cross_axis_center,
     )
-    top_line.frame_side = FrameSide.TOP
-    bottom_line.frame_side = FrameSide.BOTTOM
-    left_line.frame_side = FrameSide.LEFT
-    right_line.frame_side = FrameSide.RIGHT
     return LogicalLineFrame(
         top_line=top_line,
         bottom_line=bottom_line,
@@ -458,14 +638,20 @@ def _build_frame_from_lines(
     )
 
 
-def find_logical_line_frames(
-    intersections: list[LogicalLineIntersection],
+def _clear_logical_line_metadata(
+    horizontal_logical_lines: list[LogicalLine],
+    vertical_logical_lines: list[LogicalLine],
+) -> None:
+    for logical_line in (*horizontal_logical_lines, *vertical_logical_lines):
+        logical_line.frame_side = FrameSide.NONE
+        logical_line.intersections.clear()
+
+
+def _find_logical_line_frames(
+    intersections: list[object],
     horizontal_logical_lines: list[LogicalLine],
     vertical_logical_lines: list[LogicalLine],
 ) -> list[LogicalLineFrame]:
-    for logical_line in (*horizontal_logical_lines, *vertical_logical_lines):
-        logical_line.frame_side = FrameSide.NONE
-
     lines_by_key, pair_border_line_lookup = _build_pair_border_line_lookup(
         intersections
     )
@@ -512,7 +698,7 @@ def find_logical_line_frames(
                         line_d,
                     )
                     frames.append(
-                        _build_frame_from_lines(
+                        _create_frame_from_lines(
                             horizontal_lines,
                             vertical_lines,
                         )
@@ -522,27 +708,64 @@ def find_logical_line_frames(
     return frames
 
 
-def find_logical_line_intersections(
+def _frame_area(frame: LogicalLineFrame) -> float:
+    frame_width = abs(
+        _line_cross_axis_center(frame.right_line)
+        - _line_cross_axis_center(frame.left_line)
+    )
+    frame_height = abs(
+        _line_cross_axis_center(frame.bottom_line)
+        - _line_cross_axis_center(frame.top_line)
+    )
+    return frame_width * frame_height
+
+
+def _select_best_frame(
+    frames: list[LogicalLineFrame],
+    intersections_by_key: dict[int, list[_LogicalLineIntersectionCandidate]],
+) -> LogicalLineFrame | None:
+    if not frames:
+        return None
+
+    return min(
+        frames,
+        key=lambda frame: (
+            sum(
+                abs(len(intersections_by_key.get(id(logical_line), [])) - 10)
+                for logical_line in frame.lines
+            ),
+            -_frame_area(frame),
+        ),
+    )
+
+
+def _build_public_intersections(
     horizontal_logical_lines: list[LogicalLine],
     vertical_logical_lines: list[LogicalLine],
+    candidate_intersections: list[_LogicalLineIntersectionCandidate],
 ) -> list[LogicalLineIntersection]:
+    _clear_logical_line_metadata(
+        horizontal_logical_lines,
+        vertical_logical_lines,
+    )
+    public_intersections = [
+        LogicalLineIntersection(
+            ref_horizontal_line=candidate.ref_horizontal_line,
+            ref_vertical_line=candidate.ref_vertical_line,
+            ref_horizontal_segment=candidate.ref_horizontal_segment,
+            ref_vertical_segment=candidate.ref_vertical_segment,
+            point=candidate.point,
+            kind=candidate.kind,
+        )
+        for candidate in candidate_intersections
+    ]
     lines_by_key, intersections_by_key = _build_line_lookup(
         horizontal_logical_lines,
         vertical_logical_lines,
     )
-    intersections: list[LogicalLineIntersection] = []
-    for horizontal_line in horizontal_logical_lines:
-        horizontal_key = id(horizontal_line)
-        for vertical_line in vertical_logical_lines:
-            vertical_key = id(vertical_line)
-            intersection = find_logical_line_intersection(
-                horizontal_line,
-                vertical_line,
-            )
-            if intersection is not None:
-                intersections.append(intersection)
-                intersections_by_key[horizontal_key].append(intersection)
-                intersections_by_key[vertical_key].append(intersection)
+    for intersection in public_intersections:
+        intersections_by_key[id(intersection.ref_horizontal_line)].append(intersection)
+        intersections_by_key[id(intersection.ref_vertical_line)].append(intersection)
 
     _assign_boundary_orders(
         lines_by_key,
@@ -554,16 +777,140 @@ def find_logical_line_intersections(
         intersections_by_key,
         LineFamilyName.VERTICAL,
     )
+    for logical_line in horizontal_logical_lines:
+        logical_line.intersections.extend(
+            _sort_line_intersections(
+                intersections_by_key.get(id(logical_line), []),
+                LineFamilyName.HORIZONTAL,
+            )
+        )
+    for logical_line in vertical_logical_lines:
+        logical_line.intersections.extend(
+            _sort_line_intersections(
+                intersections_by_key.get(id(logical_line), []),
+                LineFamilyName.VERTICAL,
+            )
+        )
 
-    return intersections
+    return public_intersections
+
+
+def _apply_frame_side(frame: LogicalLineFrame | None) -> None:
+    if frame is None:
+        return
+    frame.top_line.frame_side = FrameSide.TOP
+    frame.bottom_line.frame_side = FrameSide.BOTTOM
+    frame.left_line.frame_side = FrameSide.LEFT
+    frame.right_line.frame_side = FrameSide.RIGHT
+
+
+def analyze_logical_line_intersections(
+    horizontal_logical_lines: list[LogicalLine],
+    vertical_logical_lines: list[LogicalLine],
+) -> LogicalLineIntersectionAnalysis:
+    _clear_logical_line_metadata(
+        horizontal_logical_lines,
+        vertical_logical_lines,
+    )
+    candidate_intersections = _collect_candidate_intersections(
+        horizontal_logical_lines,
+        vertical_logical_lines,
+    )
+    (
+        active_horizontal_lines,
+        active_vertical_lines,
+        active_intersections,
+    ) = _prune_lines_by_minimum_intersection_count(
+        horizontal_logical_lines,
+        vertical_logical_lines,
+        candidate_intersections,
+        minimum_intersection_count=2,
+    )
+    lines_by_key, intersections_by_key = _build_candidate_lookup(
+        active_horizontal_lines,
+        active_vertical_lines,
+        active_intersections,
+    )
+    _assign_boundary_orders(
+        lines_by_key,
+        intersections_by_key,
+        LineFamilyName.HORIZONTAL,
+    )
+    _assign_boundary_orders(
+        lines_by_key,
+        intersections_by_key,
+        LineFamilyName.VERTICAL,
+    )
+    candidate_frames = _find_logical_line_frames(
+        active_intersections,
+        active_horizontal_lines,
+        active_vertical_lines,
+    )
+    best_frame = _select_best_frame(
+        candidate_frames,
+        intersections_by_key,
+    )
+    protected_line_keys = (
+        {id(logical_line) for logical_line in best_frame.lines}
+        if best_frame is not None
+        else set()
+    )
+    (
+        active_horizontal_lines,
+        active_vertical_lines,
+        active_intersections,
+    ) = _prune_lines_by_minimum_intersection_count(
+        active_horizontal_lines,
+        active_vertical_lines,
+        active_intersections,
+        minimum_intersection_count=10,
+        protected_line_keys=protected_line_keys,
+    )
+    public_intersections = _build_public_intersections(
+        active_horizontal_lines,
+        active_vertical_lines,
+        active_intersections,
+    )
+    _apply_frame_side(best_frame)
+    return LogicalLineIntersectionAnalysis(
+        frame=best_frame,
+        horizontal_lines=active_horizontal_lines,
+        vertical_lines=active_vertical_lines,
+        intersections=public_intersections,
+    )
+
+
+def find_logical_line_frames(
+    intersections: list[LogicalLineIntersection],
+    horizontal_logical_lines: list[LogicalLine],
+    vertical_logical_lines: list[LogicalLine],
+) -> list[LogicalLineFrame]:
+    return _find_logical_line_frames(
+        intersections,
+        horizontal_logical_lines,
+        vertical_logical_lines,
+    )
+
+
+def find_logical_line_intersections(
+    horizontal_logical_lines: list[LogicalLine],
+    vertical_logical_lines: list[LogicalLine],
+) -> list[LogicalLineIntersection]:
+    analysis = analyze_logical_line_intersections(
+        horizontal_logical_lines,
+        vertical_logical_lines,
+    )
+    return analysis.intersections
 
 
 __all__ = [
     "IntersectionOrder",
+    "LogicalLineIntersectionAnalysis",
     "LogicalLineIntersection",
     "LogicalLineBorderPair",
     "LogicalLineFrame",
     "LogicalLineIntersectionKind",
+    "analyze_logical_line_intersections",
     "find_logical_line_border_pairs",
     "find_logical_line_frames",
     "find_logical_line_intersection",
