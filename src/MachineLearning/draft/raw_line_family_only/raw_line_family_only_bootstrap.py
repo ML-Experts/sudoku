@@ -17,10 +17,22 @@ MODULE_RELOAD_ORDER = (
     "raw_line_family_only_logical_line_search",
     "raw_line_family_only_logical_line_merging",
     "raw_line_family_only_logical_line_connections",
+    "raw_line_family_only_intersection_models",
+    "raw_line_family_only_intersection_segment_geometry",
+    "raw_line_family_only_intersection_candidates",
+    "raw_line_family_only_intersection_ordering",
+    "raw_line_family_only_intersection_pruning",
+    "raw_line_family_only_intersection_frame",
+    "raw_line_family_only_intersection_analysis",
     "raw_line_family_only_intersections",
     "raw_line_family_only_logical_lines",
     "raw_line_family_only_detection",
     "raw_line_family_only_visualization",
+)
+
+
+MODULE_RELOAD_PREFIXES = (
+    "raw_line_family_only_intersection_",
 )
 
 
@@ -58,6 +70,12 @@ def _ensure_variant_dir_on_sys_path() -> Path:
 def load_raw_line_family_only_api() -> RawLineFamilyOnlyApi:
     _ensure_variant_dir_on_sys_path()
     importlib.invalidate_caches()
+    for module_name in list(sys.modules):
+        if any(
+            module_name.startswith(module_prefix)
+            for module_prefix in MODULE_RELOAD_PREFIXES
+        ):
+            sys.modules.pop(module_name, None)
     for module_name in reversed(MODULE_RELOAD_ORDER):
         sys.modules.pop(module_name, None)
 
