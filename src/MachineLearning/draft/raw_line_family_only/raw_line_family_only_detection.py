@@ -18,7 +18,11 @@ from raw_line_family_only_geometry import (
     signed_angle_offset_degrees,
 )
 from raw_line_family_only_intersections import (
+    LogicalLineBorderPair,
+    LogicalLineFrame,
     LogicalLineIntersection,
+    find_logical_line_border_pairs,
+    find_logical_line_frames,
     find_logical_line_intersections,
 )
 from raw_line_family_only_logical_lines import (
@@ -47,6 +51,8 @@ class RawLineFamilyResult:
     horizontal_tolerance_rectangles: list[ToleranceRectangle]
     vertical_tolerance_rectangles: list[ToleranceRectangle]
     logical_line_intersections: list[LogicalLineIntersection]
+    logical_line_border_pairs: list[LogicalLineBorderPair]
+    logical_line_frames: list[LogicalLineFrame]
 
 
 def _build_empty_line_family_result(
@@ -63,6 +69,8 @@ def _build_empty_line_family_result(
         horizontal_tolerance_rectangles=[],
         vertical_tolerance_rectangles=[],
         logical_line_intersections=[],
+        logical_line_border_pairs=[],
+        logical_line_frames=[],
     )
 
 
@@ -250,6 +258,8 @@ def detect_line_families(
             horizontal_tolerance_rectangles=[],
             vertical_tolerance_rectangles=[],
             logical_line_intersections=[],
+            logical_line_border_pairs=[],
+            logical_line_frames=[],
         )
 
     horizontal_segments = family_horizontal_segments
@@ -285,6 +295,14 @@ def detect_line_families(
         horizontal_logical_lines,
         vertical_logical_lines,
     )
+    logical_line_border_pairs = find_logical_line_border_pairs(
+        logical_line_intersections
+    )
+    logical_line_frames = find_logical_line_frames(
+        logical_line_intersections,
+        horizontal_logical_lines,
+        vertical_logical_lines,
+    )
 
     return RawLineFamilyResult(
         raw_segment_count=len(family_detection_segments),
@@ -298,6 +316,8 @@ def detect_line_families(
         horizontal_tolerance_rectangles=horizontal_tolerance_rectangles,
         vertical_tolerance_rectangles=vertical_tolerance_rectangles,
         logical_line_intersections=logical_line_intersections,
+        logical_line_border_pairs=logical_line_border_pairs,
+        logical_line_frames=logical_line_frames,
     )
 
 

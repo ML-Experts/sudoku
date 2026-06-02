@@ -42,8 +42,10 @@ class RawLineFamilyArtifacts:
     source_logical_line_overlay: np.ndarray
     binary_logical_line_intersection_overlay: np.ndarray
     source_logical_line_intersection_overlay: np.ndarray
-    binary_tolerance_rectangle_overlay: np.ndarray
-    source_tolerance_rectangle_overlay: np.ndarray
+    binary_frame_overlay: np.ndarray | None = None
+    source_frame_overlay: np.ndarray | None = None
+    binary_tolerance_rectangle_overlay: np.ndarray | None = None
+    source_tolerance_rectangle_overlay: np.ndarray | None = None
 
 
 def configure_manual_image_path(
@@ -164,6 +166,12 @@ def run_raw_line_family_pipeline(
         line_family_result,
         config,
     )
+    binary_frame_overlay, source_frame_overlay = notebook_api.build_frame_overlays(
+        display_bgr,
+        repaired_binary,
+        line_family_result,
+        config,
+    )
     binary_tolerance_rectangle_overlay, source_tolerance_rectangle_overlay = (
         notebook_api.build_tolerance_rectangle_overlays(
             display_bgr,
@@ -197,6 +205,8 @@ def run_raw_line_family_pipeline(
         source_logical_line_intersection_overlay=(
             source_logical_line_intersection_overlay
         ),
+        binary_frame_overlay=binary_frame_overlay,
+        source_frame_overlay=source_frame_overlay,
         binary_tolerance_rectangle_overlay=binary_tolerance_rectangle_overlay,
         source_tolerance_rectangle_overlay=source_tolerance_rectangle_overlay,
     )
@@ -247,6 +257,13 @@ def describe_raw_line_family_artifacts(
         for logical_line_intersection in line_family_result.logical_line_intersections
         if logical_line_intersection.kind == LogicalLineIntersectionKind.TOUCH
     )
+    logical_line_mutual_boundary_intersection_count = sum(
+        1
+        for logical_line_intersection in line_family_result.logical_line_intersections
+        if logical_line_intersection.is_mutual_boundary
+    )
+    logical_line_border_pair_count = len(line_family_result.logical_line_border_pairs)
+    logical_line_frame_count = len(line_family_result.logical_line_frames)
     sample_tolerance_rectangle = None
     if line_family_result.horizontal_tolerance_rectangles:
         sample_tolerance_rectangle = line_family_result.horizontal_tolerance_rectangles[0]
@@ -292,6 +309,12 @@ def describe_raw_line_family_artifacts(
             f"{logical_line_cross_intersection_count} / "
             f"{logical_line_touch_intersection_count}"
         ),
+        (
+            "Mutual boundary intersections / border pairs / frames: "
+            f"{logical_line_mutual_boundary_intersection_count} / "
+            f"{logical_line_border_pair_count} / "
+            f"{logical_line_frame_count}"
+        ),
         f"Tolerance rectangle geometry: {tolerance_rectangle_geometry}",
         (
             "Horizontal family angle: "
@@ -306,7 +329,7 @@ def describe_raw_line_family_artifacts(
 def build_raw_line_family_plot_items(
     artifacts: RawLineFamilyArtifacts,
 ) -> list[tuple[str, np.ndarray, bool]]:
-    return [
+    plot_items: list[tuple[str, np.ndarray, bool]] = [
         ("source", artifacts.display_bgr, True),
         ("gray", artifacts.gray_image, False),
         (
@@ -351,17 +374,28 @@ def build_raw_line_family_plot_items(
             artifacts.source_logical_line_intersection_overlay,
             True,
         ),
-        (
-            "tolerance rectangles on repair binary",
-            artifacts.binary_tolerance_rectangle_overlay,
-            True,
-        ),
-        (
-            "tolerance rectangles on source",
-            artifacts.source_tolerance_rectangle_overlay,
-            True,
-        ),
     ]
+    if artifacts.binary_frame_overlay is not None:
+        plot_items.append(("frames on repair binary", artifacts.binary_frame_overlay, True))
+    if artifacts.source_frame_overlay is not None:
+        plot_items.append(("frames on source", artifacts.source_frame_overlay, True))
+    if artifacts.binary_tolerance_rectangle_overlay is not None:
+        plot_items.append(
+            (
+                "tolerance rectangles on repair binary",
+                artifacts.binary_tolerance_rectangle_overlay,
+                True,
+            )
+        )
+    if artifacts.source_tolerance_rectangle_overlay is not None:
+        plot_items.append(
+            (
+                "tolerance rectangles on source",
+                artifacts.source_tolerance_rectangle_overlay,
+                True,
+            )
+        )
+    return plot_items
 
 
 __all__ = [

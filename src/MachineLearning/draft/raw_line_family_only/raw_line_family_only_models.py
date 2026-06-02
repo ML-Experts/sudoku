@@ -42,6 +42,15 @@ class ExperimentConfig:
     logical_line_intersection_radius: int = 7
     logical_line_intersection_cross_color_bgr: tuple[int, int, int] = (0, 255, 0)
     logical_line_intersection_touch_color_bgr: tuple[int, int, int] = (255, 0, 0)
+    logical_line_intersection_boundary_color_bgr: tuple[int, int, int] = (
+        0,
+        165,
+        255,
+    )
+    frame_top_color_bgr: tuple[int, int, int] = (255, 128, 0)
+    frame_bottom_color_bgr: tuple[int, int, int] = (0, 128, 255)
+    frame_left_color_bgr: tuple[int, int, int] = (255, 0, 255)
+    frame_right_color_bgr: tuple[int, int, int] = (0, 255, 128)
 
 
 class LineFamilyName(Enum):

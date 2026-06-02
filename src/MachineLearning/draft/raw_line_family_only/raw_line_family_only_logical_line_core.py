@@ -30,9 +30,18 @@ class LogicalLineVertexKind(Enum):
     END = "end"
 
 
+class FrameSide(Enum):
+    NONE = "none"
+    TOP = "top"
+    BOTTOM = "bottom"
+    LEFT = "left"
+    RIGHT = "right"
+
+
 @dataclass(slots=True)
 class LogicalLine:
     family_name: LineFamilyName
+    frame_side: FrameSide = FrameSide.NONE
     line_segments: list[LineSegment] = field(
         init=False,
         default_factory=list,
@@ -244,6 +253,7 @@ class LogicalLine:
 
 
 __all__ = [
+    "FrameSide",
     "LogicalLine",
     "LogicalLineVertexKind",
     "segment_sort_key",
