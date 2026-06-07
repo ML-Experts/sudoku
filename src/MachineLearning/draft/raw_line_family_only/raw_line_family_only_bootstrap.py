@@ -40,6 +40,7 @@ MODULE_RELOAD_ORDER = (
 MODULE_RELOAD_PREFIXES = (
     "raw_line_family_only_intersection_",
     "raw_line_family_only_logical_line_connection_",
+    "raw_line_family_only_visualization_",
 )
 
 
