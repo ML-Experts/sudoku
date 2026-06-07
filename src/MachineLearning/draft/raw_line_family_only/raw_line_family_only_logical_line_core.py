@@ -209,6 +209,30 @@ class LogicalLine:
             padding=padding,
         )
 
+    @property
+    def longest_segment(self) -> LineSegment | None:
+        if not self.line_segments:
+            return None
+        return max(self.line_segments, key=lambda current_segment: current_segment.length)
+
+    def collect_long_segments(
+        self,
+        minimum_length_ratio: float = 0.8,
+    ) -> list[LineSegment]:
+        if minimum_length_ratio <= 0.0 or minimum_length_ratio > 1.0:
+            raise ValueError("minimum_length_ratio must be in the range (0.0, 1.0].")
+
+        longest_segment = self.longest_segment
+        if longest_segment is None:
+            return []
+
+        minimum_length = longest_segment.length * minimum_length_ratio
+        return [
+            current_segment
+            for current_segment in self.line_segments
+            if current_segment.length >= minimum_length
+        ]
+
     def _refresh_boundary_segments(self) -> None:
         if not self.line_segments:
             self.start_segment = None

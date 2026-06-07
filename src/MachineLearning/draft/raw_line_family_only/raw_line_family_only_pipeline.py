@@ -8,6 +8,7 @@ import cv2
 import numpy as np
 
 from raw_line_family_only_detection import RawLineFamilyResult
+from raw_line_family_only_logical_line_core import LogicalLine
 from raw_line_family_only_intersections import LogicalLineIntersectionKind
 from raw_line_family_only_models import SegmentOrigin
 
@@ -42,6 +43,9 @@ class RawLineFamilyArtifacts:
     source_logical_line_overlay: np.ndarray
     binary_logical_line_intersection_overlay: np.ndarray
     source_logical_line_intersection_overlay: np.ndarray
+    binary_long_segment_candidate_overlay: np.ndarray | None = None
+    source_long_segment_candidate_overlay: np.ndarray | None = None
+    long_segment_candidate_board: np.ndarray | None = None
     binary_frame_overlay: np.ndarray | None = None
     source_frame_overlay: np.ndarray | None = None
     binary_tolerance_rectangle_overlay: np.ndarray | None = None
@@ -93,6 +97,46 @@ def resolve_active_image_selection(
         active_image_path=active_image_path,
         preview_lines=tuple(preview_lines),
     )
+
+
+def _describe_long_segment_candidates(
+    line_prefix: str,
+    logical_lines: list[LogicalLine],
+    minimum_length_ratio: float = 0.8,
+) -> list[str]:
+    description_lines: list[str] = []
+    for line_index, logical_line in enumerate(logical_lines):
+        longest_segment = logical_line.longest_segment
+        if longest_segment is None:
+            description_lines.append(f"{line_prefix}[{line_index:02d}] has no segments.")
+            continue
+
+        minimum_length = longest_segment.length * minimum_length_ratio
+        candidate_segments = logical_line.collect_long_segments(
+            minimum_length_ratio=minimum_length_ratio,
+        )
+        description_lines.append(
+            (
+                f"{line_prefix}[{line_index:02d}] "
+                f"frameSide={logical_line.frame_side.value} "
+                f"segmentCount={len(logical_line.line_segments)} "
+                f"maxLength={longest_segment.length:.2f} "
+                f"threshold={minimum_length:.2f} "
+                f"selected={len(candidate_segments)}"
+            )
+        )
+        for segment_index, line_segment in enumerate(candidate_segments):
+            description_lines.append(
+                (
+                    f"  - candidate[{segment_index:02d}] "
+                    f"length={line_segment.length:.2f} "
+                    f"origin={line_segment.origin.value} "
+                    f"start={line_segment.start} "
+                    f"end={line_segment.end}"
+                )
+            )
+
+    return description_lines
 
 
 def run_raw_line_family_pipeline(
@@ -158,6 +202,20 @@ def run_raw_line_family_pipeline(
         )
     )
     (
+        binary_long_segment_candidate_overlay,
+        source_long_segment_candidate_overlay,
+    ) = notebook_api.build_long_segment_candidate_overlays(
+        display_bgr,
+        repaired_binary,
+        line_family_result,
+        config,
+    )
+    long_segment_candidate_board = notebook_api.build_long_segment_candidate_board(
+        display_bgr,
+        line_family_result,
+        config,
+    )
+    (
         binary_logical_line_intersection_overlay,
         source_logical_line_intersection_overlay,
     ) = notebook_api.build_logical_line_intersection_overlays(
@@ -199,6 +257,9 @@ def run_raw_line_family_pipeline(
         source_family_overlay=source_family_overlay,
         binary_logical_line_overlay=binary_logical_line_overlay,
         source_logical_line_overlay=source_logical_line_overlay,
+        binary_long_segment_candidate_overlay=binary_long_segment_candidate_overlay,
+        source_long_segment_candidate_overlay=source_long_segment_candidate_overlay,
+        long_segment_candidate_board=long_segment_candidate_board,
         binary_logical_line_intersection_overlay=(
             binary_logical_line_intersection_overlay
         ),
@@ -277,6 +338,19 @@ def describe_raw_line_family_artifacts(
             f"padding={sample_tolerance_rectangle.padding}"
         )
 
+    longest_segment_description_lines = [
+        "",
+        "Longest segment candidates per logical line (>= 80% of max length):",
+        *_describe_long_segment_candidates(
+            "H",
+            line_family_result.horizontal_logical_lines,
+        ),
+        *_describe_long_segment_candidates(
+            "V",
+            line_family_result.vertical_logical_lines,
+        ),
+    ]
+
     return [
         f"Original shape: {artifacts.source_bgr.shape}",
         f"Display shape:  {artifacts.display_bgr.shape}",
@@ -323,6 +397,7 @@ def describe_raw_line_family_artifacts(
         f"Vertical family angle: {line_family_result.vertical_angle_degrees}",
         "",
         "This pipeline now builds logical lines and pixel-validated connections.",
+        *longest_segment_description_lines,
     ]
 
 
@@ -364,6 +439,33 @@ def build_raw_line_family_plot_items(
             True,
         ),
         ("logical lines on source", artifacts.source_logical_line_overlay, True),
+    ]
+    if artifacts.binary_long_segment_candidate_overlay is not None:
+        plot_items.append(
+            (
+                "long segment candidates on repair binary",
+                artifacts.binary_long_segment_candidate_overlay,
+                True,
+            )
+        )
+    if artifacts.source_long_segment_candidate_overlay is not None:
+        plot_items.append(
+            (
+                "long segment candidates on source",
+                artifacts.source_long_segment_candidate_overlay,
+                True,
+            )
+        )
+    if artifacts.long_segment_candidate_board is not None:
+        plot_items.append(
+            (
+                "logical lines board: blue=all, red=longest",
+                artifacts.long_segment_candidate_board,
+                True,
+            )
+        )
+    plot_items.extend(
+        [
         (
             "logical line intersections on repair binary",
             artifacts.binary_logical_line_intersection_overlay,
@@ -374,7 +476,8 @@ def build_raw_line_family_plot_items(
             artifacts.source_logical_line_intersection_overlay,
             True,
         ),
-    ]
+        ]
+    )
     if artifacts.binary_frame_overlay is not None:
         plot_items.append(("frames on repair binary", artifacts.binary_frame_overlay, True))
     if artifacts.source_frame_overlay is not None:
