@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import TYPE_CHECKING
 
@@ -65,6 +65,75 @@ def _point_axis_value(
     if family_name == LineFamilyName.VERTICAL:
         return point[1]
     raise NotImplementedError("Point axis value is available only for classified lines.")
+
+
+def _supporting_line_intersection_point(
+    first_segment: LineSegment,
+    second_segment: LineSegment,
+) -> tuple[float, float] | None:
+    x1, y1 = first_segment.start
+    x2, y2 = first_segment.end
+    x3, y3 = second_segment.start
+    x4, y4 = second_segment.end
+    denominator = (
+        (x1 - x2) * (y3 - y4)
+        - (y1 - y2) * (x3 - x4)
+    )
+    if abs(float(denominator)) <= 1e-6:
+        return None
+
+    determinant_first = x1 * y2 - y1 * x2
+    determinant_second = x3 * y4 - y3 * x4
+    intersection_x = (
+        determinant_first * (x3 - x4)
+        - (x1 - x2) * determinant_second
+    ) / float(denominator)
+    intersection_y = (
+        determinant_first * (y3 - y4)
+        - (y1 - y2) * determinant_second
+    ) / float(denominator)
+    return float(intersection_x), float(intersection_y)
+
+
+def _point_on_segment_axis(
+    line_segment: LineSegment,
+    axis_value: int,
+) -> tuple[int, int]:
+    if line_segment.family_name == LineFamilyName.HORIZONTAL:
+        axis_start = line_segment.start[0]
+        axis_end = line_segment.end[0]
+        if axis_end == axis_start:
+            return line_segment.start
+        ratio = (axis_value - axis_start) / float(axis_end - axis_start)
+        return (
+            int(axis_value),
+            int(
+                round(
+                    line_segment.start[1]
+                    + (line_segment.end[1] - line_segment.start[1]) * ratio
+                )
+            ),
+        )
+
+    if line_segment.family_name == LineFamilyName.VERTICAL:
+        axis_start = line_segment.start[1]
+        axis_end = line_segment.end[1]
+        if axis_end == axis_start:
+            return line_segment.start
+        ratio = (axis_value - axis_start) / float(axis_end - axis_start)
+        return (
+            int(
+                round(
+                    line_segment.start[0]
+                    + (line_segment.end[0] - line_segment.start[0]) * ratio
+                )
+            ),
+            int(axis_value),
+        )
+
+    raise NotImplementedError(
+        "Point interpolation is available only for classified segments."
+    )
 
 
 class LogicalLineVertexKind(Enum):
@@ -271,7 +340,6 @@ class LogicalLine:
             self.raw_segment_group_results = []
             return
 
-        grouped_segments: list[LineSegment] = []
         raw_segment_group_results: list[RawSegmentGroupResult] = []
         remaining_segments = raw_segments
 
@@ -286,7 +354,6 @@ class LogicalLine:
                 angle_tolerance_degrees=angle_tolerance_degrees,
                 black_gap_tolerance_px=black_gap_tolerance_px,
             )
-            grouped_segments.append(raw_segment_group_result.output_segment)
             raw_segment_group_results.append(raw_segment_group_result)
             remaining_segments = sorted(
                 [
@@ -296,8 +363,16 @@ class LogicalLine:
                 key=segment_sort_key,
             )
 
+        raw_segment_group_results = self._repair_adjacent_raw_group_boundaries(
+            raw_segment_group_results
+        )
         self.raw_segment_group_results = raw_segment_group_results
-        self.replace_segments(grouped_segments)
+        self.replace_segments(
+            [
+                group_result.output_segment
+                for group_result in raw_segment_group_results
+            ]
+        )
 
     def get_vertex(
         self,
@@ -510,6 +585,159 @@ class LogicalLine:
                 return black_gap_start
 
         return None
+
+    def _repair_adjacent_raw_group_boundaries(
+        self,
+        raw_segment_group_results: list[RawSegmentGroupResult],
+    ) -> list[RawSegmentGroupResult]:
+        if len(raw_segment_group_results) < 2:
+            return raw_segment_group_results
+
+        repaired_group_results = list(raw_segment_group_results)
+        for group_index in range(len(repaired_group_results) - 1):
+            repaired_pair = self._repair_raw_group_pair(
+                repaired_group_results[group_index],
+                repaired_group_results[group_index + 1],
+            )
+            if repaired_pair is None:
+                continue
+            repaired_group_results[group_index] = repaired_pair[0]
+            repaired_group_results[group_index + 1] = repaired_pair[1]
+
+        return repaired_group_results
+
+    def _repair_raw_group_pair(
+        self,
+        first_group_result: RawSegmentGroupResult,
+        second_group_result: RawSegmentGroupResult,
+    ) -> tuple[RawSegmentGroupResult, RawSegmentGroupResult] | None:
+        first_segment = first_group_result.output_segment
+        second_segment = second_group_result.output_segment
+        if first_segment.axis_start > second_segment.axis_start:
+            first_group_result, second_group_result = (
+                second_group_result,
+                first_group_result,
+            )
+            first_segment, second_segment = second_segment, first_segment
+
+        if first_segment.axis_end < second_segment.axis_start:
+            return None
+
+        overlap_axis_start = max(first_segment.axis_start, second_segment.axis_start)
+        overlap_axis_end = min(first_segment.axis_end, second_segment.axis_end)
+        if overlap_axis_start > overlap_axis_end:
+            return None
+
+        preferred_axis_value = float(overlap_axis_start + overlap_axis_end) / 2.0
+        intersection_point = _supporting_line_intersection_point(
+            first_segment,
+            second_segment,
+        )
+        if intersection_point is not None:
+            intersection_axis_value = (
+                intersection_point[0]
+                if self.family_name == LineFamilyName.HORIZONTAL
+                else intersection_point[1]
+            )
+            if overlap_axis_start - 1.0 <= intersection_axis_value <= overlap_axis_end + 1.0:
+                preferred_axis_value = intersection_axis_value
+
+        candidate_pairs: list[
+            tuple[LineSegment, LineSegment, tuple[float, float, float], int]
+        ] = []
+        for boundary_axis in range(overlap_axis_start - 1, overlap_axis_end + 1):
+            candidate_pair = self._build_repaired_group_pair(
+                first_segment=first_segment,
+                second_segment=second_segment,
+                first_end_axis=boundary_axis,
+                second_start_axis=boundary_axis + 1,
+            )
+            if candidate_pair is None:
+                continue
+            repaired_first_segment, repaired_second_segment = candidate_pair
+            score = (
+                abs(repaired_first_segment.length - repaired_second_segment.length),
+                abs(float(boundary_axis) - preferred_axis_value),
+                abs(repaired_first_segment.axis_end - first_segment.axis_end)
+                + abs(repaired_second_segment.axis_start - second_segment.axis_start),
+            )
+            candidate_pairs.append(
+                (
+                    repaired_first_segment,
+                    repaired_second_segment,
+                    score,
+                    boundary_axis,
+                )
+            )
+
+        if not candidate_pairs:
+            return None
+
+        repaired_first_segment, repaired_second_segment, _, _ = min(
+            candidate_pairs,
+            key=lambda candidate: (
+                candidate[2][0],
+                candidate[2][1],
+            ),
+        )
+        return (
+            replace(first_group_result, output_segment=repaired_first_segment),
+            replace(second_group_result, output_segment=repaired_second_segment),
+        )
+
+    def _build_repaired_group_pair(
+        self,
+        first_segment: LineSegment,
+        second_segment: LineSegment,
+        first_end_axis: int,
+        second_start_axis: int,
+    ) -> tuple[LineSegment, LineSegment] | None:
+        repaired_first_segment = self._rebuild_segment_axis_range(
+            first_segment,
+            axis_end=first_end_axis,
+        )
+        repaired_second_segment = self._rebuild_segment_axis_range(
+            second_segment,
+            axis_start=second_start_axis,
+        )
+        if repaired_first_segment is None or repaired_second_segment is None:
+            return None
+        if repaired_first_segment.axis_end + 1 != repaired_second_segment.axis_start:
+            return None
+        return repaired_first_segment, repaired_second_segment
+
+    def _rebuild_segment_axis_range(
+        self,
+        line_segment: LineSegment,
+        axis_start: int | None = None,
+        axis_end: int | None = None,
+    ) -> LineSegment | None:
+        updated_axis_start = (
+            line_segment.axis_start if axis_start is None else int(axis_start)
+        )
+        updated_axis_end = line_segment.axis_end if axis_end is None else int(axis_end)
+        if updated_axis_start >= updated_axis_end:
+            return None
+
+        updated_start = (
+            line_segment.start
+            if axis_start is None
+            else _point_on_segment_axis(line_segment, updated_axis_start)
+        )
+        updated_end = (
+            line_segment.end
+            if axis_end is None
+            else _point_on_segment_axis(line_segment, updated_axis_end)
+        )
+        repaired_segment = build_line_segment_from_points(
+            start=updated_start,
+            end=updated_end,
+            family_name=line_segment.family_name,
+            origin=line_segment.origin,
+        )
+        if repaired_segment.length <= 0.0:
+            return None
+        return repaired_segment
 
     def _refresh_boundary_segments(self) -> None:
         if not self.line_segments:

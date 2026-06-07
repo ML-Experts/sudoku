@@ -1,0 +1,1829 @@
+Repair time: 0.008s
+Detect + logical lines + pixel connection time with Hough only on cleanup and pixels on repair: 6.879s
+Pixel render binary: repair binary used for pixel connection
+
+Original shape: (1280, 960, 3)
+Display shape:  (1280, 960, 3)
+Denoise: median_5
+Threshold: gaussian_block11_c2
+Cleanup: adaptive_plus_components_soft
+Repair: directional_close
+Connected components min area px: 74
+Raw Hough segments: 212
+Orientation offset degrees: -0.6408348353691053
+Horizontal family segments: 96
+Vertical family segments: 115
+Horizontal final logical lines after intersections/frame: 2
+Vertical final logical lines after intersections/frame: 2
+Horizontal same-axis connection segments: 0
+Vertical same-axis connection segments: 0
+Horizontal cross-axis connection segments: 0
+Vertical cross-axis connection segments: 0
+Horizontal tolerance rectangles: 4
+Vertical tolerance rectangles: 4
+Logical line intersections: 4
+Logical line crosses / touches: 0 / 0
+Mutual boundary intersections / border pairs / frames: 4 / 4 / 1
+Tolerance rectangle geometry: length=350, padding=18
+Horizontal family angle: 179.3591651646309
+Vertical family angle: 88.66974562430416
+
+This pipeline now builds logical lines and pixel-validated connections.
+
+RAW segment grouping before pixel merge:
+H1 rawSegmentsBefore=7 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - H1 G1 segmentCount=7 used=7 deferred=0 status=merged
+    seedSegment=origin=raw start=(96, 935) end=(424, 929) axis=(96..424) angle=178.95
+    trialSegment=origin=raw start=(96, 935) end=(891, 916) axis=(96..891) angle=178.63
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(399, 924) end=(891, 916) axis=(399..891) angle=179.07
+    outputSegment=origin=raw start=(96, 935) end=(891, 916) axis=(96..891) angle=178.63
+    consumedSegments:
+      - [00] origin=raw start=(96, 935) end=(424, 929) axis=(96..424) angle=178.95
+      - [01] origin=raw start=(96, 933) end=(890, 919) axis=(96..890) angle=178.99
+      - [02] origin=raw start=(138, 935) end=(278, 933) axis=(138..278) angle=179.18
+      - [03] origin=raw start=(249, 928) end=(891, 917) axis=(249..891) angle=179.02
+      - [04] origin=raw start=(331, 927) end=(743, 920) axis=(331..743) angle=179.03
+      - [05] origin=raw start=(397, 928) end=(839, 921) axis=(397..839) angle=179.09
+      - [06] origin=raw start=(399, 924) end=(891, 916) axis=(399..891) angle=179.07
+    usedSegments:
+      - [00] origin=raw start=(96, 935) end=(424, 929) axis=(96..424) angle=178.95
+      - [01] origin=raw start=(96, 933) end=(890, 919) axis=(96..890) angle=178.99
+      - [02] origin=raw start=(138, 935) end=(278, 933) axis=(138..278) angle=179.18
+      - [03] origin=raw start=(249, 928) end=(891, 917) axis=(249..891) angle=179.02
+      - [04] origin=raw start=(331, 927) end=(743, 920) axis=(331..743) angle=179.03
+      - [05] origin=raw start=(397, 928) end=(839, 921) axis=(397..839) angle=179.09
+      - [06] origin=raw start=(399, 924) end=(891, 916) axis=(399..891) angle=179.07
+    deferredSegments:
+      - none
+H2 rawSegmentsBefore=7 rawGroupsBuilt=2 rawSegmentsAfter=2
+  - H2 G1 segmentCount=4 used=1 deferred=3 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(97, 846) end=(255, 843) axis=(97..255) angle=178.91
+    trialSegment=origin=raw start=(97, 846) end=(886, 828) axis=(97..886) angle=178.69
+    firstInvalidBlackGapAt=(287, 842)
+    acceptedBoundarySegment=origin=raw start=(97, 846) end=(255, 843) axis=(97..255) angle=178.91
+    outputSegment=origin=raw start=(97, 846) end=(255, 843) axis=(97..255) angle=178.91
+    consumedSegments:
+      - [00] origin=raw start=(97, 846) end=(255, 843) axis=(97..255) angle=178.91
+      - [01] origin=raw start=(170, 842) end=(886, 830) axis=(170..886) angle=179.04
+      - [02] origin=raw start=(183, 843) end=(366, 840) axis=(183..366) angle=179.06
+      - [03] origin=raw start=(312, 838) end=(886, 828) axis=(312..886) angle=179.00
+    usedSegments:
+      - [00] origin=raw start=(97, 846) end=(255, 843) axis=(97..255) angle=178.91
+    deferredSegments:
+      - [00] origin=raw start=(170, 842) end=(886, 830) axis=(170..886) angle=179.04
+      - [01] origin=raw start=(183, 843) end=(366, 840) axis=(183..366) angle=179.06
+      - [02] origin=raw start=(312, 838) end=(886, 828) axis=(312..886) angle=179.00
+  - H2 G2 segmentCount=3 used=3 deferred=0 status=merged
+    seedSegment=origin=raw start=(170, 842) end=(886, 830) axis=(170..886) angle=179.04
+    trialSegment=origin=raw start=(170, 842) end=(886, 828) axis=(170..886) angle=178.88
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(312, 838) end=(886, 828) axis=(312..886) angle=179.00
+    outputSegment=origin=raw start=(256, 840) end=(886, 828) axis=(256..886) angle=178.91
+    consumedSegments:
+      - [00] origin=raw start=(170, 842) end=(886, 830) axis=(170..886) angle=179.04
+      - [01] origin=raw start=(183, 843) end=(366, 840) axis=(183..366) angle=179.06
+      - [02] origin=raw start=(312, 838) end=(886, 828) axis=(312..886) angle=179.00
+    usedSegments:
+      - [00] origin=raw start=(170, 842) end=(886, 830) axis=(170..886) angle=179.04
+      - [01] origin=raw start=(183, 843) end=(366, 840) axis=(183..366) angle=179.06
+      - [02] origin=raw start=(312, 838) end=(886, 828) axis=(312..886) angle=179.00
+    deferredSegments:
+      - none
+H3 rawSegmentsBefore=1 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - H3 G1 segmentCount=1 used=1 deferred=0 status=single_segment
+    seedSegment=origin=raw start=(99, 1266) end=(180, 1266) axis=(99..180) angle=0.00
+    trialSegment=origin=raw start=(99, 1266) end=(180, 1266) axis=(99..180) angle=0.00
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(99, 1266) end=(180, 1266) axis=(99..180) angle=0.00
+    outputSegment=origin=raw start=(99, 1266) end=(180, 1266) axis=(99..180) angle=0.00
+    consumedSegments:
+      - [00] origin=raw start=(99, 1266) end=(180, 1266) axis=(99..180) angle=0.00
+    usedSegments:
+      - [00] origin=raw start=(99, 1266) end=(180, 1266) axis=(99..180) angle=0.00
+    deferredSegments:
+      - none
+H4 rawSegmentsBefore=2 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - H4 G1 segmentCount=2 used=2 deferred=0 status=merged
+    seedSegment=origin=raw start=(100, 1278) end=(200, 1273) axis=(100..200) angle=177.14
+    trialSegment=origin=raw start=(100, 1278) end=(205, 1275) axis=(100..205) angle=178.36
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(117, 1279) end=(205, 1275) axis=(117..205) angle=177.40
+    outputSegment=origin=raw start=(100, 1278) end=(205, 1275) axis=(100..205) angle=178.36
+    consumedSegments:
+      - [00] origin=raw start=(100, 1278) end=(200, 1273) axis=(100..200) angle=177.14
+      - [01] origin=raw start=(117, 1279) end=(205, 1275) axis=(117..205) angle=177.40
+    usedSegments:
+      - [00] origin=raw start=(100, 1278) end=(200, 1273) axis=(100..200) angle=177.14
+      - [01] origin=raw start=(117, 1279) end=(205, 1275) axis=(117..205) angle=177.40
+    deferredSegments:
+      - none
+H5 rawSegmentsBefore=4 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - H5 G1 segmentCount=4 used=4 deferred=0 status=merged
+    seedSegment=origin=raw start=(100, 758) end=(290, 755) axis=(100..290) angle=179.10
+    trialSegment=origin=raw start=(100, 758) end=(878, 742) axis=(100..878) angle=178.82
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(234, 753) end=(878, 742) axis=(234..878) angle=179.02
+    outputSegment=origin=raw start=(100, 758) end=(878, 742) axis=(100..878) angle=178.82
+    consumedSegments:
+      - [00] origin=raw start=(100, 758) end=(290, 755) axis=(100..290) angle=179.10
+      - [01] origin=raw start=(100, 757) end=(628, 748) axis=(100..628) angle=179.02
+      - [02] origin=raw start=(234, 753) end=(878, 742) axis=(234..878) angle=179.02
+      - [03] origin=raw start=(511, 747) end=(843, 742) axis=(511..843) angle=179.14
+    usedSegments:
+      - [00] origin=raw start=(100, 758) end=(290, 755) axis=(100..290) angle=179.10
+      - [01] origin=raw start=(100, 757) end=(628, 748) axis=(100..628) angle=179.02
+      - [02] origin=raw start=(234, 753) end=(878, 742) axis=(234..878) angle=179.02
+      - [03] origin=raw start=(511, 747) end=(843, 742) axis=(511..843) angle=179.14
+    deferredSegments:
+      - none
+H6 rawSegmentsBefore=4 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - H6 G1 segmentCount=4 used=4 deferred=0 status=merged
+    seedSegment=origin=raw start=(103, 357) end=(622, 357) axis=(103..622) angle=0.00
+    trialSegment=origin=raw start=(103, 357) end=(845, 354) axis=(103..845) angle=179.77
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(599, 354) end=(845, 354) axis=(599..845) angle=0.00
+    outputSegment=origin=raw start=(103, 357) end=(845, 354) axis=(103..845) angle=179.77
+    consumedSegments:
+      - [00] origin=raw start=(103, 357) end=(622, 357) axis=(103..622) angle=0.00
+      - [01] origin=raw start=(103, 355) end=(845, 355) axis=(103..845) angle=0.00
+      - [02] origin=raw start=(103, 356) end=(845, 356) axis=(103..845) angle=0.00
+      - [03] origin=raw start=(599, 354) end=(845, 354) axis=(599..845) angle=0.00
+    usedSegments:
+      - [00] origin=raw start=(103, 357) end=(622, 357) axis=(103..622) angle=0.00
+      - [01] origin=raw start=(103, 355) end=(845, 355) axis=(103..845) angle=0.00
+      - [02] origin=raw start=(103, 356) end=(845, 356) axis=(103..845) angle=0.00
+      - [03] origin=raw start=(599, 354) end=(845, 354) axis=(599..845) angle=0.00
+    deferredSegments:
+      - none
+H7 rawSegmentsBefore=8 rawGroupsBuilt=2 rawSegmentsAfter=2
+  - H7 G1 segmentCount=5 used=2 deferred=3 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(104, 274) end=(198, 273) axis=(104..198) angle=179.39
+    trialSegment=origin=raw start=(104, 274) end=(841, 275) axis=(104..841) angle=0.08
+    firstInvalidBlackGapAt=(387, 274)
+    acceptedBoundarySegment=origin=raw start=(142, 274) end=(386, 274) axis=(142..386) angle=0.00
+    outputSegment=origin=raw start=(104, 274) end=(386, 274) axis=(104..386) angle=0.00
+    consumedSegments:
+      - [00] origin=raw start=(104, 274) end=(198, 273) axis=(104..198) angle=179.39
+      - [01] origin=raw start=(104, 275) end=(841, 275) axis=(104..841) angle=0.00
+      - [02] origin=raw start=(104, 276) end=(841, 276) axis=(104..841) angle=0.00
+      - [03] origin=raw start=(142, 274) end=(386, 274) axis=(142..386) angle=0.00
+      - [04] origin=raw start=(703, 274) end=(797, 274) axis=(703..797) angle=0.00
+    usedSegments:
+      - [00] origin=raw start=(104, 274) end=(198, 273) axis=(104..198) angle=179.39
+      - [01] origin=raw start=(142, 274) end=(386, 274) axis=(142..386) angle=0.00
+    deferredSegments:
+      - [00] origin=raw start=(104, 275) end=(841, 275) axis=(104..841) angle=0.00
+      - [01] origin=raw start=(104, 276) end=(841, 276) axis=(104..841) angle=0.00
+      - [02] origin=raw start=(703, 274) end=(797, 274) axis=(703..797) angle=0.00
+  - H7 G2 segmentCount=3 used=3 deferred=0 status=merged
+    seedSegment=origin=raw start=(104, 275) end=(841, 275) axis=(104..841) angle=0.00
+    trialSegment=origin=raw start=(104, 275) end=(841, 275) axis=(104..841) angle=0.00
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(104, 275) end=(841, 275) axis=(104..841) angle=0.00
+    outputSegment=origin=raw start=(387, 275) end=(841, 275) axis=(387..841) angle=0.00
+    consumedSegments:
+      - [00] origin=raw start=(104, 275) end=(841, 275) axis=(104..841) angle=0.00
+      - [01] origin=raw start=(104, 276) end=(841, 276) axis=(104..841) angle=0.00
+      - [02] origin=raw start=(703, 274) end=(797, 274) axis=(703..797) angle=0.00
+    usedSegments:
+      - [00] origin=raw start=(104, 275) end=(841, 275) axis=(104..841) angle=0.00
+      - [01] origin=raw start=(104, 276) end=(841, 276) axis=(104..841) angle=0.00
+      - [02] origin=raw start=(703, 274) end=(797, 274) axis=(703..797) angle=0.00
+    deferredSegments:
+      - none
+H8 rawSegmentsBefore=8 rawGroupsBuilt=2 rawSegmentsAfter=2
+  - H8 G1 segmentCount=5 used=2 deferred=3 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(106, 199) end=(836, 199) axis=(106..836) angle=0.00
+    trialSegment=origin=raw start=(106, 199) end=(837, 201) axis=(106..837) angle=0.16
+    firstInvalidBlackGapAt=(655, 201)
+    acceptedBoundarySegment=origin=raw start=(352, 201) end=(478, 201) axis=(352..478) angle=0.00
+    outputSegment=origin=raw start=(106, 199) end=(471, 201) axis=(106..471) angle=0.31
+    consumedSegments:
+      - [00] origin=raw start=(106, 199) end=(836, 199) axis=(106..836) angle=0.00
+      - [01] origin=raw start=(106, 200) end=(837, 200) axis=(106..837) angle=0.00
+      - [02] origin=raw start=(107, 198) end=(835, 198) axis=(107..835) angle=0.00
+      - [03] origin=raw start=(352, 201) end=(478, 201) axis=(352..478) angle=0.00
+      - [04] origin=raw start=(705, 201) end=(837, 201) axis=(705..837) angle=0.00
+    usedSegments:
+      - [00] origin=raw start=(106, 199) end=(836, 199) axis=(106..836) angle=0.00
+      - [01] origin=raw start=(352, 201) end=(478, 201) axis=(352..478) angle=0.00
+    deferredSegments:
+      - [00] origin=raw start=(106, 200) end=(837, 200) axis=(106..837) angle=0.00
+      - [01] origin=raw start=(107, 198) end=(835, 198) axis=(107..835) angle=0.00
+      - [02] origin=raw start=(705, 201) end=(837, 201) axis=(705..837) angle=0.00
+  - H8 G2 segmentCount=3 used=3 deferred=0 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(106, 200) end=(837, 200) axis=(106..837) angle=0.00
+    trialSegment=origin=raw start=(106, 200) end=(837, 201) axis=(106..837) angle=0.08
+    firstInvalidBlackGapAt=(537, 201)
+    acceptedBoundarySegment=origin=raw start=(106, 200) end=(837, 200) axis=(106..837) angle=0.00
+    outputSegment=origin=raw start=(472, 200) end=(837, 200) axis=(472..837) angle=0.00
+    consumedSegments:
+      - [00] origin=raw start=(106, 200) end=(837, 200) axis=(106..837) angle=0.00
+      - [01] origin=raw start=(107, 198) end=(835, 198) axis=(107..835) angle=0.00
+      - [02] origin=raw start=(705, 201) end=(837, 201) axis=(705..837) angle=0.00
+    usedSegments:
+      - [00] origin=raw start=(106, 200) end=(837, 200) axis=(106..837) angle=0.00
+      - [01] origin=raw start=(107, 198) end=(835, 198) axis=(107..835) angle=0.00
+      - [02] origin=raw start=(705, 201) end=(837, 201) axis=(705..837) angle=0.00
+    deferredSegments:
+      - none
+H9 rawSegmentsBefore=8 rawGroupsBuilt=2 rawSegmentsAfter=2
+  - H9 G1 segmentCount=5 used=2 deferred=3 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(106, 673) end=(675, 664) axis=(106..675) angle=179.09
+    trialSegment=origin=raw start=(106, 673) end=(865, 661) axis=(106..865) angle=179.09
+    firstInvalidBlackGapAt=(707, 663)
+    acceptedBoundarySegment=origin=raw start=(106, 673) end=(675, 664) axis=(106..675) angle=179.09
+    outputSegment=origin=raw start=(106, 673) end=(485, 667) axis=(106..485) angle=179.09
+    consumedSegments:
+      - [00] origin=raw start=(106, 673) end=(675, 664) axis=(106..675) angle=179.09
+      - [01] origin=raw start=(106, 675) end=(865, 662) axis=(106..865) angle=179.02
+      - [02] origin=raw start=(106, 677) end=(865, 663) axis=(106..865) angle=178.94
+      - [03] origin=raw start=(112, 674) end=(397, 669) axis=(112..397) angle=178.99
+      - [04] origin=raw start=(760, 662) end=(865, 661) axis=(760..865) angle=179.45
+    usedSegments:
+      - [00] origin=raw start=(106, 673) end=(675, 664) axis=(106..675) angle=179.09
+      - [01] origin=raw start=(112, 674) end=(397, 669) axis=(112..397) angle=178.99
+    deferredSegments:
+      - [00] origin=raw start=(106, 675) end=(865, 662) axis=(106..865) angle=179.02
+      - [01] origin=raw start=(106, 677) end=(865, 663) axis=(106..865) angle=178.94
+      - [02] origin=raw start=(760, 662) end=(865, 661) axis=(760..865) angle=179.45
+  - H9 G2 segmentCount=3 used=3 deferred=0 status=merged
+    seedSegment=origin=raw start=(106, 675) end=(865, 662) axis=(106..865) angle=179.02
+    trialSegment=origin=raw start=(106, 675) end=(865, 661) axis=(106..865) angle=178.94
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(760, 662) end=(865, 661) axis=(760..865) angle=179.45
+    outputSegment=origin=raw start=(486, 668) end=(865, 661) axis=(486..865) angle=178.94
+    consumedSegments:
+      - [00] origin=raw start=(106, 675) end=(865, 662) axis=(106..865) angle=179.02
+      - [01] origin=raw start=(106, 677) end=(865, 663) axis=(106..865) angle=178.94
+      - [02] origin=raw start=(760, 662) end=(865, 661) axis=(760..865) angle=179.45
+    usedSegments:
+      - [00] origin=raw start=(106, 675) end=(865, 662) axis=(106..865) angle=179.02
+      - [01] origin=raw start=(106, 677) end=(865, 663) axis=(106..865) angle=178.94
+      - [02] origin=raw start=(760, 662) end=(865, 661) axis=(760..865) angle=179.45
+    deferredSegments:
+      - none
+H10 rawSegmentsBefore=7 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - H10 G1 segmentCount=7 used=7 deferred=0 status=merged
+    seedSegment=origin=raw start=(108, 440) end=(280, 437) axis=(108..280) angle=179.00
+    trialSegment=origin=raw start=(108, 440) end=(849, 435) axis=(108..849) angle=179.61
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(697, 438) end=(849, 435) axis=(697..849) angle=178.87
+    outputSegment=origin=raw start=(108, 440) end=(849, 435) axis=(108..849) angle=179.61
+    consumedSegments:
+      - [00] origin=raw start=(108, 440) end=(280, 437) axis=(108..280) angle=179.00
+      - [01] origin=raw start=(108, 442) end=(338, 438) axis=(108..338) angle=179.00
+      - [02] origin=raw start=(108, 443) end=(464, 437) axis=(108..464) angle=179.03
+      - [03] origin=raw start=(144, 443) end=(773, 433) axis=(144..773) angle=179.09
+      - [04] origin=raw start=(292, 442) end=(849, 433) axis=(292..849) angle=179.07
+      - [05] origin=raw start=(356, 443) end=(849, 434) axis=(356..849) angle=178.95
+      - [06] origin=raw start=(697, 438) end=(849, 435) axis=(697..849) angle=178.87
+    usedSegments:
+      - [00] origin=raw start=(108, 440) end=(280, 437) axis=(108..280) angle=179.00
+      - [01] origin=raw start=(108, 442) end=(338, 438) axis=(108..338) angle=179.00
+      - [02] origin=raw start=(108, 443) end=(464, 437) axis=(108..464) angle=179.03
+      - [03] origin=raw start=(144, 443) end=(773, 433) axis=(144..773) angle=179.09
+      - [04] origin=raw start=(292, 442) end=(849, 433) axis=(292..849) angle=179.07
+      - [05] origin=raw start=(356, 443) end=(849, 434) axis=(356..849) angle=178.95
+      - [06] origin=raw start=(697, 438) end=(849, 435) axis=(697..849) angle=178.87
+    deferredSegments:
+      - none
+H11 rawSegmentsBefore=18 rawGroupsBuilt=4 rawSegmentsAfter=4
+  - H11 G1 segmentCount=6 used=1 deferred=5 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(111, 86) end=(218, 87) axis=(111..218) angle=0.54
+    trialSegment=origin=raw start=(111, 86) end=(825, 88) axis=(111..825) angle=0.16
+    firstInvalidBlackGapAt=(290, 87)
+    acceptedBoundarySegment=origin=raw start=(111, 86) end=(218, 87) axis=(111..218) angle=0.54
+    outputSegment=origin=raw start=(111, 86) end=(218, 87) axis=(111..218) angle=0.54
+    consumedSegments:
+      - [00] origin=raw start=(111, 86) end=(218, 87) axis=(111..218) angle=0.54
+      - [01] origin=raw start=(111, 85) end=(799, 85) axis=(111..799) angle=0.00
+      - [02] origin=raw start=(354, 86) end=(823, 86) axis=(354..823) angle=0.00
+      - [03] origin=raw start=(661, 87) end=(824, 87) axis=(661..824) angle=0.00
+      - [04] origin=raw start=(687, 88) end=(825, 88) axis=(687..825) angle=0.00
+      - [05] origin=raw start=(745, 89) end=(824, 89) axis=(745..824) angle=0.00
+    usedSegments:
+      - [00] origin=raw start=(111, 86) end=(218, 87) axis=(111..218) angle=0.54
+    deferredSegments:
+      - [00] origin=raw start=(111, 85) end=(799, 85) axis=(111..799) angle=0.00
+      - [01] origin=raw start=(354, 86) end=(823, 86) axis=(354..823) angle=0.00
+      - [02] origin=raw start=(661, 87) end=(824, 87) axis=(661..824) angle=0.00
+      - [03] origin=raw start=(687, 88) end=(825, 88) axis=(687..825) angle=0.00
+      - [04] origin=raw start=(745, 89) end=(824, 89) axis=(745..824) angle=0.00
+  - H11 G2 segmentCount=5 used=1 deferred=4 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(111, 85) end=(799, 85) axis=(111..799) angle=0.00
+    trialSegment=origin=raw start=(111, 85) end=(825, 88) axis=(111..825) angle=0.24
+    firstInvalidBlackGapAt=(312, 86)
+    acceptedBoundarySegment=origin=raw start=(111, 85) end=(799, 85) axis=(111..799) angle=0.00
+    outputSegment=origin=raw start=(219, 85) end=(521, 85) axis=(219..521) angle=0.00
+    consumedSegments:
+      - [00] origin=raw start=(111, 85) end=(799, 85) axis=(111..799) angle=0.00
+      - [01] origin=raw start=(354, 86) end=(823, 86) axis=(354..823) angle=0.00
+      - [02] origin=raw start=(661, 87) end=(824, 87) axis=(661..824) angle=0.00
+      - [03] origin=raw start=(687, 88) end=(825, 88) axis=(687..825) angle=0.00
+      - [04] origin=raw start=(745, 89) end=(824, 89) axis=(745..824) angle=0.00
+    usedSegments:
+      - [00] origin=raw start=(111, 85) end=(799, 85) axis=(111..799) angle=0.00
+    deferredSegments:
+      - [00] origin=raw start=(354, 86) end=(823, 86) axis=(354..823) angle=0.00
+      - [01] origin=raw start=(661, 87) end=(824, 87) axis=(661..824) angle=0.00
+      - [02] origin=raw start=(687, 88) end=(825, 88) axis=(687..825) angle=0.00
+      - [03] origin=raw start=(745, 89) end=(824, 89) axis=(745..824) angle=0.00
+  - H11 G3 segmentCount=4 used=1 deferred=3 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(354, 86) end=(823, 86) axis=(354..823) angle=0.00
+    trialSegment=origin=raw start=(354, 86) end=(825, 88) axis=(354..825) angle=0.24
+    firstInvalidBlackGapAt=(617, 87)
+    acceptedBoundarySegment=origin=raw start=(354, 86) end=(823, 86) axis=(354..823) angle=0.00
+    outputSegment=origin=raw start=(522, 86) end=(673, 86) axis=(522..673) angle=0.00
+    consumedSegments:
+      - [00] origin=raw start=(354, 86) end=(823, 86) axis=(354..823) angle=0.00
+      - [01] origin=raw start=(661, 87) end=(824, 87) axis=(661..824) angle=0.00
+      - [02] origin=raw start=(687, 88) end=(825, 88) axis=(687..825) angle=0.00
+      - [03] origin=raw start=(745, 89) end=(824, 89) axis=(745..824) angle=0.00
+    usedSegments:
+      - [00] origin=raw start=(354, 86) end=(823, 86) axis=(354..823) angle=0.00
+    deferredSegments:
+      - [00] origin=raw start=(661, 87) end=(824, 87) axis=(661..824) angle=0.00
+      - [01] origin=raw start=(687, 88) end=(825, 88) axis=(687..825) angle=0.00
+      - [02] origin=raw start=(745, 89) end=(824, 89) axis=(745..824) angle=0.00
+  - H11 G4 segmentCount=3 used=3 deferred=0 status=merged
+    seedSegment=origin=raw start=(661, 87) end=(824, 87) axis=(661..824) angle=0.00
+    trialSegment=origin=raw start=(661, 87) end=(825, 88) axis=(661..825) angle=0.35
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(687, 88) end=(825, 88) axis=(687..825) angle=0.00
+    outputSegment=origin=raw start=(674, 87) end=(825, 88) axis=(674..825) angle=0.38
+    consumedSegments:
+      - [00] origin=raw start=(661, 87) end=(824, 87) axis=(661..824) angle=0.00
+      - [01] origin=raw start=(687, 88) end=(825, 88) axis=(687..825) angle=0.00
+      - [02] origin=raw start=(745, 89) end=(824, 89) axis=(745..824) angle=0.00
+    usedSegments:
+      - [00] origin=raw start=(661, 87) end=(824, 87) axis=(661..824) angle=0.00
+      - [01] origin=raw start=(687, 88) end=(825, 88) axis=(687..825) angle=0.00
+      - [02] origin=raw start=(745, 89) end=(824, 89) axis=(745..824) angle=0.00
+    deferredSegments:
+      - none
+H12 rawSegmentsBefore=2 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - H12 G1 segmentCount=2 used=2 deferred=0 status=merged
+    seedSegment=origin=raw start=(112, 84) end=(713, 84) axis=(112..713) angle=0.00
+    trialSegment=origin=raw start=(112, 84) end=(713, 84) axis=(112..713) angle=0.00
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(112, 84) end=(713, 84) axis=(112..713) angle=0.00
+    outputSegment=origin=raw start=(112, 84) end=(713, 84) axis=(112..713) angle=0.00
+    consumedSegments:
+      - [00] origin=raw start=(112, 84) end=(713, 84) axis=(112..713) angle=0.00
+      - [01] origin=raw start=(164, 83) end=(467, 83) axis=(164..467) angle=0.00
+    usedSegments:
+      - [00] origin=raw start=(112, 84) end=(713, 84) axis=(112..713) angle=0.00
+      - [01] origin=raw start=(164, 83) end=(467, 83) axis=(164..467) angle=0.00
+    deferredSegments:
+      - none
+H13 rawSegmentsBefore=6 rawGroupsBuilt=2 rawSegmentsAfter=2
+  - H13 G1 segmentCount=4 used=2 deferred=2 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(113, 525) end=(313, 522) axis=(113..313) angle=179.14
+    trialSegment=origin=raw start=(113, 525) end=(850, 515) axis=(113..850) angle=179.22
+    firstInvalidBlackGapAt=(593, 518)
+    acceptedBoundarySegment=origin=raw start=(157, 525) end=(500, 520) axis=(157..500) angle=179.16
+    outputSegment=origin=raw start=(113, 525) end=(481, 520) axis=(113..481) angle=179.22
+    consumedSegments:
+      - [00] origin=raw start=(113, 525) end=(313, 522) axis=(113..313) angle=179.14
+      - [01] origin=raw start=(157, 525) end=(500, 520) axis=(157..500) angle=179.16
+      - [02] origin=raw start=(278, 525) end=(850, 515) axis=(278..850) angle=179.00
+      - [03] origin=raw start=(484, 522) end=(749, 518) axis=(484..749) angle=179.14
+    usedSegments:
+      - [00] origin=raw start=(113, 525) end=(313, 522) axis=(113..313) angle=179.14
+      - [01] origin=raw start=(157, 525) end=(500, 520) axis=(157..500) angle=179.16
+    deferredSegments:
+      - [00] origin=raw start=(278, 525) end=(850, 515) axis=(278..850) angle=179.00
+      - [01] origin=raw start=(484, 522) end=(749, 518) axis=(484..749) angle=179.14
+  - H13 G2 segmentCount=2 used=2 deferred=0 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(278, 525) end=(850, 515) axis=(278..850) angle=179.00
+    trialSegment=origin=raw start=(278, 525) end=(850, 515) axis=(278..850) angle=179.00
+    firstInvalidBlackGapAt=(285, 525)
+    acceptedBoundarySegment=origin=raw start=(278, 525) end=(850, 515) axis=(278..850) angle=179.00
+    outputSegment=origin=raw start=(482, 521) end=(850, 515) axis=(482..850) angle=179.07
+    consumedSegments:
+      - [00] origin=raw start=(278, 525) end=(850, 515) axis=(278..850) angle=179.00
+      - [01] origin=raw start=(484, 522) end=(749, 518) axis=(484..749) angle=179.14
+    usedSegments:
+      - [00] origin=raw start=(278, 525) end=(850, 515) axis=(278..850) angle=179.00
+      - [01] origin=raw start=(484, 522) end=(749, 518) axis=(484..749) angle=179.14
+    deferredSegments:
+      - none
+H14 rawSegmentsBefore=3 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - H14 G1 segmentCount=3 used=3 deferred=0 status=merged
+    seedSegment=origin=raw start=(114, 601) end=(367, 596) axis=(114..367) angle=178.87
+    trialSegment=origin=raw start=(114, 601) end=(850, 591) axis=(114..850) angle=179.22
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(339, 599) end=(850, 591) axis=(339..850) angle=179.10
+    outputSegment=origin=raw start=(114, 601) end=(850, 591) axis=(114..850) angle=179.22
+    consumedSegments:
+      - [00] origin=raw start=(114, 601) end=(367, 596) axis=(114..367) angle=178.87
+      - [01] origin=raw start=(196, 601) end=(662, 593) axis=(196..662) angle=179.02
+      - [02] origin=raw start=(339, 599) end=(850, 591) axis=(339..850) angle=179.10
+    usedSegments:
+      - [00] origin=raw start=(114, 601) end=(367, 596) axis=(114..367) angle=178.87
+      - [01] origin=raw start=(196, 601) end=(662, 593) axis=(196..662) angle=179.02
+      - [02] origin=raw start=(339, 599) end=(850, 591) axis=(339..850) angle=179.10
+    deferredSegments:
+      - none
+H15 rawSegmentsBefore=3 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - H15 G1 segmentCount=3 used=3 deferred=0 status=merged
+    seedSegment=origin=raw start=(119, 1094) end=(196, 1095) axis=(119..196) angle=0.74
+    trialSegment=origin=raw start=(119, 1094) end=(242, 1093) axis=(119..242) angle=179.53
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(143, 1091) end=(242, 1093) axis=(143..242) angle=1.16
+    outputSegment=origin=raw start=(119, 1094) end=(242, 1093) axis=(119..242) angle=179.53
+    consumedSegments:
+      - [00] origin=raw start=(119, 1094) end=(196, 1095) axis=(119..196) angle=0.74
+      - [01] origin=raw start=(142, 1093) end=(229, 1094) axis=(142..229) angle=0.66
+      - [02] origin=raw start=(143, 1091) end=(242, 1093) axis=(143..242) angle=1.16
+    usedSegments:
+      - [00] origin=raw start=(119, 1094) end=(196, 1095) axis=(119..196) angle=0.74
+      - [01] origin=raw start=(142, 1093) end=(229, 1094) axis=(142..229) angle=0.66
+      - [02] origin=raw start=(143, 1091) end=(242, 1093) axis=(143..242) angle=1.16
+    deferredSegments:
+      - none
+H16 rawSegmentsBefore=1 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - H16 G1 segmentCount=1 used=1 deferred=0 status=single_segment
+    seedSegment=origin=raw start=(128, 196) end=(220, 196) axis=(128..220) angle=0.00
+    trialSegment=origin=raw start=(128, 196) end=(220, 196) axis=(128..220) angle=0.00
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(128, 196) end=(220, 196) axis=(128..220) angle=0.00
+    outputSegment=origin=raw start=(128, 196) end=(220, 196) axis=(128..220) angle=0.00
+    consumedSegments:
+      - [00] origin=raw start=(128, 196) end=(220, 196) axis=(128..220) angle=0.00
+    usedSegments:
+      - [00] origin=raw start=(128, 196) end=(220, 196) axis=(128..220) angle=0.00
+    deferredSegments:
+      - none
+H17 rawSegmentsBefore=2 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - H17 G1 segmentCount=2 used=2 deferred=0 status=merged
+    seedSegment=origin=raw start=(143, 1110) end=(229, 1103) axis=(143..229) angle=175.35
+    trialSegment=origin=raw start=(143, 1110) end=(240, 1105) axis=(143..240) angle=177.05
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(145, 1112) end=(240, 1105) axis=(145..240) angle=175.79
+    outputSegment=origin=raw start=(143, 1110) end=(240, 1105) axis=(143..240) angle=177.05
+    consumedSegments:
+      - [00] origin=raw start=(143, 1110) end=(229, 1103) axis=(143..229) angle=175.35
+      - [01] origin=raw start=(145, 1112) end=(240, 1105) axis=(145..240) angle=175.79
+    usedSegments:
+      - [00] origin=raw start=(143, 1110) end=(229, 1103) axis=(143..229) angle=175.35
+      - [01] origin=raw start=(145, 1112) end=(240, 1105) axis=(145..240) angle=175.79
+    deferredSegments:
+      - none
+H18 rawSegmentsBefore=2 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - H18 G1 segmentCount=2 used=2 deferred=0 status=merged
+    seedSegment=origin=raw start=(234, 82) end=(406, 82) axis=(234..406) angle=0.00
+    trialSegment=origin=raw start=(234, 82) end=(406, 82) axis=(234..406) angle=0.00
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(234, 82) end=(406, 82) axis=(234..406) angle=0.00
+    outputSegment=origin=raw start=(234, 82) end=(406, 82) axis=(234..406) angle=0.00
+    consumedSegments:
+      - [00] origin=raw start=(234, 82) end=(406, 82) axis=(234..406) angle=0.00
+      - [01] origin=raw start=(280, 81) end=(359, 81) axis=(280..359) angle=0.00
+    usedSegments:
+      - [00] origin=raw start=(234, 82) end=(406, 82) axis=(234..406) angle=0.00
+      - [01] origin=raw start=(280, 81) end=(359, 81) axis=(280..359) angle=0.00
+    deferredSegments:
+      - none
+H19 rawSegmentsBefore=1 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - H19 G1 segmentCount=1 used=1 deferred=0 status=single_segment
+    seedSegment=origin=raw start=(258, 161) end=(364, 161) axis=(258..364) angle=0.00
+    trialSegment=origin=raw start=(258, 161) end=(364, 161) axis=(258..364) angle=0.00
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(258, 161) end=(364, 161) axis=(258..364) angle=0.00
+    outputSegment=origin=raw start=(258, 161) end=(364, 161) axis=(258..364) angle=0.00
+    consumedSegments:
+      - [00] origin=raw start=(258, 161) end=(364, 161) axis=(258..364) angle=0.00
+    usedSegments:
+      - [00] origin=raw start=(258, 161) end=(364, 161) axis=(258..364) angle=0.00
+    deferredSegments:
+      - none
+H20 rawSegmentsBefore=3 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - H20 G1 segmentCount=3 used=3 deferred=0 status=merged
+    seedSegment=origin=raw start=(305, 1106) end=(386, 1101) axis=(305..386) angle=176.47
+    trialSegment=origin=raw start=(305, 1106) end=(461, 1102) axis=(305..461) angle=178.53
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(382, 1104) end=(461, 1102) axis=(382..461) angle=178.55
+    outputSegment=origin=raw start=(305, 1106) end=(461, 1102) axis=(305..461) angle=178.53
+    consumedSegments:
+      - [00] origin=raw start=(305, 1106) end=(386, 1101) axis=(305..386) angle=176.47
+      - [01] origin=raw start=(309, 1106) end=(407, 1101) axis=(309..407) angle=177.08
+      - [02] origin=raw start=(382, 1104) end=(461, 1102) axis=(382..461) angle=178.55
+    usedSegments:
+      - [00] origin=raw start=(305, 1106) end=(386, 1101) axis=(305..386) angle=176.47
+      - [01] origin=raw start=(309, 1106) end=(407, 1101) axis=(309..407) angle=177.08
+      - [02] origin=raw start=(382, 1104) end=(461, 1102) axis=(382..461) angle=178.55
+    deferredSegments:
+      - none
+H21 rawSegmentsBefore=2 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - H21 G1 segmentCount=2 used=2 deferred=0 status=merged
+    seedSegment=origin=raw start=(331, 1089) end=(426, 1089) axis=(331..426) angle=0.00
+    trialSegment=origin=raw start=(331, 1089) end=(460, 1086) axis=(331..460) angle=178.67
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(331, 1088) end=(460, 1086) axis=(331..460) angle=179.11
+    outputSegment=origin=raw start=(331, 1089) end=(460, 1086) axis=(331..460) angle=178.67
+    consumedSegments:
+      - [00] origin=raw start=(331, 1089) end=(426, 1089) axis=(331..426) angle=0.00
+      - [01] origin=raw start=(331, 1088) end=(460, 1086) axis=(331..460) angle=179.11
+    usedSegments:
+      - [00] origin=raw start=(331, 1089) end=(426, 1089) axis=(331..426) angle=0.00
+      - [01] origin=raw start=(331, 1088) end=(460, 1086) axis=(331..460) angle=179.11
+    deferredSegments:
+      - none
+H22 rawSegmentsBefore=1 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - H22 G1 segmentCount=1 used=1 deferred=0 status=single_segment
+    seedSegment=origin=raw start=(342, 277) end=(730, 277) axis=(342..730) angle=0.00
+    trialSegment=origin=raw start=(342, 277) end=(730, 277) axis=(342..730) angle=0.00
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(342, 277) end=(730, 277) axis=(342..730) angle=0.00
+    outputSegment=origin=raw start=(342, 277) end=(730, 277) axis=(342..730) angle=0.00
+    consumedSegments:
+      - [00] origin=raw start=(342, 277) end=(730, 277) axis=(342..730) angle=0.00
+    usedSegments:
+      - [00] origin=raw start=(342, 277) end=(730, 277) axis=(342..730) angle=0.00
+    deferredSegments:
+      - none
+H23 rawSegmentsBefore=1 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - H23 G1 segmentCount=1 used=1 deferred=0 status=single_segment
+    seedSegment=origin=raw start=(389, 87) end=(516, 87) axis=(389..516) angle=0.00
+    trialSegment=origin=raw start=(389, 87) end=(516, 87) axis=(389..516) angle=0.00
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(389, 87) end=(516, 87) axis=(389..516) angle=0.00
+    outputSegment=origin=raw start=(389, 87) end=(516, 87) axis=(389..516) angle=0.00
+    consumedSegments:
+      - [00] origin=raw start=(389, 87) end=(516, 87) axis=(389..516) angle=0.00
+    usedSegments:
+      - [00] origin=raw start=(389, 87) end=(516, 87) axis=(389..516) angle=0.00
+    deferredSegments:
+      - none
+H24 rawSegmentsBefore=2 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - H24 G1 segmentCount=2 used=2 deferred=0 status=merged
+    seedSegment=origin=raw start=(412, 144) end=(509, 144) axis=(412..509) angle=0.00
+    trialSegment=origin=raw start=(412, 144) end=(509, 144) axis=(412..509) angle=0.00
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(412, 144) end=(509, 144) axis=(412..509) angle=0.00
+    outputSegment=origin=raw start=(412, 144) end=(509, 144) axis=(412..509) angle=0.00
+    consumedSegments:
+      - [00] origin=raw start=(412, 144) end=(509, 144) axis=(412..509) angle=0.00
+      - [01] origin=raw start=(412, 145) end=(509, 145) axis=(412..509) angle=0.00
+    usedSegments:
+      - [00] origin=raw start=(412, 144) end=(509, 144) axis=(412..509) angle=0.00
+      - [01] origin=raw start=(412, 145) end=(509, 145) axis=(412..509) angle=0.00
+    deferredSegments:
+      - none
+H25 rawSegmentsBefore=2 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - H25 G1 segmentCount=2 used=2 deferred=0 status=merged
+    seedSegment=origin=raw start=(412, 137) end=(515, 139) axis=(412..515) angle=1.11
+    trialSegment=origin=raw start=(412, 137) end=(515, 139) axis=(412..515) angle=1.11
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(412, 137) end=(515, 139) axis=(412..515) angle=1.11
+    outputSegment=origin=raw start=(412, 137) end=(515, 139) axis=(412..515) angle=1.11
+    consumedSegments:
+      - [00] origin=raw start=(412, 137) end=(515, 139) axis=(412..515) angle=1.11
+      - [01] origin=raw start=(422, 139) end=(511, 140) axis=(422..511) angle=0.64
+    usedSegments:
+      - [00] origin=raw start=(412, 137) end=(515, 139) axis=(412..515) angle=1.11
+      - [01] origin=raw start=(422, 139) end=(511, 140) axis=(422..511) angle=0.64
+    deferredSegments:
+      - none
+H26 rawSegmentsBefore=1 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - H26 G1 segmentCount=1 used=1 deferred=0 status=single_segment
+    seedSegment=origin=raw start=(429, 146) end=(509, 146) axis=(429..509) angle=0.00
+    trialSegment=origin=raw start=(429, 146) end=(509, 146) axis=(429..509) angle=0.00
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(429, 146) end=(509, 146) axis=(429..509) angle=0.00
+    outputSegment=origin=raw start=(429, 146) end=(509, 146) axis=(429..509) angle=0.00
+    consumedSegments:
+      - [00] origin=raw start=(429, 146) end=(509, 146) axis=(429..509) angle=0.00
+    usedSegments:
+      - [00] origin=raw start=(429, 146) end=(509, 146) axis=(429..509) angle=0.00
+    deferredSegments:
+      - none
+H27 rawSegmentsBefore=1 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - H27 G1 segmentCount=1 used=1 deferred=0 status=single_segment
+    seedSegment=origin=raw start=(433, 197) end=(820, 197) axis=(433..820) angle=0.00
+    trialSegment=origin=raw start=(433, 197) end=(820, 197) axis=(433..820) angle=0.00
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(433, 197) end=(820, 197) axis=(433..820) angle=0.00
+    outputSegment=origin=raw start=(433, 197) end=(820, 197) axis=(433..820) angle=0.00
+    consumedSegments:
+      - [00] origin=raw start=(433, 197) end=(820, 197) axis=(433..820) angle=0.00
+    usedSegments:
+      - [00] origin=raw start=(433, 197) end=(820, 197) axis=(433..820) angle=0.00
+    deferredSegments:
+      - none
+H28 rawSegmentsBefore=2 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - H28 G1 segmentCount=2 used=2 deferred=0 status=merged
+    seedSegment=origin=raw start=(597, 1057) end=(819, 1053) axis=(597..819) angle=178.97
+    trialSegment=origin=raw start=(597, 1057) end=(830, 1052) axis=(597..830) angle=178.77
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(597, 1056) end=(830, 1052) axis=(597..830) angle=179.02
+    outputSegment=origin=raw start=(597, 1057) end=(830, 1052) axis=(597..830) angle=178.77
+    consumedSegments:
+      - [00] origin=raw start=(597, 1057) end=(819, 1053) axis=(597..819) angle=178.97
+      - [01] origin=raw start=(597, 1056) end=(830, 1052) axis=(597..830) angle=179.02
+    usedSegments:
+      - [00] origin=raw start=(597, 1057) end=(819, 1053) axis=(597..819) angle=178.97
+      - [01] origin=raw start=(597, 1056) end=(830, 1052) axis=(597..830) angle=179.02
+    deferredSegments:
+      - none
+H29 rawSegmentsBefore=6 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - H29 G1 segmentCount=6 used=6 deferred=0 status=merged
+    seedSegment=origin=raw start=(599, 1160) end=(691, 1156) axis=(599..691) angle=177.51
+    trialSegment=origin=raw start=(599, 1160) end=(903, 1155) axis=(599..903) angle=179.06
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(805, 1158) end=(903, 1155) axis=(805..903) angle=178.25
+    outputSegment=origin=raw start=(599, 1160) end=(903, 1155) axis=(599..903) angle=179.06
+    consumedSegments:
+      - [00] origin=raw start=(599, 1160) end=(691, 1156) axis=(599..691) angle=177.51
+      - [01] origin=raw start=(616, 1160) end=(770, 1155) axis=(616..770) angle=178.14
+      - [02] origin=raw start=(633, 1160) end=(772, 1156) axis=(633..772) angle=178.35
+      - [03] origin=raw start=(724, 1158) end=(809, 1156) axis=(724..809) angle=178.65
+      - [04] origin=raw start=(758, 1158) end=(903, 1153) axis=(758..903) angle=178.03
+      - [05] origin=raw start=(805, 1158) end=(903, 1155) axis=(805..903) angle=178.25
+    usedSegments:
+      - [00] origin=raw start=(599, 1160) end=(691, 1156) axis=(599..691) angle=177.51
+      - [01] origin=raw start=(616, 1160) end=(770, 1155) axis=(616..770) angle=178.14
+      - [02] origin=raw start=(633, 1160) end=(772, 1156) axis=(633..772) angle=178.35
+      - [03] origin=raw start=(724, 1158) end=(809, 1156) axis=(724..809) angle=178.65
+      - [04] origin=raw start=(758, 1158) end=(903, 1153) axis=(758..903) angle=178.03
+      - [05] origin=raw start=(805, 1158) end=(903, 1155) axis=(805..903) angle=178.25
+    deferredSegments:
+      - none
+H30 rawSegmentsBefore=1 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - H30 G1 segmentCount=1 used=1 deferred=0 status=single_segment
+    seedSegment=origin=raw start=(600, 1195) end=(705, 1193) axis=(600..705) angle=178.91
+    trialSegment=origin=raw start=(600, 1195) end=(705, 1193) axis=(600..705) angle=178.91
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(600, 1195) end=(705, 1193) axis=(600..705) angle=178.91
+    outputSegment=origin=raw start=(600, 1195) end=(705, 1193) axis=(600..705) angle=178.91
+    consumedSegments:
+      - [00] origin=raw start=(600, 1195) end=(705, 1193) axis=(600..705) angle=178.91
+    usedSegments:
+      - [00] origin=raw start=(600, 1195) end=(705, 1193) axis=(600..705) angle=178.91
+    deferredSegments:
+      - none
+H31 rawSegmentsBefore=3 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - H31 G1 segmentCount=3 used=3 deferred=0 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(602, 1263) end=(906, 1258) axis=(602..906) angle=179.06
+    trialSegment=origin=raw start=(602, 1263) end=(906, 1256) axis=(602..906) angle=178.68
+    firstInvalidBlackGapAt=(757, 1259)
+    acceptedBoundarySegment=origin=raw start=(602, 1263) end=(906, 1258) axis=(602..906) angle=179.06
+    outputSegment=origin=raw start=(602, 1263) end=(906, 1258) axis=(602..906) angle=179.06
+    consumedSegments:
+      - [00] origin=raw start=(602, 1263) end=(906, 1258) axis=(602..906) angle=179.06
+      - [01] origin=raw start=(655, 1263) end=(852, 1260) axis=(655..852) angle=179.13
+      - [02] origin=raw start=(828, 1258) end=(906, 1256) axis=(828..906) angle=178.53
+    usedSegments:
+      - [00] origin=raw start=(602, 1263) end=(906, 1258) axis=(602..906) angle=179.06
+      - [01] origin=raw start=(655, 1263) end=(852, 1260) axis=(655..852) angle=179.13
+      - [02] origin=raw start=(828, 1258) end=(906, 1256) axis=(828..906) angle=178.53
+    deferredSegments:
+      - none
+H32 rawSegmentsBefore=1 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - H32 G1 segmentCount=1 used=1 deferred=0 status=single_segment
+    seedSegment=origin=raw start=(682, 1125) end=(769, 1122) axis=(682..769) angle=178.03
+    trialSegment=origin=raw start=(682, 1125) end=(769, 1122) axis=(682..769) angle=178.03
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(682, 1125) end=(769, 1122) axis=(682..769) angle=178.03
+    outputSegment=origin=raw start=(682, 1125) end=(769, 1122) axis=(682..769) angle=178.03
+    consumedSegments:
+      - [00] origin=raw start=(682, 1125) end=(769, 1122) axis=(682..769) angle=178.03
+    usedSegments:
+      - [00] origin=raw start=(682, 1125) end=(769, 1122) axis=(682..769) angle=178.03
+    deferredSegments:
+      - none
+H33 rawSegmentsBefore=1 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - H33 G1 segmentCount=1 used=1 deferred=0 status=single_segment
+    seedSegment=origin=raw start=(685, 1228) end=(762, 1227) axis=(685..762) angle=179.26
+    trialSegment=origin=raw start=(685, 1228) end=(762, 1227) axis=(685..762) angle=179.26
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(685, 1228) end=(762, 1227) axis=(685..762) angle=179.26
+    outputSegment=origin=raw start=(685, 1228) end=(762, 1227) axis=(685..762) angle=179.26
+    consumedSegments:
+      - [00] origin=raw start=(685, 1228) end=(762, 1227) axis=(685..762) angle=179.26
+    usedSegments:
+      - [00] origin=raw start=(685, 1228) end=(762, 1227) axis=(685..762) angle=179.26
+    deferredSegments:
+      - none
+H34 rawSegmentsBefore=1 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - H34 G1 segmentCount=1 used=1 deferred=0 status=single_segment
+    seedSegment=origin=raw start=(713, 1089) end=(801, 1087) axis=(713..801) angle=178.70
+    trialSegment=origin=raw start=(713, 1089) end=(801, 1087) axis=(713..801) angle=178.70
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(713, 1089) end=(801, 1087) axis=(713..801) angle=178.70
+    outputSegment=origin=raw start=(713, 1089) end=(801, 1087) axis=(713..801) angle=178.70
+    consumedSegments:
+      - [00] origin=raw start=(713, 1089) end=(801, 1087) axis=(713..801) angle=178.70
+    usedSegments:
+      - [00] origin=raw start=(713, 1089) end=(801, 1087) axis=(713..801) angle=178.70
+    deferredSegments:
+      - none
+V1 rawSegmentsBefore=4 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - V1 G1 segmentCount=4 used=4 deferred=0 status=merged
+    seedSegment=origin=raw start=(929, 0) end=(943, 115) axis=(0..115) angle=83.06
+    trialSegment=origin=raw start=(929, 0) end=(959, 272) axis=(0..272) angle=83.71
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(937, 87) end=(959, 272) axis=(87..272) angle=83.22
+    outputSegment=origin=raw start=(929, 0) end=(959, 272) axis=(0..272) angle=83.71
+    consumedSegments:
+      - [00] origin=raw start=(929, 0) end=(943, 115) axis=(0..115) angle=83.06
+      - [01] origin=raw start=(927, 0) end=(949, 179) axis=(0..179) angle=82.99
+      - [02] origin=raw start=(928, 0) end=(956, 228) axis=(0..228) angle=83.00
+      - [03] origin=raw start=(937, 87) end=(959, 272) axis=(87..272) angle=83.22
+    usedSegments:
+      - [00] origin=raw start=(929, 0) end=(943, 115) axis=(0..115) angle=83.06
+      - [01] origin=raw start=(927, 0) end=(949, 179) axis=(0..179) angle=82.99
+      - [02] origin=raw start=(928, 0) end=(956, 228) axis=(0..228) angle=83.00
+      - [03] origin=raw start=(937, 87) end=(959, 272) axis=(87..272) angle=83.22
+    deferredSegments:
+      - none
+V2 rawSegmentsBefore=2 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - V2 G1 segmentCount=2 used=2 deferred=0 status=merged
+    seedSegment=origin=raw start=(73, 1) end=(73, 78) axis=(1..78) angle=90.00
+    trialSegment=origin=raw start=(73, 1) end=(72, 93) axis=(1..93) angle=90.62
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(72, 16) end=(72, 93) axis=(16..93) angle=90.00
+    outputSegment=origin=raw start=(73, 1) end=(72, 93) axis=(1..93) angle=90.62
+    consumedSegments:
+      - [00] origin=raw start=(73, 1) end=(73, 78) axis=(1..78) angle=90.00
+      - [01] origin=raw start=(72, 16) end=(72, 93) axis=(16..93) angle=90.00
+    usedSegments:
+      - [00] origin=raw start=(73, 1) end=(73, 78) axis=(1..78) angle=90.00
+      - [01] origin=raw start=(72, 16) end=(72, 93) axis=(16..93) angle=90.00
+    deferredSegments:
+      - none
+V3 rawSegmentsBefore=36 rawGroupsBuilt=7 rawSegmentsAfter=7
+  - V3 G1 segmentCount=10 used=2 deferred=8 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(70, 39) end=(70, 118) axis=(39..118) angle=90.00
+    trialSegment=origin=raw start=(70, 39) end=(64, 514) axis=(39..514) angle=90.72
+    firstInvalidBlackGapAt=(69, 135)
+    acceptedBoundarySegment=origin=raw start=(69, 50) end=(69, 134) axis=(50..134) angle=90.00
+    outputSegment=origin=raw start=(70, 39) end=(69, 103) axis=(39..103) angle=90.90
+    consumedSegments:
+      - [00] origin=raw start=(70, 39) end=(70, 118) axis=(39..118) angle=90.00
+      - [01] origin=raw start=(69, 50) end=(69, 134) axis=(50..134) angle=90.00
+      - [02] origin=raw start=(68, 64) end=(68, 151) axis=(64..151) angle=90.00
+      - [03] origin=raw start=(67, 78) end=(67, 168) axis=(78..168) angle=90.00
+      - [04] origin=raw start=(66, 91) end=(66, 187) axis=(91..187) angle=90.00
+      - [05] origin=raw start=(65, 103) end=(65, 206) axis=(103..206) angle=90.00
+      - [06] origin=raw start=(63, 135) end=(64, 232) axis=(135..232) angle=89.41
+      - [07] origin=raw start=(62, 156) end=(63, 267) axis=(156..267) angle=89.48
+      - [08] origin=raw start=(61, 166) end=(61, 485) axis=(166..485) angle=90.00
+      - [09] origin=raw start=(62, 373) end=(64, 514) axis=(373..514) angle=89.19
+    usedSegments:
+      - [00] origin=raw start=(70, 39) end=(70, 118) axis=(39..118) angle=90.00
+      - [01] origin=raw start=(69, 50) end=(69, 134) axis=(50..134) angle=90.00
+    deferredSegments:
+      - [00] origin=raw start=(68, 64) end=(68, 151) axis=(64..151) angle=90.00
+      - [01] origin=raw start=(67, 78) end=(67, 168) axis=(78..168) angle=90.00
+      - [02] origin=raw start=(66, 91) end=(66, 187) axis=(91..187) angle=90.00
+      - [03] origin=raw start=(65, 103) end=(65, 206) axis=(103..206) angle=90.00
+      - [04] origin=raw start=(63, 135) end=(64, 232) axis=(135..232) angle=89.41
+      - [05] origin=raw start=(62, 156) end=(63, 267) axis=(156..267) angle=89.48
+      - [06] origin=raw start=(61, 166) end=(61, 485) axis=(166..485) angle=90.00
+      - [07] origin=raw start=(62, 373) end=(64, 514) axis=(373..514) angle=89.19
+  - V3 G2 segmentCount=6 used=1 deferred=5 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(66, 91) end=(66, 187) axis=(91..187) angle=90.00
+    trialSegment=origin=raw start=(66, 91) end=(64, 514) axis=(91..514) angle=90.27
+    firstInvalidBlackGapAt=(66, 188)
+    acceptedBoundarySegment=origin=raw start=(66, 91) end=(66, 187) axis=(91..187) angle=90.00
+    outputSegment=origin=raw start=(66, 91) end=(66, 129) axis=(91..129) angle=90.00
+    consumedSegments:
+      - [00] origin=raw start=(66, 91) end=(66, 187) axis=(91..187) angle=90.00
+      - [01] origin=raw start=(65, 103) end=(65, 206) axis=(103..206) angle=90.00
+      - [02] origin=raw start=(63, 135) end=(64, 232) axis=(135..232) angle=89.41
+      - [03] origin=raw start=(62, 156) end=(63, 267) axis=(156..267) angle=89.48
+      - [04] origin=raw start=(61, 166) end=(61, 485) axis=(166..485) angle=90.00
+      - [05] origin=raw start=(62, 373) end=(64, 514) axis=(373..514) angle=89.19
+    usedSegments:
+      - [00] origin=raw start=(66, 91) end=(66, 187) axis=(91..187) angle=90.00
+    deferredSegments:
+      - [00] origin=raw start=(65, 103) end=(65, 206) axis=(103..206) angle=90.00
+      - [01] origin=raw start=(63, 135) end=(64, 232) axis=(135..232) angle=89.41
+      - [02] origin=raw start=(62, 156) end=(63, 267) axis=(156..267) angle=89.48
+      - [03] origin=raw start=(61, 166) end=(61, 485) axis=(166..485) angle=90.00
+      - [04] origin=raw start=(62, 373) end=(64, 514) axis=(373..514) angle=89.19
+  - V3 G3 segmentCount=5 used=1 deferred=4 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(65, 103) end=(65, 206) axis=(103..206) angle=90.00
+    trialSegment=origin=raw start=(65, 103) end=(64, 514) axis=(103..514) angle=90.14
+    firstInvalidBlackGapAt=(65, 207)
+    acceptedBoundarySegment=origin=raw start=(65, 103) end=(65, 206) axis=(103..206) angle=90.00
+    outputSegment=origin=raw start=(65, 103) end=(65, 135) axis=(103..135) angle=90.00
+    consumedSegments:
+      - [00] origin=raw start=(65, 103) end=(65, 206) axis=(103..206) angle=90.00
+      - [01] origin=raw start=(63, 135) end=(64, 232) axis=(135..232) angle=89.41
+      - [02] origin=raw start=(62, 156) end=(63, 267) axis=(156..267) angle=89.48
+      - [03] origin=raw start=(61, 166) end=(61, 485) axis=(166..485) angle=90.00
+      - [04] origin=raw start=(62, 373) end=(64, 514) axis=(373..514) angle=89.19
+    usedSegments:
+      - [00] origin=raw start=(65, 103) end=(65, 206) axis=(103..206) angle=90.00
+    deferredSegments:
+      - [00] origin=raw start=(63, 135) end=(64, 232) axis=(135..232) angle=89.41
+      - [01] origin=raw start=(62, 156) end=(63, 267) axis=(156..267) angle=89.48
+      - [02] origin=raw start=(61, 166) end=(61, 485) axis=(166..485) angle=90.00
+      - [03] origin=raw start=(62, 373) end=(64, 514) axis=(373..514) angle=89.19
+  - V3 G4 segmentCount=4 used=2 deferred=2 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(63, 135) end=(64, 232) axis=(135..232) angle=89.41
+    trialSegment=origin=raw start=(63, 135) end=(64, 514) axis=(135..514) angle=89.85
+    firstInvalidBlackGapAt=(63, 268)
+    acceptedBoundarySegment=origin=raw start=(62, 156) end=(63, 267) axis=(156..267) angle=89.48
+    outputSegment=origin=raw start=(63, 135) end=(63, 151) axis=(135..151) angle=90.00
+    consumedSegments:
+      - [00] origin=raw start=(63, 135) end=(64, 232) axis=(135..232) angle=89.41
+      - [01] origin=raw start=(62, 156) end=(63, 267) axis=(156..267) angle=89.48
+      - [02] origin=raw start=(61, 166) end=(61, 485) axis=(166..485) angle=90.00
+      - [03] origin=raw start=(62, 373) end=(64, 514) axis=(373..514) angle=89.19
+    usedSegments:
+      - [00] origin=raw start=(63, 135) end=(64, 232) axis=(135..232) angle=89.41
+      - [01] origin=raw start=(62, 156) end=(63, 267) axis=(156..267) angle=89.48
+    deferredSegments:
+      - [00] origin=raw start=(61, 166) end=(61, 485) axis=(166..485) angle=90.00
+      - [01] origin=raw start=(62, 373) end=(64, 514) axis=(373..514) angle=89.19
+  - V3 G5 segmentCount=8 used=2 deferred=6 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(68, 64) end=(68, 151) axis=(64..151) angle=90.00
+    trialSegment=origin=raw start=(68, 64) end=(64, 514) axis=(64..514) angle=90.51
+    firstInvalidBlackGapAt=(67, 169)
+    acceptedBoundarySegment=origin=raw start=(67, 78) end=(67, 168) axis=(78..168) angle=90.00
+    outputSegment=origin=raw start=(68, 152) end=(67, 168) axis=(152..168) angle=93.58
+    consumedSegments:
+      - [00] origin=raw start=(68, 64) end=(68, 151) axis=(64..151) angle=90.00
+      - [01] origin=raw start=(67, 78) end=(67, 168) axis=(78..168) angle=90.00
+      - [02] origin=raw start=(66, 91) end=(66, 187) axis=(91..187) angle=90.00
+      - [03] origin=raw start=(65, 103) end=(65, 206) axis=(103..206) angle=90.00
+      - [04] origin=raw start=(63, 135) end=(64, 232) axis=(135..232) angle=89.41
+      - [05] origin=raw start=(62, 156) end=(63, 267) axis=(156..267) angle=89.48
+      - [06] origin=raw start=(61, 166) end=(61, 485) axis=(166..485) angle=90.00
+      - [07] origin=raw start=(62, 373) end=(64, 514) axis=(373..514) angle=89.19
+    usedSegments:
+      - [00] origin=raw start=(68, 64) end=(68, 151) axis=(64..151) angle=90.00
+      - [01] origin=raw start=(67, 78) end=(67, 168) axis=(78..168) angle=90.00
+    deferredSegments:
+      - [00] origin=raw start=(66, 91) end=(66, 187) axis=(91..187) angle=90.00
+      - [01] origin=raw start=(65, 103) end=(65, 206) axis=(103..206) angle=90.00
+      - [02] origin=raw start=(63, 135) end=(64, 232) axis=(135..232) angle=89.41
+      - [03] origin=raw start=(62, 156) end=(63, 267) axis=(156..267) angle=89.48
+      - [04] origin=raw start=(61, 166) end=(61, 485) axis=(166..485) angle=90.00
+      - [05] origin=raw start=(62, 373) end=(64, 514) axis=(373..514) angle=89.19
+  - V3 G6 segmentCount=2 used=1 deferred=1 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(61, 166) end=(61, 485) axis=(166..485) angle=90.00
+    trialSegment=origin=raw start=(61, 166) end=(64, 514) axis=(166..514) angle=89.51
+    firstInvalidBlackGapAt=(62, 314)
+    acceptedBoundarySegment=origin=raw start=(61, 166) end=(61, 485) axis=(166..485) angle=90.00
+    outputSegment=origin=raw start=(61, 169) end=(61, 372) axis=(169..372) angle=90.00
+    consumedSegments:
+      - [00] origin=raw start=(61, 166) end=(61, 485) axis=(166..485) angle=90.00
+      - [01] origin=raw start=(62, 373) end=(64, 514) axis=(373..514) angle=89.19
+    usedSegments:
+      - [00] origin=raw start=(61, 166) end=(61, 485) axis=(166..485) angle=90.00
+    deferredSegments:
+      - [00] origin=raw start=(62, 373) end=(64, 514) axis=(373..514) angle=89.19
+  - V3 G7 segmentCount=1 used=1 deferred=0 status=single_segment
+    seedSegment=origin=raw start=(62, 373) end=(64, 514) axis=(373..514) angle=89.19
+    trialSegment=origin=raw start=(62, 373) end=(64, 514) axis=(373..514) angle=89.19
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(62, 373) end=(64, 514) axis=(373..514) angle=89.19
+    outputSegment=origin=raw start=(62, 373) end=(64, 514) axis=(373..514) angle=89.19
+    consumedSegments:
+      - [00] origin=raw start=(62, 373) end=(64, 514) axis=(373..514) angle=89.19
+    usedSegments:
+      - [00] origin=raw start=(62, 373) end=(64, 514) axis=(373..514) angle=89.19
+    deferredSegments:
+      - none
+V4 rawSegmentsBefore=2 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - V4 G1 segmentCount=2 used=2 deferred=0 status=merged
+    seedSegment=origin=raw start=(60, 183) end=(60, 473) axis=(183..473) angle=90.00
+    trialSegment=origin=raw start=(60, 183) end=(60, 473) axis=(183..473) angle=90.00
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(60, 183) end=(60, 473) axis=(183..473) angle=90.00
+    outputSegment=origin=raw start=(60, 183) end=(60, 473) axis=(183..473) angle=90.00
+    consumedSegments:
+      - [00] origin=raw start=(60, 183) end=(60, 473) axis=(183..473) angle=90.00
+      - [01] origin=raw start=(59, 204) end=(59, 459) axis=(204..459) angle=90.00
+    usedSegments:
+      - [00] origin=raw start=(60, 183) end=(60, 473) axis=(183..473) angle=90.00
+      - [01] origin=raw start=(59, 204) end=(59, 459) axis=(204..459) angle=90.00
+    deferredSegments:
+      - none
+V5 rawSegmentsBefore=2 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - V5 G1 segmentCount=2 used=2 deferred=0 status=merged
+    seedSegment=origin=raw start=(190, 196) end=(190, 404) axis=(196..404) angle=90.00
+    trialSegment=origin=raw start=(190, 196) end=(191, 445) axis=(196..445) angle=89.77
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(191, 196) end=(191, 445) axis=(196..445) angle=90.00
+    outputSegment=origin=raw start=(190, 196) end=(191, 445) axis=(196..445) angle=89.77
+    consumedSegments:
+      - [00] origin=raw start=(190, 196) end=(190, 404) axis=(196..404) angle=90.00
+      - [01] origin=raw start=(191, 196) end=(191, 445) axis=(196..445) angle=90.00
+    usedSegments:
+      - [00] origin=raw start=(190, 196) end=(190, 404) axis=(196..404) angle=90.00
+      - [01] origin=raw start=(191, 196) end=(191, 445) axis=(196..445) angle=90.00
+    deferredSegments:
+      - none
+V6 rawSegmentsBefore=15 rawGroupsBuilt=3 rawSegmentsAfter=3
+  - V6 G1 segmentCount=7 used=2 deferred=5 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(600, 196) end=(606, 529) axis=(196..529) angle=88.97
+    trialSegment=origin=raw start=(600, 196) end=(603, 603) axis=(196..603) angle=89.58
+    firstInvalidBlackGapAt=(601, 366)
+    acceptedBoundarySegment=origin=raw start=(599, 227) end=(601, 365) axis=(227..365) angle=89.17
+    outputSegment=origin=raw start=(600, 196) end=(601, 351) axis=(196..351) angle=89.63
+    consumedSegments:
+      - [00] origin=raw start=(600, 196) end=(606, 529) axis=(196..529) angle=88.97
+      - [01] origin=raw start=(599, 227) end=(601, 365) axis=(227..365) angle=89.17
+      - [02] origin=raw start=(602, 238) end=(607, 506) axis=(238..506) angle=88.93
+      - [03] origin=raw start=(605, 361) end=(607, 478) axis=(361..478) angle=89.02
+      - [04] origin=raw start=(603, 416) end=(605, 546) axis=(416..546) angle=89.12
+      - [05] origin=raw start=(603, 479) end=(604, 592) axis=(479..592) angle=89.49
+      - [06] origin=raw start=(602, 505) end=(603, 603) axis=(505..603) angle=89.42
+    usedSegments:
+      - [00] origin=raw start=(600, 196) end=(606, 529) axis=(196..529) angle=88.97
+      - [01] origin=raw start=(599, 227) end=(601, 365) axis=(227..365) angle=89.17
+    deferredSegments:
+      - [00] origin=raw start=(602, 238) end=(607, 506) axis=(238..506) angle=88.93
+      - [01] origin=raw start=(605, 361) end=(607, 478) axis=(361..478) angle=89.02
+      - [02] origin=raw start=(603, 416) end=(605, 546) axis=(416..546) angle=89.12
+      - [03] origin=raw start=(603, 479) end=(604, 592) axis=(479..592) angle=89.49
+      - [04] origin=raw start=(602, 505) end=(603, 603) axis=(505..603) angle=89.42
+  - V6 G2 segmentCount=5 used=2 deferred=3 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(602, 238) end=(607, 506) axis=(238..506) angle=88.93
+    trialSegment=origin=raw start=(602, 238) end=(603, 603) axis=(238..603) angle=89.84
+    firstInvalidBlackGapAt=(602, 408)
+    acceptedBoundarySegment=origin=raw start=(602, 238) end=(607, 506) axis=(238..506) angle=88.93
+    outputSegment=origin=raw start=(604, 352) end=(606, 477) axis=(352..477) angle=89.08
+    consumedSegments:
+      - [00] origin=raw start=(602, 238) end=(607, 506) axis=(238..506) angle=88.93
+      - [01] origin=raw start=(605, 361) end=(607, 478) axis=(361..478) angle=89.02
+      - [02] origin=raw start=(603, 416) end=(605, 546) axis=(416..546) angle=89.12
+      - [03] origin=raw start=(603, 479) end=(604, 592) axis=(479..592) angle=89.49
+      - [04] origin=raw start=(602, 505) end=(603, 603) axis=(505..603) angle=89.42
+    usedSegments:
+      - [00] origin=raw start=(602, 238) end=(607, 506) axis=(238..506) angle=88.93
+      - [01] origin=raw start=(605, 361) end=(607, 478) axis=(361..478) angle=89.02
+    deferredSegments:
+      - [00] origin=raw start=(603, 416) end=(605, 546) axis=(416..546) angle=89.12
+      - [01] origin=raw start=(603, 479) end=(604, 592) axis=(479..592) angle=89.49
+      - [02] origin=raw start=(602, 505) end=(603, 603) axis=(505..603) angle=89.42
+  - V6 G3 segmentCount=3 used=3 deferred=0 status=merged
+    seedSegment=origin=raw start=(603, 416) end=(605, 546) axis=(416..546) angle=89.12
+    trialSegment=origin=raw start=(603, 416) end=(603, 603) axis=(416..603) angle=90.00
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(602, 505) end=(603, 603) axis=(505..603) angle=89.42
+    outputSegment=origin=raw start=(603, 478) end=(603, 603) axis=(478..603) angle=90.00
+    consumedSegments:
+      - [00] origin=raw start=(603, 416) end=(605, 546) axis=(416..546) angle=89.12
+      - [01] origin=raw start=(603, 479) end=(604, 592) axis=(479..592) angle=89.49
+      - [02] origin=raw start=(602, 505) end=(603, 603) axis=(505..603) angle=89.42
+    usedSegments:
+      - [00] origin=raw start=(603, 416) end=(605, 546) axis=(416..546) angle=89.12
+      - [01] origin=raw start=(603, 479) end=(604, 592) axis=(479..592) angle=89.49
+      - [02] origin=raw start=(602, 505) end=(603, 603) axis=(505..603) angle=89.42
+    deferredSegments:
+      - none
+V7 rawSegmentsBefore=5 rawGroupsBuilt=2 rawSegmentsAfter=2
+  - V7 G1 segmentCount=3 used=1 deferred=2 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(108, 197) end=(108, 307) axis=(197..307) angle=90.00
+    trialSegment=origin=raw start=(108, 197) end=(107, 468) axis=(197..468) angle=90.21
+    firstInvalidBlackGapAt=(108, 308)
+    acceptedBoundarySegment=origin=raw start=(108, 197) end=(108, 307) axis=(197..307) angle=90.00
+    outputSegment=origin=raw start=(108, 197) end=(108, 307) axis=(197..307) angle=90.00
+    consumedSegments:
+      - [00] origin=raw start=(108, 197) end=(108, 307) axis=(197..307) angle=90.00
+      - [01] origin=raw start=(106, 201) end=(106, 453) axis=(201..453) angle=90.00
+      - [02] origin=raw start=(107, 201) end=(107, 468) axis=(201..468) angle=90.00
+    usedSegments:
+      - [00] origin=raw start=(108, 197) end=(108, 307) axis=(197..307) angle=90.00
+    deferredSegments:
+      - [00] origin=raw start=(106, 201) end=(106, 453) axis=(201..453) angle=90.00
+      - [01] origin=raw start=(107, 201) end=(107, 468) axis=(201..468) angle=90.00
+  - V7 G2 segmentCount=2 used=2 deferred=0 status=merged
+    seedSegment=origin=raw start=(106, 201) end=(106, 453) axis=(201..453) angle=90.00
+    trialSegment=origin=raw start=(106, 201) end=(107, 468) axis=(201..468) angle=89.79
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(107, 201) end=(107, 468) axis=(201..468) angle=90.00
+    outputSegment=origin=raw start=(106, 308) end=(107, 468) axis=(308..468) angle=89.64
+    consumedSegments:
+      - [00] origin=raw start=(106, 201) end=(106, 453) axis=(201..453) angle=90.00
+      - [01] origin=raw start=(107, 201) end=(107, 468) axis=(201..468) angle=90.00
+    usedSegments:
+      - [00] origin=raw start=(106, 201) end=(106, 453) axis=(201..453) angle=90.00
+      - [01] origin=raw start=(107, 201) end=(107, 468) axis=(201..468) angle=90.00
+    deferredSegments:
+      - none
+V8 rawSegmentsBefore=19 rawGroupsBuilt=3 rawSegmentsAfter=3
+  - V8 G1 segmentCount=8 used=2 deferred=6 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(357, 197) end=(365, 674) axis=(197..674) angle=89.04
+    trialSegment=origin=raw start=(357, 197) end=(361, 929) axis=(197..929) angle=89.69
+    firstInvalidBlackGapAt=(358, 466)
+    acceptedBoundarySegment=origin=raw start=(357, 197) end=(365, 674) axis=(197..674) angle=89.04
+    outputSegment=origin=raw start=(357, 197) end=(361, 457) axis=(197..457) angle=89.12
+    consumedSegments:
+      - [00] origin=raw start=(357, 197) end=(365, 674) axis=(197..674) angle=89.04
+      - [01] origin=raw start=(355, 197) end=(364, 719) axis=(197..719) angle=89.01
+      - [02] origin=raw start=(361, 374) end=(365, 649) axis=(374..649) angle=89.17
+      - [03] origin=raw start=(361, 553) end=(364, 781) axis=(553..781) angle=89.25
+      - [04] origin=raw start=(361, 633) end=(366, 929) axis=(633..929) angle=89.03
+      - [05] origin=raw start=(360, 647) end=(360, 929) axis=(647..929) angle=90.00
+      - [06] origin=raw start=(361, 690) end=(364, 863) axis=(690..863) angle=89.01
+      - [07] origin=raw start=(365, 846) end=(361, 929) axis=(846..929) angle=92.76
+    usedSegments:
+      - [00] origin=raw start=(357, 197) end=(365, 674) axis=(197..674) angle=89.04
+      - [01] origin=raw start=(361, 374) end=(365, 649) axis=(374..649) angle=89.17
+    deferredSegments:
+      - [00] origin=raw start=(355, 197) end=(364, 719) axis=(197..719) angle=89.01
+      - [01] origin=raw start=(361, 553) end=(364, 781) axis=(553..781) angle=89.25
+      - [02] origin=raw start=(361, 633) end=(366, 929) axis=(633..929) angle=89.03
+      - [03] origin=raw start=(360, 647) end=(360, 929) axis=(647..929) angle=90.00
+      - [04] origin=raw start=(361, 690) end=(364, 863) axis=(690..863) angle=89.01
+      - [05] origin=raw start=(365, 846) end=(361, 929) axis=(846..929) angle=92.76
+  - V8 G2 segmentCount=6 used=1 deferred=5 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(355, 197) end=(364, 719) axis=(197..719) angle=89.01
+    trialSegment=origin=raw start=(355, 197) end=(361, 929) axis=(197..929) angle=89.53
+    firstInvalidBlackGapAt=(357, 445)
+    acceptedBoundarySegment=origin=raw start=(355, 197) end=(364, 719) axis=(197..719) angle=89.01
+    outputSegment=origin=raw start=(360, 458) end=(364, 693) axis=(458..693) angle=89.02
+    consumedSegments:
+      - [00] origin=raw start=(355, 197) end=(364, 719) axis=(197..719) angle=89.01
+      - [01] origin=raw start=(361, 553) end=(364, 781) axis=(553..781) angle=89.25
+      - [02] origin=raw start=(361, 633) end=(366, 929) axis=(633..929) angle=89.03
+      - [03] origin=raw start=(360, 647) end=(360, 929) axis=(647..929) angle=90.00
+      - [04] origin=raw start=(361, 690) end=(364, 863) axis=(690..863) angle=89.01
+      - [05] origin=raw start=(365, 846) end=(361, 929) axis=(846..929) angle=92.76
+    usedSegments:
+      - [00] origin=raw start=(355, 197) end=(364, 719) axis=(197..719) angle=89.01
+    deferredSegments:
+      - [00] origin=raw start=(361, 553) end=(364, 781) axis=(553..781) angle=89.25
+      - [01] origin=raw start=(361, 633) end=(366, 929) axis=(633..929) angle=89.03
+      - [02] origin=raw start=(360, 647) end=(360, 929) axis=(647..929) angle=90.00
+      - [03] origin=raw start=(361, 690) end=(364, 863) axis=(690..863) angle=89.01
+      - [04] origin=raw start=(365, 846) end=(361, 929) axis=(846..929) angle=92.76
+  - V8 G3 segmentCount=5 used=5 deferred=0 status=merged
+    seedSegment=origin=raw start=(361, 553) end=(364, 781) axis=(553..781) angle=89.25
+    trialSegment=origin=raw start=(361, 553) end=(361, 929) axis=(553..929) angle=90.00
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(365, 846) end=(361, 929) axis=(846..929) angle=92.76
+    outputSegment=origin=raw start=(361, 694) end=(361, 929) axis=(694..929) angle=90.00
+    consumedSegments:
+      - [00] origin=raw start=(361, 553) end=(364, 781) axis=(553..781) angle=89.25
+      - [01] origin=raw start=(361, 633) end=(366, 929) axis=(633..929) angle=89.03
+      - [02] origin=raw start=(360, 647) end=(360, 929) axis=(647..929) angle=90.00
+      - [03] origin=raw start=(361, 690) end=(364, 863) axis=(690..863) angle=89.01
+      - [04] origin=raw start=(365, 846) end=(361, 929) axis=(846..929) angle=92.76
+    usedSegments:
+      - [00] origin=raw start=(361, 553) end=(364, 781) axis=(553..781) angle=89.25
+      - [01] origin=raw start=(361, 633) end=(366, 929) axis=(633..929) angle=89.03
+      - [02] origin=raw start=(360, 647) end=(360, 929) axis=(647..929) angle=90.00
+      - [03] origin=raw start=(361, 690) end=(364, 863) axis=(690..863) angle=89.01
+      - [04] origin=raw start=(365, 846) end=(361, 929) axis=(846..929) angle=92.76
+    deferredSegments:
+      - none
+V9 rawSegmentsBefore=24 rawGroupsBuilt=6 rawSegmentsAfter=6
+  - V9 G1 segmentCount=8 used=2 deferred=6 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(835, 201) end=(851, 507) axis=(201..507) angle=87.01
+    trialSegment=origin=raw start=(835, 201) end=(869, 714) axis=(201..714) angle=86.21
+    firstInvalidBlackGapAt=(845, 345)
+    acceptedBoundarySegment=origin=raw start=(836, 202) end=(843, 306) axis=(202..306) angle=86.15
+    outputSegment=origin=raw start=(835, 201) end=(841, 284) axis=(201..284) angle=85.87
+    consumedSegments:
+      - [00] origin=raw start=(835, 201) end=(851, 507) axis=(201..507) angle=87.01
+      - [01] origin=raw start=(836, 202) end=(843, 306) axis=(202..306) angle=86.15
+      - [02] origin=raw start=(834, 202) end=(850, 520) axis=(202..520) angle=87.12
+      - [03] origin=raw start=(840, 264) end=(845, 368) axis=(264..368) angle=87.25
+      - [04] origin=raw start=(840, 352) end=(849, 525) axis=(352..525) angle=87.02
+      - [05] origin=raw start=(848, 485) end=(844, 581) axis=(485..581) angle=92.39
+      - [06] origin=raw start=(842, 566) end=(871, 695) axis=(566..695) angle=77.33
+      - [07] origin=raw start=(856, 631) end=(869, 714) axis=(631..714) angle=81.10
+    usedSegments:
+      - [00] origin=raw start=(835, 201) end=(851, 507) axis=(201..507) angle=87.01
+      - [01] origin=raw start=(836, 202) end=(843, 306) axis=(202..306) angle=86.15
+    deferredSegments:
+      - [00] origin=raw start=(834, 202) end=(850, 520) axis=(202..520) angle=87.12
+      - [01] origin=raw start=(840, 264) end=(845, 368) axis=(264..368) angle=87.25
+      - [02] origin=raw start=(840, 352) end=(849, 525) axis=(352..525) angle=87.02
+      - [03] origin=raw start=(848, 485) end=(844, 581) axis=(485..581) angle=92.39
+      - [04] origin=raw start=(842, 566) end=(871, 695) axis=(566..695) angle=77.33
+      - [05] origin=raw start=(856, 631) end=(869, 714) axis=(631..714) angle=81.10
+  - V9 G2 segmentCount=6 used=2 deferred=4 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(834, 202) end=(850, 520) axis=(202..520) angle=87.12
+    trialSegment=origin=raw start=(834, 202) end=(869, 714) axis=(202..714) angle=86.09
+    firstInvalidBlackGapAt=(846, 371)
+    acceptedBoundarySegment=origin=raw start=(840, 264) end=(845, 368) axis=(264..368) angle=87.25
+    outputSegment=origin=raw start=(840, 285) end=(845, 368) axis=(285..368) angle=86.55
+    consumedSegments:
+      - [00] origin=raw start=(834, 202) end=(850, 520) axis=(202..520) angle=87.12
+      - [01] origin=raw start=(840, 264) end=(845, 368) axis=(264..368) angle=87.25
+      - [02] origin=raw start=(840, 352) end=(849, 525) axis=(352..525) angle=87.02
+      - [03] origin=raw start=(848, 485) end=(844, 581) axis=(485..581) angle=92.39
+      - [04] origin=raw start=(842, 566) end=(871, 695) axis=(566..695) angle=77.33
+      - [05] origin=raw start=(856, 631) end=(869, 714) axis=(631..714) angle=81.10
+    usedSegments:
+      - [00] origin=raw start=(834, 202) end=(850, 520) axis=(202..520) angle=87.12
+      - [01] origin=raw start=(840, 264) end=(845, 368) axis=(264..368) angle=87.25
+    deferredSegments:
+      - [00] origin=raw start=(840, 352) end=(849, 525) axis=(352..525) angle=87.02
+      - [01] origin=raw start=(848, 485) end=(844, 581) axis=(485..581) angle=92.39
+      - [02] origin=raw start=(842, 566) end=(871, 695) axis=(566..695) angle=77.33
+      - [03] origin=raw start=(856, 631) end=(869, 714) axis=(631..714) angle=81.10
+  - V9 G3 segmentCount=4 used=1 deferred=3 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(840, 352) end=(849, 525) axis=(352..525) angle=87.02
+    trialSegment=origin=raw start=(840, 352) end=(869, 714) axis=(352..714) angle=85.42
+    firstInvalidBlackGapAt=(852, 496)
+    acceptedBoundarySegment=origin=raw start=(840, 352) end=(849, 525) axis=(352..525) angle=87.02
+    outputSegment=origin=raw start=(841, 369) end=(847, 484) axis=(369..484) angle=87.01
+    consumedSegments:
+      - [00] origin=raw start=(840, 352) end=(849, 525) axis=(352..525) angle=87.02
+      - [01] origin=raw start=(848, 485) end=(844, 581) axis=(485..581) angle=92.39
+      - [02] origin=raw start=(842, 566) end=(871, 695) axis=(566..695) angle=77.33
+      - [03] origin=raw start=(856, 631) end=(869, 714) axis=(631..714) angle=81.10
+    usedSegments:
+      - [00] origin=raw start=(840, 352) end=(849, 525) axis=(352..525) angle=87.02
+    deferredSegments:
+      - [00] origin=raw start=(848, 485) end=(844, 581) axis=(485..581) angle=92.39
+      - [01] origin=raw start=(842, 566) end=(871, 695) axis=(566..695) angle=77.33
+      - [02] origin=raw start=(856, 631) end=(869, 714) axis=(631..714) angle=81.10
+  - V9 G4 segmentCount=3 used=1 deferred=2 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(848, 485) end=(844, 581) axis=(485..581) angle=92.39
+    trialSegment=origin=raw start=(848, 485) end=(869, 714) axis=(485..714) angle=84.76
+    firstInvalidBlackGapAt=(851, 513)
+    acceptedBoundarySegment=origin=raw start=(848, 485) end=(844, 581) axis=(485..581) angle=92.39
+    outputSegment=origin=raw start=(848, 485) end=(844, 581) axis=(485..581) angle=92.39
+    consumedSegments:
+      - [00] origin=raw start=(848, 485) end=(844, 581) axis=(485..581) angle=92.39
+      - [01] origin=raw start=(842, 566) end=(871, 695) axis=(566..695) angle=77.33
+      - [02] origin=raw start=(856, 631) end=(869, 714) axis=(631..714) angle=81.10
+    usedSegments:
+      - [00] origin=raw start=(848, 485) end=(844, 581) axis=(485..581) angle=92.39
+    deferredSegments:
+      - [00] origin=raw start=(842, 566) end=(871, 695) axis=(566..695) angle=77.33
+      - [01] origin=raw start=(856, 631) end=(869, 714) axis=(631..714) angle=81.10
+  - V9 G5 segmentCount=2 used=1 deferred=1 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(842, 566) end=(871, 695) axis=(566..695) angle=77.33
+    trialSegment=origin=raw start=(842, 566) end=(869, 714) axis=(566..714) angle=79.66
+    firstInvalidBlackGapAt=(853, 627)
+    acceptedBoundarySegment=origin=raw start=(842, 566) end=(871, 695) axis=(566..695) angle=77.33
+    outputSegment=origin=raw start=(846, 582) end=(860, 647) axis=(582..647) angle=77.85
+    consumedSegments:
+      - [00] origin=raw start=(842, 566) end=(871, 695) axis=(566..695) angle=77.33
+      - [01] origin=raw start=(856, 631) end=(869, 714) axis=(631..714) angle=81.10
+    usedSegments:
+      - [00] origin=raw start=(842, 566) end=(871, 695) axis=(566..695) angle=77.33
+    deferredSegments:
+      - [00] origin=raw start=(856, 631) end=(869, 714) axis=(631..714) angle=81.10
+  - V9 G6 segmentCount=1 used=1 deferred=0 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(856, 631) end=(869, 714) axis=(631..714) angle=81.10
+    trialSegment=origin=raw start=(856, 631) end=(869, 714) axis=(631..714) angle=81.10
+    firstInvalidBlackGapAt=(865, 689)
+    acceptedBoundarySegment=origin=raw start=(856, 631) end=(869, 714) axis=(631..714) angle=81.10
+    outputSegment=origin=raw start=(859, 648) end=(869, 714) axis=(648..714) angle=81.38
+    consumedSegments:
+      - [00] origin=raw start=(856, 631) end=(869, 714) axis=(631..714) angle=81.10
+    usedSegments:
+      - [00] origin=raw start=(856, 631) end=(869, 714) axis=(631..714) angle=81.10
+    deferredSegments:
+      - none
+V10 rawSegmentsBefore=2 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - V10 G1 segmentCount=2 used=2 deferred=0 status=merged
+    seedSegment=origin=raw start=(437, 201) end=(450, 928) axis=(201..928) angle=88.98
+    trialSegment=origin=raw start=(437, 201) end=(450, 928) axis=(201..928) angle=88.98
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(437, 201) end=(450, 928) axis=(201..928) angle=88.98
+    outputSegment=origin=raw start=(437, 201) end=(450, 928) axis=(201..928) angle=88.98
+    consumedSegments:
+      - [00] origin=raw start=(437, 201) end=(450, 928) axis=(201..928) angle=88.98
+      - [01] origin=raw start=(439, 225) end=(444, 554) axis=(225..554) angle=89.13
+    usedSegments:
+      - [00] origin=raw start=(437, 201) end=(450, 928) axis=(201..928) angle=88.98
+      - [01] origin=raw start=(439, 225) end=(444, 554) axis=(225..554) angle=89.13
+    deferredSegments:
+      - none
+V11 rawSegmentsBefore=1 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - V11 G1 segmentCount=1 used=1 deferred=0 status=single_segment
+    seedSegment=origin=raw start=(355, 205) end=(355, 328) axis=(205..328) angle=90.00
+    trialSegment=origin=raw start=(355, 205) end=(355, 328) axis=(205..328) angle=90.00
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(355, 205) end=(355, 328) axis=(205..328) angle=90.00
+    outputSegment=origin=raw start=(355, 205) end=(355, 328) axis=(205..328) angle=90.00
+    consumedSegments:
+      - [00] origin=raw start=(355, 205) end=(355, 328) axis=(205..328) angle=90.00
+    usedSegments:
+      - [00] origin=raw start=(355, 205) end=(355, 328) axis=(205..328) angle=90.00
+    deferredSegments:
+      - none
+V12 rawSegmentsBefore=12 rawGroupsBuilt=4 rawSegmentsAfter=4
+  - V12 G1 segmentCount=5 used=1 deferred=4 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(272, 211) end=(276, 353) axis=(211..353) angle=88.39
+    trialSegment=origin=raw start=(272, 211) end=(275, 933) axis=(211..933) angle=89.76
+    firstInvalidBlackGapAt=(272, 279)
+    acceptedBoundarySegment=origin=raw start=(272, 211) end=(276, 353) axis=(211..353) angle=88.39
+    outputSegment=origin=raw start=(272, 211) end=(276, 353) axis=(211..353) angle=88.39
+    consumedSegments:
+      - [00] origin=raw start=(272, 211) end=(276, 353) axis=(211..353) angle=88.39
+      - [01] origin=raw start=(273, 286) end=(284, 601) axis=(286..601) angle=88.00
+      - [02] origin=raw start=(273, 323) end=(280, 537) axis=(323..537) angle=88.13
+      - [03] origin=raw start=(283, 557) end=(274, 830) axis=(557..830) angle=91.89
+      - [04] origin=raw start=(277, 767) end=(275, 933) axis=(767..933) angle=90.69
+    usedSegments:
+      - [00] origin=raw start=(272, 211) end=(276, 353) axis=(211..353) angle=88.39
+    deferredSegments:
+      - [00] origin=raw start=(273, 286) end=(284, 601) axis=(286..601) angle=88.00
+      - [01] origin=raw start=(273, 323) end=(280, 537) axis=(323..537) angle=88.13
+      - [02] origin=raw start=(283, 557) end=(274, 830) axis=(557..830) angle=91.89
+      - [03] origin=raw start=(277, 767) end=(275, 933) axis=(767..933) angle=90.69
+  - V12 G2 segmentCount=4 used=2 deferred=2 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(273, 286) end=(284, 601) axis=(286..601) angle=88.00
+    trialSegment=origin=raw start=(273, 286) end=(275, 933) axis=(286..933) angle=89.82
+    firstInvalidBlackGapAt=(273, 360)
+    acceptedBoundarySegment=origin=raw start=(273, 286) end=(284, 601) axis=(286..601) angle=88.00
+    outputSegment=origin=raw start=(275, 354) end=(284, 591) axis=(354..591) angle=87.83
+    consumedSegments:
+      - [00] origin=raw start=(273, 286) end=(284, 601) axis=(286..601) angle=88.00
+      - [01] origin=raw start=(273, 323) end=(280, 537) axis=(323..537) angle=88.13
+      - [02] origin=raw start=(283, 557) end=(274, 830) axis=(557..830) angle=91.89
+      - [03] origin=raw start=(277, 767) end=(275, 933) axis=(767..933) angle=90.69
+    usedSegments:
+      - [00] origin=raw start=(273, 286) end=(284, 601) axis=(286..601) angle=88.00
+      - [01] origin=raw start=(273, 323) end=(280, 537) axis=(323..537) angle=88.13
+    deferredSegments:
+      - [00] origin=raw start=(283, 557) end=(274, 830) axis=(557..830) angle=91.89
+      - [01] origin=raw start=(277, 767) end=(275, 933) axis=(767..933) angle=90.69
+  - V12 G3 segmentCount=2 used=1 deferred=1 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(283, 557) end=(274, 830) axis=(557..830) angle=91.89
+    trialSegment=origin=raw start=(283, 557) end=(275, 933) axis=(557..933) angle=91.22
+    firstInvalidBlackGapAt=(280, 682)
+    acceptedBoundarySegment=origin=raw start=(283, 557) end=(274, 830) axis=(557..830) angle=91.89
+    outputSegment=origin=raw start=(282, 592) end=(276, 766) axis=(592..766) angle=91.97
+    consumedSegments:
+      - [00] origin=raw start=(283, 557) end=(274, 830) axis=(557..830) angle=91.89
+      - [01] origin=raw start=(277, 767) end=(275, 933) axis=(767..933) angle=90.69
+    usedSegments:
+      - [00] origin=raw start=(283, 557) end=(274, 830) axis=(557..830) angle=91.89
+    deferredSegments:
+      - [00] origin=raw start=(277, 767) end=(275, 933) axis=(767..933) angle=90.69
+  - V12 G4 segmentCount=1 used=1 deferred=0 status=single_segment
+    seedSegment=origin=raw start=(277, 767) end=(275, 933) axis=(767..933) angle=90.69
+    trialSegment=origin=raw start=(277, 767) end=(275, 933) axis=(767..933) angle=90.69
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(277, 767) end=(275, 933) axis=(767..933) angle=90.69
+    outputSegment=origin=raw start=(277, 767) end=(275, 933) axis=(767..933) angle=90.69
+    consumedSegments:
+      - [00] origin=raw start=(277, 767) end=(275, 933) axis=(767..933) angle=90.69
+    usedSegments:
+      - [00] origin=raw start=(277, 767) end=(275, 933) axis=(767..933) angle=90.69
+    deferredSegments:
+      - none
+V13 rawSegmentsBefore=1 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - V13 G1 segmentCount=1 used=1 deferred=0 status=single_segment
+    seedSegment=origin=raw start=(62, 213) end=(62, 313) axis=(213..313) angle=90.00
+    trialSegment=origin=raw start=(62, 213) end=(62, 313) axis=(213..313) angle=90.00
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(62, 213) end=(62, 313) axis=(213..313) angle=90.00
+    outputSegment=origin=raw start=(62, 213) end=(62, 313) axis=(213..313) angle=90.00
+    consumedSegments:
+      - [00] origin=raw start=(62, 213) end=(62, 313) axis=(213..313) angle=90.00
+    usedSegments:
+      - [00] origin=raw start=(62, 213) end=(62, 313) axis=(213..313) angle=90.00
+    deferredSegments:
+      - none
+V14 rawSegmentsBefore=2 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - V14 G1 segmentCount=2 used=2 deferred=0 status=merged
+    seedSegment=origin=raw start=(105, 214) end=(105, 434) axis=(214..434) angle=90.00
+    trialSegment=origin=raw start=(105, 214) end=(105, 434) axis=(214..434) angle=90.00
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(105, 214) end=(105, 434) axis=(214..434) angle=90.00
+    outputSegment=origin=raw start=(105, 214) end=(105, 434) axis=(214..434) angle=90.00
+    consumedSegments:
+      - [00] origin=raw start=(105, 214) end=(105, 434) axis=(214..434) angle=90.00
+      - [01] origin=raw start=(103, 288) end=(104, 401) axis=(288..401) angle=89.49
+    usedSegments:
+      - [00] origin=raw start=(105, 214) end=(105, 434) axis=(214..434) angle=90.00
+      - [01] origin=raw start=(103, 288) end=(104, 401) axis=(288..401) angle=89.49
+    deferredSegments:
+      - none
+V15 rawSegmentsBefore=12 rawGroupsBuilt=3 rawSegmentsAfter=3
+  - V15 G1 segmentCount=5 used=1 deferred=4 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(520, 225) end=(525, 523) axis=(225..523) angle=89.04
+    trialSegment=origin=raw start=(520, 225) end=(538, 926) axis=(225..926) angle=88.53
+    firstInvalidBlackGapAt=(521, 245)
+    acceptedBoundarySegment=origin=raw start=(520, 225) end=(525, 523) axis=(225..523) angle=89.04
+    outputSegment=origin=raw start=(520, 225) end=(524, 452) axis=(225..452) angle=88.99
+    consumedSegments:
+      - [00] origin=raw start=(520, 225) end=(525, 523) axis=(225..523) angle=89.04
+      - [01] origin=raw start=(523, 453) end=(524, 566) axis=(453..566) angle=89.49
+      - [02] origin=raw start=(522, 512) end=(524, 618) axis=(512..618) angle=88.92
+      - [03] origin=raw start=(524, 567) end=(528, 689) axis=(567..689) angle=88.12
+      - [04] origin=raw start=(528, 632) end=(538, 926) axis=(632..926) angle=88.05
+    usedSegments:
+      - [00] origin=raw start=(520, 225) end=(525, 523) axis=(225..523) angle=89.04
+    deferredSegments:
+      - [00] origin=raw start=(523, 453) end=(524, 566) axis=(453..566) angle=89.49
+      - [01] origin=raw start=(522, 512) end=(524, 618) axis=(512..618) angle=88.92
+      - [02] origin=raw start=(524, 567) end=(528, 689) axis=(567..689) angle=88.12
+      - [03] origin=raw start=(528, 632) end=(538, 926) axis=(632..926) angle=88.05
+  - V15 G2 segmentCount=4 used=1 deferred=3 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(523, 453) end=(524, 566) axis=(453..566) angle=89.49
+    trialSegment=origin=raw start=(523, 453) end=(538, 926) axis=(453..926) angle=88.18
+    firstInvalidBlackGapAt=(525, 524)
+    acceptedBoundarySegment=origin=raw start=(523, 453) end=(524, 566) axis=(453..566) angle=89.49
+    outputSegment=origin=raw start=(523, 453) end=(524, 566) axis=(453..566) angle=89.49
+    consumedSegments:
+      - [00] origin=raw start=(523, 453) end=(524, 566) axis=(453..566) angle=89.49
+      - [01] origin=raw start=(522, 512) end=(524, 618) axis=(512..618) angle=88.92
+      - [02] origin=raw start=(524, 567) end=(528, 689) axis=(567..689) angle=88.12
+      - [03] origin=raw start=(528, 632) end=(538, 926) axis=(632..926) angle=88.05
+    usedSegments:
+      - [00] origin=raw start=(523, 453) end=(524, 566) axis=(453..566) angle=89.49
+    deferredSegments:
+      - [00] origin=raw start=(522, 512) end=(524, 618) axis=(512..618) angle=88.92
+      - [01] origin=raw start=(524, 567) end=(528, 689) axis=(567..689) angle=88.12
+      - [02] origin=raw start=(528, 632) end=(538, 926) axis=(632..926) angle=88.05
+  - V15 G3 segmentCount=3 used=3 deferred=0 status=merged
+    seedSegment=origin=raw start=(522, 512) end=(524, 618) axis=(512..618) angle=88.92
+    trialSegment=origin=raw start=(522, 512) end=(538, 926) axis=(512..926) angle=87.79
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(528, 632) end=(538, 926) axis=(632..926) angle=88.05
+    outputSegment=origin=raw start=(524, 567) end=(538, 926) axis=(567..926) angle=87.77
+    consumedSegments:
+      - [00] origin=raw start=(522, 512) end=(524, 618) axis=(512..618) angle=88.92
+      - [01] origin=raw start=(524, 567) end=(528, 689) axis=(567..689) angle=88.12
+      - [02] origin=raw start=(528, 632) end=(538, 926) axis=(632..926) angle=88.05
+    usedSegments:
+      - [00] origin=raw start=(522, 512) end=(524, 618) axis=(512..618) angle=88.92
+      - [01] origin=raw start=(524, 567) end=(528, 689) axis=(567..689) angle=88.12
+      - [02] origin=raw start=(528, 632) end=(538, 926) axis=(632..926) angle=88.05
+    deferredSegments:
+      - none
+V16 rawSegmentsBefore=3 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - V16 G1 segmentCount=3 used=3 deferred=0 status=merged
+    seedSegment=origin=raw start=(58, 226) end=(58, 443) axis=(226..443) angle=90.00
+    trialSegment=origin=raw start=(58, 226) end=(58, 443) axis=(226..443) angle=90.00
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(58, 226) end=(58, 443) axis=(226..443) angle=90.00
+    outputSegment=origin=raw start=(58, 226) end=(58, 443) axis=(226..443) angle=90.00
+    consumedSegments:
+      - [00] origin=raw start=(58, 226) end=(58, 443) axis=(226..443) angle=90.00
+      - [01] origin=raw start=(57, 258) end=(57, 378) axis=(258..378) angle=90.00
+      - [02] origin=raw start=(56, 322) end=(57, 421) axis=(322..421) angle=89.42
+    usedSegments:
+      - [00] origin=raw start=(58, 226) end=(58, 443) axis=(226..443) angle=90.00
+      - [01] origin=raw start=(57, 258) end=(57, 378) axis=(258..378) angle=90.00
+      - [02] origin=raw start=(56, 322) end=(57, 421) axis=(322..421) angle=89.42
+    deferredSegments:
+      - none
+V17 rawSegmentsBefore=3 rawGroupsBuilt=2 rawSegmentsAfter=2
+  - V17 G1 segmentCount=2 used=1 deferred=1 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(761, 246) end=(769, 488) axis=(246..488) angle=88.11
+    trialSegment=origin=raw start=(761, 246) end=(769, 519) axis=(246..519) angle=88.32
+    firstInvalidBlackGapAt=(769, 502)
+    acceptedBoundarySegment=origin=raw start=(761, 246) end=(769, 488) axis=(246..488) angle=88.11
+    outputSegment=origin=raw start=(761, 246) end=(765, 382) axis=(246..382) angle=88.32
+    consumedSegments:
+      - [00] origin=raw start=(761, 246) end=(769, 488) axis=(246..488) angle=88.11
+      - [01] origin=raw start=(763, 344) end=(769, 519) axis=(344..519) angle=88.04
+    usedSegments:
+      - [00] origin=raw start=(761, 246) end=(769, 488) axis=(246..488) angle=88.11
+    deferredSegments:
+      - [00] origin=raw start=(763, 344) end=(769, 519) axis=(344..519) angle=88.04
+  - V17 G2 segmentCount=1 used=1 deferred=0 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(763, 344) end=(769, 519) axis=(344..519) angle=88.04
+    trialSegment=origin=raw start=(763, 344) end=(769, 519) axis=(344..519) angle=88.04
+    firstInvalidBlackGapAt=(769, 505)
+    acceptedBoundarySegment=origin=raw start=(763, 344) end=(769, 519) axis=(344..519) angle=88.04
+    outputSegment=origin=raw start=(764, 383) end=(769, 519) axis=(383..519) angle=87.89
+    consumedSegments:
+      - [00] origin=raw start=(763, 344) end=(769, 519) axis=(344..519) angle=88.04
+    usedSegments:
+      - [00] origin=raw start=(763, 344) end=(769, 519) axis=(344..519) angle=88.04
+    deferredSegments:
+      - none
+V18 rawSegmentsBefore=2 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - V18 G1 segmentCount=2 used=2 deferred=0 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(682, 258) end=(686, 524) axis=(258..524) angle=89.14
+    trialSegment=origin=raw start=(682, 258) end=(686, 524) axis=(258..524) angle=89.14
+    firstInvalidBlackGapAt=(684, 407)
+    acceptedBoundarySegment=origin=raw start=(682, 258) end=(686, 524) axis=(258..524) angle=89.14
+    outputSegment=origin=raw start=(682, 258) end=(686, 524) axis=(258..524) angle=89.14
+    consumedSegments:
+      - [00] origin=raw start=(682, 258) end=(686, 524) axis=(258..524) angle=89.14
+      - [01] origin=raw start=(685, 339) end=(687, 492) axis=(339..492) angle=89.25
+    usedSegments:
+      - [00] origin=raw start=(682, 258) end=(686, 524) axis=(258..524) angle=89.14
+      - [01] origin=raw start=(685, 339) end=(687, 492) axis=(339..492) angle=89.25
+    deferredSegments:
+      - none
+V19 rawSegmentsBefore=3 rawGroupsBuilt=2 rawSegmentsAfter=2
+  - V19 G1 segmentCount=2 used=1 deferred=1 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(109, 392) end=(109, 486) axis=(392..486) angle=90.00
+    trialSegment=origin=raw start=(109, 392) end=(121, 576) axis=(392..576) angle=86.27
+    firstInvalidBlackGapAt=(110, 400)
+    acceptedBoundarySegment=origin=raw start=(109, 392) end=(109, 486) axis=(392..486) angle=90.00
+    outputSegment=origin=raw start=(109, 392) end=(109, 484) axis=(392..484) angle=90.00
+    consumedSegments:
+      - [00] origin=raw start=(109, 392) end=(109, 486) axis=(392..486) angle=90.00
+      - [01] origin=raw start=(108, 480) end=(121, 576) axis=(480..576) angle=82.29
+    usedSegments:
+      - [00] origin=raw start=(109, 392) end=(109, 486) axis=(392..486) angle=90.00
+    deferredSegments:
+      - [00] origin=raw start=(108, 480) end=(121, 576) axis=(480..576) angle=82.29
+  - V19 G2 segmentCount=1 used=1 deferred=0 status=single_segment
+    seedSegment=origin=raw start=(108, 480) end=(121, 576) axis=(480..576) angle=82.29
+    trialSegment=origin=raw start=(108, 480) end=(121, 576) axis=(480..576) angle=82.29
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(108, 480) end=(121, 576) axis=(480..576) angle=82.29
+    outputSegment=origin=raw start=(109, 485) end=(121, 576) axis=(485..576) angle=82.49
+    consumedSegments:
+      - [00] origin=raw start=(108, 480) end=(121, 576) axis=(480..576) angle=82.29
+    usedSegments:
+      - [00] origin=raw start=(108, 480) end=(121, 576) axis=(480..576) angle=82.29
+    deferredSegments:
+      - none
+V20 rawSegmentsBefore=1 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - V20 G1 segmentCount=1 used=1 deferred=0 status=single_segment
+    seedSegment=origin=raw start=(71, 519) end=(71, 615) axis=(519..615) angle=90.00
+    trialSegment=origin=raw start=(71, 519) end=(71, 615) axis=(519..615) angle=90.00
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(71, 519) end=(71, 615) axis=(519..615) angle=90.00
+    outputSegment=origin=raw start=(71, 519) end=(71, 615) axis=(519..615) angle=90.00
+    consumedSegments:
+      - [00] origin=raw start=(71, 519) end=(71, 615) axis=(519..615) angle=90.00
+    usedSegments:
+      - [00] origin=raw start=(71, 519) end=(71, 615) axis=(519..615) angle=90.00
+    deferredSegments:
+      - none
+V21 rawSegmentsBefore=2 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - V21 G1 segmentCount=2 used=2 deferred=0 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(202, 548) end=(192, 744) axis=(548..744) angle=92.92
+    trialSegment=origin=raw start=(202, 548) end=(192, 744) axis=(548..744) angle=92.92
+    firstInvalidBlackGapAt=(195, 687)
+    acceptedBoundarySegment=origin=raw start=(202, 548) end=(192, 744) axis=(548..744) angle=92.92
+    outputSegment=origin=raw start=(202, 548) end=(192, 744) axis=(548..744) angle=92.92
+    consumedSegments:
+      - [00] origin=raw start=(202, 548) end=(192, 744) axis=(548..744) angle=92.92
+      - [01] origin=raw start=(198, 596) end=(192, 721) axis=(596..721) angle=92.75
+    usedSegments:
+      - [00] origin=raw start=(202, 548) end=(192, 744) axis=(548..744) angle=92.92
+      - [01] origin=raw start=(198, 596) end=(192, 721) axis=(596..721) angle=92.75
+    deferredSegments:
+      - none
+V22 rawSegmentsBefore=4 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - V22 G1 segmentCount=4 used=4 deferred=0 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(762, 548) end=(794, 782) axis=(548..782) angle=82.21
+    trialSegment=origin=raw start=(762, 548) end=(794, 782) axis=(548..782) angle=82.21
+    firstInvalidBlackGapAt=(765, 567)
+    acceptedBoundarySegment=origin=raw start=(762, 548) end=(794, 782) axis=(548..782) angle=82.21
+    outputSegment=origin=raw start=(762, 548) end=(794, 782) axis=(548..782) angle=82.21
+    consumedSegments:
+      - [00] origin=raw start=(762, 548) end=(794, 782) axis=(548..782) angle=82.21
+      - [01] origin=raw start=(761, 551) end=(787, 738) axis=(551..738) angle=82.08
+      - [02] origin=raw start=(761, 554) end=(774, 646) axis=(554..646) angle=81.96
+      - [03] origin=raw start=(770, 604) end=(793, 768) axis=(604..768) angle=82.02
+    usedSegments:
+      - [00] origin=raw start=(762, 548) end=(794, 782) axis=(548..782) angle=82.21
+      - [01] origin=raw start=(761, 551) end=(787, 738) axis=(551..738) angle=82.08
+      - [02] origin=raw start=(761, 554) end=(774, 646) axis=(554..646) angle=81.96
+      - [03] origin=raw start=(770, 604) end=(793, 768) axis=(604..768) angle=82.02
+    deferredSegments:
+      - none
+V23 rawSegmentsBefore=10 rawGroupsBuilt=4 rawSegmentsAfter=4
+  - V23 G1 segmentCount=4 used=1 deferred=3 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(681, 548) end=(703, 732) axis=(548..732) angle=83.18
+    trialSegment=origin=raw start=(681, 548) end=(714, 923) axis=(548..923) angle=84.97
+    firstInvalidBlackGapAt=(688, 630)
+    acceptedBoundarySegment=origin=raw start=(681, 548) end=(703, 732) axis=(548..732) angle=83.18
+    outputSegment=origin=raw start=(681, 548) end=(692, 642) axis=(548..642) angle=83.33
+    consumedSegments:
+      - [00] origin=raw start=(681, 548) end=(703, 732) axis=(548..732) angle=83.18
+      - [01] origin=raw start=(681, 554) end=(703, 736) axis=(554..736) angle=83.11
+      - [02] origin=raw start=(681, 560) end=(704, 755) axis=(560..755) angle=83.27
+      - [03] origin=raw start=(704, 742) end=(714, 923) axis=(742..923) angle=86.84
+    usedSegments:
+      - [00] origin=raw start=(681, 548) end=(703, 732) axis=(548..732) angle=83.18
+    deferredSegments:
+      - [00] origin=raw start=(681, 554) end=(703, 736) axis=(554..736) angle=83.11
+      - [01] origin=raw start=(681, 560) end=(704, 755) axis=(560..755) angle=83.27
+      - [02] origin=raw start=(704, 742) end=(714, 923) axis=(742..923) angle=86.84
+  - V23 G2 segmentCount=2 used=1 deferred=1 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(681, 560) end=(704, 755) axis=(560..755) angle=83.27
+    trialSegment=origin=raw start=(681, 560) end=(714, 923) axis=(560..923) angle=84.81
+    firstInvalidBlackGapAt=(685, 606)
+    acceptedBoundarySegment=origin=raw start=(681, 560) end=(704, 755) axis=(560..755) angle=83.27
+    outputSegment=origin=raw start=(681, 560) end=(691, 648) axis=(560..648) angle=83.52
+    consumedSegments:
+      - [00] origin=raw start=(681, 560) end=(704, 755) axis=(560..755) angle=83.27
+      - [01] origin=raw start=(704, 742) end=(714, 923) axis=(742..923) angle=86.84
+    usedSegments:
+      - [00] origin=raw start=(681, 560) end=(704, 755) axis=(560..755) angle=83.27
+    deferredSegments:
+      - [00] origin=raw start=(704, 742) end=(714, 923) axis=(742..923) angle=86.84
+  - V23 G3 segmentCount=3 used=1 deferred=2 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(681, 554) end=(703, 736) axis=(554..736) angle=83.11
+    trialSegment=origin=raw start=(681, 554) end=(714, 923) axis=(554..923) angle=84.89
+    firstInvalidBlackGapAt=(687, 622)
+    acceptedBoundarySegment=origin=raw start=(681, 554) end=(703, 736) axis=(554..736) angle=83.11
+    outputSegment=origin=raw start=(693, 649) end=(703, 736) axis=(649..736) angle=83.44
+    consumedSegments:
+      - [00] origin=raw start=(681, 554) end=(703, 736) axis=(554..736) angle=83.11
+      - [01] origin=raw start=(681, 560) end=(704, 755) axis=(560..755) angle=83.27
+      - [02] origin=raw start=(704, 742) end=(714, 923) axis=(742..923) angle=86.84
+    usedSegments:
+      - [00] origin=raw start=(681, 554) end=(703, 736) axis=(554..736) angle=83.11
+    deferredSegments:
+      - [00] origin=raw start=(681, 560) end=(704, 755) axis=(560..755) angle=83.27
+      - [01] origin=raw start=(704, 742) end=(714, 923) axis=(742..923) angle=86.84
+  - V23 G4 segmentCount=1 used=1 deferred=0 status=single_segment
+    seedSegment=origin=raw start=(704, 742) end=(714, 923) axis=(742..923) angle=86.84
+    trialSegment=origin=raw start=(704, 742) end=(714, 923) axis=(742..923) angle=86.84
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(704, 742) end=(714, 923) axis=(742..923) angle=86.84
+    outputSegment=origin=raw start=(704, 742) end=(714, 923) axis=(742..923) angle=86.84
+    consumedSegments:
+      - [00] origin=raw start=(704, 742) end=(714, 923) axis=(742..923) angle=86.84
+    usedSegments:
+      - [00] origin=raw start=(704, 742) end=(714, 923) axis=(742..923) angle=86.84
+    deferredSegments:
+      - none
+V24 rawSegmentsBefore=1 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - V24 G1 segmentCount=1 used=1 deferred=0 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(283, 600) end=(280, 681) axis=(600..681) angle=92.12
+    trialSegment=origin=raw start=(283, 600) end=(280, 681) axis=(600..681) angle=92.12
+    firstInvalidBlackGapAt=(283, 611)
+    acceptedBoundarySegment=origin=raw start=(283, 600) end=(280, 681) axis=(600..681) angle=92.12
+    outputSegment=origin=raw start=(283, 600) end=(280, 681) axis=(600..681) angle=92.12
+    consumedSegments:
+      - [00] origin=raw start=(283, 600) end=(280, 681) axis=(600..681) angle=92.12
+    usedSegments:
+      - [00] origin=raw start=(283, 600) end=(280, 681) axis=(600..681) angle=92.12
+    deferredSegments:
+      - none
+V25 rawSegmentsBefore=4 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - V25 G1 segmentCount=4 used=4 deferred=0 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(615, 679) end=(624, 925) axis=(679..925) angle=87.90
+    trialSegment=origin=raw start=(615, 679) end=(627, 925) axis=(679..925) angle=87.21
+    firstInvalidBlackGapAt=(616, 690)
+    acceptedBoundarySegment=origin=raw start=(615, 679) end=(624, 925) axis=(679..925) angle=87.90
+    outputSegment=origin=raw start=(615, 679) end=(624, 925) axis=(679..925) angle=87.90
+    consumedSegments:
+      - [00] origin=raw start=(615, 679) end=(624, 925) axis=(679..925) angle=87.90
+      - [01] origin=raw start=(618, 720) end=(625, 925) axis=(720..925) angle=88.04
+      - [02] origin=raw start=(614, 727) end=(619, 829) axis=(727..829) angle=87.19
+      - [03] origin=raw start=(621, 768) end=(627, 925) axis=(768..925) angle=87.81
+    usedSegments:
+      - [00] origin=raw start=(615, 679) end=(624, 925) axis=(679..925) angle=87.90
+      - [01] origin=raw start=(618, 720) end=(625, 925) axis=(720..925) angle=88.04
+      - [02] origin=raw start=(614, 727) end=(619, 829) axis=(727..829) angle=87.19
+      - [03] origin=raw start=(621, 768) end=(627, 925) axis=(768..925) angle=87.81
+    deferredSegments:
+      - none
+V26 rawSegmentsBefore=15 rawGroupsBuilt=2 rawSegmentsAfter=2
+  - V26 G1 segmentCount=8 used=1 deferred=7 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(57, 680) end=(55, 823) axis=(680..823) angle=90.80
+    trialSegment=origin=raw start=(57, 680) end=(49, 1279) axis=(680..1279) angle=90.77
+    firstInvalidBlackGapAt=(55, 824)
+    acceptedBoundarySegment=origin=raw start=(57, 680) end=(55, 823) axis=(680..823) angle=90.80
+    outputSegment=origin=raw start=(57, 680) end=(55, 823) axis=(680..823) angle=90.80
+    consumedSegments:
+      - [00] origin=raw start=(57, 680) end=(55, 823) axis=(680..823) angle=90.80
+      - [01] origin=raw start=(54, 716) end=(54, 861) axis=(716..861) angle=90.00
+      - [02] origin=raw start=(53, 731) end=(53, 998) axis=(731..998) angle=90.00
+      - [03] origin=raw start=(52, 748) end=(52, 1279) axis=(748..1279) angle=90.00
+      - [04] origin=raw start=(51, 764) end=(51, 1279) axis=(764..1279) angle=90.00
+      - [05] origin=raw start=(50, 785) end=(50, 1279) axis=(785..1279) angle=90.00
+      - [06] origin=raw start=(49, 806) end=(49, 1279) axis=(806..1279) angle=90.00
+      - [07] origin=raw start=(48, 837) end=(48, 1251) axis=(837..1251) angle=90.00
+    usedSegments:
+      - [00] origin=raw start=(57, 680) end=(55, 823) axis=(680..823) angle=90.80
+    deferredSegments:
+      - [00] origin=raw start=(54, 716) end=(54, 861) axis=(716..861) angle=90.00
+      - [01] origin=raw start=(53, 731) end=(53, 998) axis=(731..998) angle=90.00
+      - [02] origin=raw start=(52, 748) end=(52, 1279) axis=(748..1279) angle=90.00
+      - [03] origin=raw start=(51, 764) end=(51, 1279) axis=(764..1279) angle=90.00
+      - [04] origin=raw start=(50, 785) end=(50, 1279) axis=(785..1279) angle=90.00
+      - [05] origin=raw start=(49, 806) end=(49, 1279) axis=(806..1279) angle=90.00
+      - [06] origin=raw start=(48, 837) end=(48, 1251) axis=(837..1251) angle=90.00
+  - V26 G2 segmentCount=7 used=7 deferred=0 status=merged
+    seedSegment=origin=raw start=(54, 716) end=(54, 861) axis=(716..861) angle=90.00
+    trialSegment=origin=raw start=(54, 716) end=(49, 1279) axis=(716..1279) angle=90.51
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(49, 806) end=(49, 1279) axis=(806..1279) angle=90.00
+    outputSegment=origin=raw start=(53, 824) end=(49, 1279) axis=(824..1279) angle=90.50
+    consumedSegments:
+      - [00] origin=raw start=(54, 716) end=(54, 861) axis=(716..861) angle=90.00
+      - [01] origin=raw start=(53, 731) end=(53, 998) axis=(731..998) angle=90.00
+      - [02] origin=raw start=(52, 748) end=(52, 1279) axis=(748..1279) angle=90.00
+      - [03] origin=raw start=(51, 764) end=(51, 1279) axis=(764..1279) angle=90.00
+      - [04] origin=raw start=(50, 785) end=(50, 1279) axis=(785..1279) angle=90.00
+      - [05] origin=raw start=(49, 806) end=(49, 1279) axis=(806..1279) angle=90.00
+      - [06] origin=raw start=(48, 837) end=(48, 1251) axis=(837..1251) angle=90.00
+    usedSegments:
+      - [00] origin=raw start=(54, 716) end=(54, 861) axis=(716..861) angle=90.00
+      - [01] origin=raw start=(53, 731) end=(53, 998) axis=(731..998) angle=90.00
+      - [02] origin=raw start=(52, 748) end=(52, 1279) axis=(748..1279) angle=90.00
+      - [03] origin=raw start=(51, 764) end=(51, 1279) axis=(764..1279) angle=90.00
+      - [04] origin=raw start=(50, 785) end=(50, 1279) axis=(785..1279) angle=90.00
+      - [05] origin=raw start=(49, 806) end=(49, 1279) axis=(806..1279) angle=90.00
+      - [06] origin=raw start=(48, 837) end=(48, 1251) axis=(837..1251) angle=90.00
+    deferredSegments:
+      - none
+V27 rawSegmentsBefore=4 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - V27 G1 segmentCount=4 used=4 deferred=0 status=merged
+    seedSegment=origin=raw start=(105, 688) end=(97, 937) axis=(688..937) angle=91.84
+    trialSegment=origin=raw start=(105, 688) end=(98, 938) axis=(688..938) angle=91.60
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(105, 721) end=(98, 938) axis=(721..938) angle=91.85
+    outputSegment=origin=raw start=(105, 688) end=(98, 938) axis=(688..938) angle=91.60
+    consumedSegments:
+      - [00] origin=raw start=(105, 688) end=(97, 937) axis=(688..937) angle=91.84
+      - [01] origin=raw start=(104, 695) end=(96, 936) axis=(695..936) angle=91.90
+      - [02] origin=raw start=(105, 721) end=(98, 938) axis=(721..938) angle=91.85
+      - [03] origin=raw start=(101, 738) end=(97, 874) axis=(738..874) angle=91.68
+    usedSegments:
+      - [00] origin=raw start=(105, 688) end=(97, 937) axis=(688..937) angle=91.84
+      - [01] origin=raw start=(104, 695) end=(96, 936) axis=(695..936) angle=91.90
+      - [02] origin=raw start=(105, 721) end=(98, 938) axis=(721..938) angle=91.85
+      - [03] origin=raw start=(101, 738) end=(97, 874) axis=(738..874) angle=91.68
+    deferredSegments:
+      - none
+V28 rawSegmentsBefore=4 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - V28 G1 segmentCount=4 used=4 deferred=0 status=merged
+    seedSegment=origin=raw start=(875, 718) end=(884, 886) axis=(718..886) angle=86.93
+    trialSegment=origin=raw start=(875, 718) end=(889, 920) axis=(718..920) angle=86.04
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(881, 763) end=(889, 920) axis=(763..920) angle=87.08
+    outputSegment=origin=raw start=(875, 718) end=(889, 920) axis=(718..920) angle=86.04
+    consumedSegments:
+      - [00] origin=raw start=(875, 718) end=(884, 886) axis=(718..886) angle=86.93
+      - [01] origin=raw start=(879, 749) end=(888, 920) axis=(749..920) angle=86.99
+      - [02] origin=raw start=(881, 763) end=(889, 920) axis=(763..920) angle=87.08
+      - [03] origin=raw start=(879, 776) end=(887, 913) axis=(776..913) angle=86.66
+    usedSegments:
+      - [00] origin=raw start=(875, 718) end=(884, 886) axis=(718..886) angle=86.93
+      - [01] origin=raw start=(879, 749) end=(888, 920) axis=(749..920) angle=86.99
+      - [02] origin=raw start=(881, 763) end=(889, 920) axis=(763..920) angle=87.08
+      - [03] origin=raw start=(879, 776) end=(887, 913) axis=(776..913) angle=86.66
+    deferredSegments:
+      - none
+V29 rawSegmentsBefore=2 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - V29 G1 segmentCount=2 used=2 deferred=0 status=merged
+    seedSegment=origin=raw start=(190, 736) end=(186, 878) axis=(736..878) angle=91.61
+    trialSegment=origin=raw start=(190, 736) end=(185, 935) axis=(736..935) angle=91.44
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(190, 777) end=(185, 935) axis=(777..935) angle=91.81
+    outputSegment=origin=raw start=(190, 736) end=(185, 935) axis=(736..935) angle=91.44
+    consumedSegments:
+      - [00] origin=raw start=(190, 736) end=(186, 878) axis=(736..878) angle=91.61
+      - [01] origin=raw start=(190, 777) end=(185, 935) axis=(777..935) angle=91.81
+    usedSegments:
+      - [00] origin=raw start=(190, 736) end=(186, 878) axis=(736..878) angle=91.61
+      - [01] origin=raw start=(190, 777) end=(185, 935) axis=(777..935) angle=91.81
+    deferredSegments:
+      - none
+V30 rawSegmentsBefore=1 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - V30 G1 segmentCount=1 used=1 deferred=0 status=single_segment
+    seedSegment=origin=raw start=(796, 805) end=(798, 902) axis=(805..902) angle=88.82
+    trialSegment=origin=raw start=(796, 805) end=(798, 902) axis=(805..902) angle=88.82
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(796, 805) end=(798, 902) axis=(805..902) angle=88.82
+    outputSegment=origin=raw start=(796, 805) end=(798, 902) axis=(805..902) angle=88.82
+    consumedSegments:
+      - [00] origin=raw start=(796, 805) end=(798, 902) axis=(805..902) angle=88.82
+    usedSegments:
+      - [00] origin=raw start=(796, 805) end=(798, 902) axis=(805..902) angle=88.82
+    deferredSegments:
+      - none
+V31 rawSegmentsBefore=1 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - V31 G1 segmentCount=1 used=1 deferred=0 status=single_segment
+    seedSegment=origin=raw start=(47, 915) end=(47, 1200) axis=(915..1200) angle=90.00
+    trialSegment=origin=raw start=(47, 915) end=(47, 1200) axis=(915..1200) angle=90.00
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(47, 915) end=(47, 1200) axis=(915..1200) angle=90.00
+    outputSegment=origin=raw start=(47, 915) end=(47, 1200) axis=(915..1200) angle=90.00
+    consumedSegments:
+      - [00] origin=raw start=(47, 915) end=(47, 1200) axis=(915..1200) angle=90.00
+    usedSegments:
+      - [00] origin=raw start=(47, 915) end=(47, 1200) axis=(915..1200) angle=90.00
+    deferredSegments:
+      - none
+V32 rawSegmentsBefore=2 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - V32 G1 segmentCount=2 used=2 deferred=0 status=merged
+    seedSegment=origin=raw start=(898, 1052) end=(906, 1279) axis=(1052..1279) angle=87.98
+    trialSegment=origin=raw start=(898, 1052) end=(906, 1279) axis=(1052..1279) angle=87.98
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(898, 1052) end=(906, 1279) axis=(1052..1279) angle=87.98
+    outputSegment=origin=raw start=(898, 1052) end=(906, 1279) axis=(1052..1279) angle=87.98
+    consumedSegments:
+      - [00] origin=raw start=(898, 1052) end=(906, 1279) axis=(1052..1279) angle=87.98
+      - [01] origin=raw start=(900, 1071) end=(906, 1259) axis=(1071..1259) angle=88.17
+    usedSegments:
+      - [00] origin=raw start=(898, 1052) end=(906, 1279) axis=(1052..1279) angle=87.98
+      - [01] origin=raw start=(900, 1071) end=(906, 1259) axis=(1071..1259) angle=88.17
+    deferredSegments:
+      - none
+V33 rawSegmentsBefore=3 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - V33 G1 segmentCount=3 used=3 deferred=0 status=trimmed_by_black_gap
+    seedSegment=origin=raw start=(596, 1057) end=(604, 1279) axis=(1057..1279) angle=87.94
+    trialSegment=origin=raw start=(596, 1057) end=(603, 1279) axis=(1057..1279) angle=88.19
+    firstInvalidBlackGapAt=(596, 1068)
+    acceptedBoundarySegment=origin=raw start=(596, 1057) end=(604, 1279) axis=(1057..1279) angle=87.94
+    outputSegment=origin=raw start=(596, 1057) end=(604, 1279) axis=(1057..1279) angle=87.94
+    consumedSegments:
+      - [00] origin=raw start=(596, 1057) end=(604, 1279) axis=(1057..1279) angle=87.94
+      - [01] origin=raw start=(597, 1058) end=(605, 1265) axis=(1058..1265) angle=87.79
+      - [02] origin=raw start=(599, 1148) end=(603, 1279) axis=(1148..1279) angle=88.25
+    usedSegments:
+      - [00] origin=raw start=(596, 1057) end=(604, 1279) axis=(1057..1279) angle=87.94
+      - [01] origin=raw start=(597, 1058) end=(605, 1265) axis=(1058..1265) angle=87.79
+      - [02] origin=raw start=(599, 1148) end=(603, 1279) axis=(1148..1279) angle=88.25
+    deferredSegments:
+      - none
+V34 rawSegmentsBefore=1 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - V34 G1 segmentCount=1 used=1 deferred=0 status=single_segment
+    seedSegment=origin=raw start=(800, 1085) end=(803, 1187) axis=(1085..1187) angle=88.32
+    trialSegment=origin=raw start=(800, 1085) end=(803, 1187) axis=(1085..1187) angle=88.32
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(800, 1085) end=(803, 1187) axis=(1085..1187) angle=88.32
+    outputSegment=origin=raw start=(800, 1085) end=(803, 1187) axis=(1085..1187) angle=88.32
+    consumedSegments:
+      - [00] origin=raw start=(800, 1085) end=(803, 1187) axis=(1085..1187) angle=88.32
+    usedSegments:
+      - [00] origin=raw start=(800, 1085) end=(803, 1187) axis=(1085..1187) angle=88.32
+    deferredSegments:
+      - none
+V35 rawSegmentsBefore=1 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - V35 G1 segmentCount=1 used=1 deferred=0 status=single_segment
+    seedSegment=origin=raw start=(53, 1154) end=(53, 1279) axis=(1154..1279) angle=90.00
+    trialSegment=origin=raw start=(53, 1154) end=(53, 1279) axis=(1154..1279) angle=90.00
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(53, 1154) end=(53, 1279) axis=(1154..1279) angle=90.00
+    outputSegment=origin=raw start=(53, 1154) end=(53, 1279) axis=(1154..1279) angle=90.00
+    consumedSegments:
+      - [00] origin=raw start=(53, 1154) end=(53, 1279) axis=(1154..1279) angle=90.00
+    usedSegments:
+      - [00] origin=raw start=(53, 1154) end=(53, 1279) axis=(1154..1279) angle=90.00
+    deferredSegments:
+      - none
+V36 rawSegmentsBefore=1 rawGroupsBuilt=1 rawSegmentsAfter=1
+  - V36 G1 segmentCount=1 used=1 deferred=0 status=single_segment
+    seedSegment=origin=raw start=(805, 1195) end=(806, 1279) axis=(1195..1279) angle=89.32
+    trialSegment=origin=raw start=(805, 1195) end=(806, 1279) axis=(1195..1279) angle=89.32
+    firstInvalidBlackGapAt=None
+    acceptedBoundarySegment=origin=raw start=(805, 1195) end=(806, 1279) axis=(1195..1279) angle=89.32
+    outputSegment=origin=raw start=(805, 1195) end=(806, 1279) axis=(1195..1279) angle=89.32
+    consumedSegments:
+      - [00] origin=raw start=(805, 1195) end=(806, 1279) axis=(1195..1279) angle=89.32
+    usedSegments:
+      - [00] origin=raw start=(805, 1195) end=(806, 1279) axis=(1195..1279) angle=89.32
+    deferredSegments:
+      - none
+
+Logical lines after pixel connection and before intersection pruning:
+horizontalPostConnection: lines=21 segments=127 raw=42 sameAxis=47 crossAxis=38
+verticalPostConnection: lines=15 segments=278 raw=63 sameAxis=183 crossAxis=32
+horizontalFinalAfterIntersections: lines=2 segments=17 raw=5 sameAxis=10 crossAxis=2
+verticalFinalAfterIntersections: lines=2 segments=67 raw=13 sameAxis=47 crossAxis=7
+
+RAW segment group render artifacts:
+rawSegmentGroupBoard: present=True visiblePixels=True shape=(1280, 960, 3)
+binaryRawSegmentGroupOverlay: present=True visiblePixels=True shape=(1280, 960, 3)
+sourceRawSegmentGroupOverlay: present=True visiblePixels=True shape=(1280, 960, 3)
+binaryPostConnectionLogicalLineOverlay: present=True visiblePixels=True shape=(1280, 960, 3)
+sourcePostConnectionLogicalLineOverlay: present=True visiblePixels=True shape=(1280, 960, 3)
+
+Longest segment candidates per logical line (>= 80% of max length):
+H[00] frameSide=bottom segmentCount=1 maxLength=795.23 threshold=636.18 selected=1
+  - candidate[00] length=795.23 origin=raw start=(96, 935) end=(891, 916)
+H[01] frameSide=top segmentCount=16 maxLength=387.00 threshold=309.60 selected=4
+  - candidate[00] length=365.01 origin=raw start=(106, 199) end=(471, 201)
+  - candidate[01] length=326.00 origin=same_axis_connection start=(107, 198) end=(433, 198)
+  - candidate[02] length=387.00 origin=raw start=(433, 197) end=(820, 197)
+  - candidate[03] length=365.00 origin=raw start=(472, 200) end=(837, 200)
+V[00] frameSide=right segmentCount=11 maxLength=202.48 threshold=161.99 selected=1
+  - candidate[00] length=202.48 origin=raw start=(875, 718) end=(889, 920)
+V[01] frameSide=left segmentCount=56 maxLength=250.10 threshold=200.08 selected=2
+  - candidate[00] length=220.00 origin=raw start=(105, 214) end=(105, 434)
+  - candidate[01] length=250.10 origin=raw start=(105, 688) end=(98, 938)
+
+Notebook plot items generated: 24
+  - plot[00] source
+  - plot[01] gray
+  - plot[02] denoise: median_5
+  - plot[03] binary: gaussian_block11_c2
+  - plot[04] cleanup: adaptive_plus_components_soft
+  - plot[05] repair: directional_close
+  - plot[06] raw line families on cleanup binary
+  - plot[07] raw line families on source
+  - plot[08] raw segment groups board
+  - plot[09] raw segment groups before pixel merge on repair binary
+  - plot[10] raw segment groups before pixel merge on source
+  - plot[11] logical lines post connection on repair binary
+  - plot[12] logical lines post connection on source
+  - plot[13] logical lines final after intersections on repair binary
+  - plot[14] logical lines final after intersections on source
+  - plot[15] long segment candidates on repair binary
+  - plot[16] long segment candidates on source
+  - plot[17] logical lines board: blue=all, red=longest
+  - plot[18] logical line intersections on repair binary
+  - plot[19] logical line intersections on source
+  - plot[20] frames on repair binary
+  - plot[21] frames on source
+  - plot[22] tolerance rectangles on repair binary
+  - plot[23] tolerance rectangles on source
