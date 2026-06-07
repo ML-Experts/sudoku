@@ -19,6 +19,9 @@ MODULE_RELOAD_ORDER = (
     "raw_line_family_only_logical_line_core",
     "raw_line_family_only_logical_line_search",
     "raw_line_family_only_logical_line_merging",
+    "raw_line_family_only_logical_line_connection_types",
+    "raw_line_family_only_logical_line_connection_candidates",
+    "raw_line_family_only_logical_line_connection_execution",
     "raw_line_family_only_logical_line_connections",
     "raw_line_family_only_intersection_models",
     "raw_line_family_only_intersection_segment_geometry",
@@ -36,6 +39,7 @@ MODULE_RELOAD_ORDER = (
 
 MODULE_RELOAD_PREFIXES = (
     "raw_line_family_only_intersection_",
+    "raw_line_family_only_logical_line_connection_",
 )
 
 
