@@ -55,7 +55,10 @@ class RawLineFamilyOnlyApi:
     build_long_segment_candidate_board: object
     build_long_segment_candidate_overlays: object
     build_logical_line_overlays: object
+    build_post_connection_logical_line_overlays: object
     build_logical_line_intersection_overlays: object
+    build_raw_segment_group_board: object
+    build_raw_segment_group_overlays: object
     build_tolerance_rectangle_overlays: object
 
 
@@ -115,8 +118,15 @@ def load_raw_line_family_only_api() -> RawLineFamilyOnlyApi:
             visualization.build_long_segment_candidate_overlays
         ),
         build_logical_line_overlays=visualization.build_logical_line_overlays,
+        build_post_connection_logical_line_overlays=(
+            visualization.build_post_connection_logical_line_overlays
+        ),
         build_logical_line_intersection_overlays=(
             visualization.build_logical_line_intersection_overlays
+        ),
+        build_raw_segment_group_board=visualization.build_raw_segment_group_board,
+        build_raw_segment_group_overlays=(
+            visualization.build_raw_segment_group_overlays
         ),
         build_tolerance_rectangle_overlays=(
             visualization.build_tolerance_rectangle_overlays

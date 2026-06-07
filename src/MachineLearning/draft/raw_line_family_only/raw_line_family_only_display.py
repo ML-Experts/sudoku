@@ -34,12 +34,36 @@ def _to_rgb(image_bgr: np.ndarray) -> np.ndarray:
     return cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
 
 
+def _is_valid_image(image: np.ndarray | None) -> bool:
+    return image is not None and isinstance(image, np.ndarray) and image.size > 0
+
+
 def plot_named_images(
     named_images: list[tuple[str, np.ndarray, bool]],
     *,
     columns: int = 3,
     figure_scale: float = 5.0,
 ) -> None:
+    sanitized_named_images: list[tuple[str, np.ndarray, bool]] = []
+    for title, image, is_bgr in named_images:
+        if _is_valid_image(image):
+            sanitized_named_images.append((title, image, is_bgr))
+            continue
+
+        placeholder = np.zeros((120, 320, 3), dtype=np.uint8)
+        cv2.putText(
+            placeholder,
+            "Missing image",
+            (18, 62),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.8,
+            (255, 255, 255),
+            2,
+            cv2.LINE_AA,
+        )
+        sanitized_named_images.append((f"{title} [missing]", placeholder, True))
+
+    named_images = sanitized_named_images
     if not named_images:
         figure, axis = plt.subplots(figsize=(columns * figure_scale, figure_scale))
         axis.axis("off")

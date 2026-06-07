@@ -46,6 +46,10 @@ class RawLineFamilyResult:
     vertical_angle_degrees: float | None
     horizontal_segments: list[LineSegment]
     vertical_segments: list[LineSegment]
+    horizontal_pre_connection_logical_lines: list[LogicalLine]
+    vertical_pre_connection_logical_lines: list[LogicalLine]
+    horizontal_post_connection_logical_lines: list[LogicalLine]
+    vertical_post_connection_logical_lines: list[LogicalLine]
     horizontal_logical_lines: list[LogicalLine]
     vertical_logical_lines: list[LogicalLine]
     horizontal_tolerance_rectangles: list[ToleranceRectangle]
@@ -65,6 +69,10 @@ def _build_empty_line_family_result(
         vertical_angle_degrees=None,
         horizontal_segments=[],
         vertical_segments=[],
+        horizontal_pre_connection_logical_lines=[],
+        vertical_pre_connection_logical_lines=[],
+        horizontal_post_connection_logical_lines=[],
+        vertical_post_connection_logical_lines=[],
         horizontal_logical_lines=[],
         vertical_logical_lines=[],
         horizontal_tolerance_rectangles=[],
@@ -144,6 +152,26 @@ def _build_tolerance_rectangles(
             ),
         )
     ]
+
+
+def _group_raw_segments_in_logical_lines(
+    logical_lines: list[LogicalLine],
+    binary_image: np.ndarray,
+    reference_angle_degrees: float | None,
+    config: ExperimentConfig,
+) -> list[LogicalLine]:
+    if reference_angle_degrees is None:
+        return [logical_line.clone() for logical_line in logical_lines]
+
+    for logical_line in logical_lines:
+        logical_line.group_raw_segments(
+            binary_image=binary_image,
+            reference_angle_degrees=reference_angle_degrees,
+            angle_tolerance_degrees=config.line_family_angle_tolerance_degrees,
+            black_gap_tolerance_px=config.raw_segment_group_black_gap_tolerance_px,
+        )
+
+    return [logical_line.clone() for logical_line in logical_lines]
 
 
 def _detect_raw_segments(
@@ -255,6 +283,10 @@ def detect_line_families(
             vertical_angle_degrees=vertical_angle_degrees,
             horizontal_segments=family_horizontal_segments,
             vertical_segments=family_vertical_segments,
+            horizontal_pre_connection_logical_lines=[],
+            vertical_pre_connection_logical_lines=[],
+            horizontal_post_connection_logical_lines=[],
+            vertical_post_connection_logical_lines=[],
             horizontal_logical_lines=[],
             vertical_logical_lines=[],
             horizontal_tolerance_rectangles=[],
@@ -277,6 +309,18 @@ def detect_line_families(
         cross_axis_thickness_px=config.logical_line_cross_axis_thickness_px,
         axis_gap_tolerance_px=config.logical_line_axis_gap_tolerance_px,
     )
+    horizontal_pre_connection_logical_lines = _group_raw_segments_in_logical_lines(
+        horizontal_logical_lines,
+        binary_image=pixel_connection_binary,
+        reference_angle_degrees=horizontal_angle_degrees,
+        config=config,
+    )
+    vertical_pre_connection_logical_lines = _group_raw_segments_in_logical_lines(
+        vertical_logical_lines,
+        binary_image=pixel_connection_binary,
+        reference_angle_degrees=vertical_angle_degrees,
+        config=config,
+    )
     horizontal_logical_lines, vertical_logical_lines = connect_logical_lines_by_pixels(
         pixel_connection_binary,
         horizontal_logical_lines,
@@ -286,6 +330,12 @@ def detect_line_families(
         rectangle_vector_length_px=config.tolerance_rectangle_vector_length_px,
         rectangle_padding_px=config.tolerance_rectangle_padding_px,
     )
+    horizontal_post_connection_logical_lines = [
+        logical_line.clone() for logical_line in horizontal_logical_lines
+    ]
+    vertical_post_connection_logical_lines = [
+        logical_line.clone() for logical_line in vertical_logical_lines
+    ]
     logical_line_intersection_analysis = analyze_logical_line_intersections(
         horizontal_logical_lines,
         vertical_logical_lines,
@@ -315,6 +365,10 @@ def detect_line_families(
         vertical_angle_degrees=vertical_angle_degrees,
         horizontal_segments=horizontal_segments,
         vertical_segments=vertical_segments,
+        horizontal_pre_connection_logical_lines=horizontal_pre_connection_logical_lines,
+        vertical_pre_connection_logical_lines=vertical_pre_connection_logical_lines,
+        horizontal_post_connection_logical_lines=horizontal_post_connection_logical_lines,
+        vertical_post_connection_logical_lines=vertical_post_connection_logical_lines,
         horizontal_logical_lines=horizontal_logical_lines,
         vertical_logical_lines=vertical_logical_lines,
         horizontal_tolerance_rectangles=horizontal_tolerance_rectangles,

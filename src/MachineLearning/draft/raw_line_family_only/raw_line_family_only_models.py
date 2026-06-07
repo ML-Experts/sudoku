@@ -33,6 +33,7 @@ class ExperimentConfig:
     logical_line_vertex_radius: int = 5
     logical_line_cross_axis_thickness_px: int = 1
     logical_line_axis_gap_tolerance_px: int = 1
+    raw_segment_group_black_gap_tolerance_px: int = 2
     same_axis_connection_segment_color_bgr: tuple[int, int, int] = (255, 0, 255)
     cross_axis_connection_segment_color_bgr: tuple[int, int, int] = (0, 0, 255)
     tolerance_rectangle_vector_length_px: int = 350

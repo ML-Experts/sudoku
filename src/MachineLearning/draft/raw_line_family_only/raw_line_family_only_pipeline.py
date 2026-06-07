@@ -43,6 +43,11 @@ class RawLineFamilyArtifacts:
     source_logical_line_overlay: np.ndarray
     binary_logical_line_intersection_overlay: np.ndarray
     source_logical_line_intersection_overlay: np.ndarray
+    raw_segment_group_board: np.ndarray | None = None
+    binary_raw_segment_group_overlay: np.ndarray | None = None
+    source_raw_segment_group_overlay: np.ndarray | None = None
+    binary_post_connection_logical_line_overlay: np.ndarray | None = None
+    source_post_connection_logical_line_overlay: np.ndarray | None = None
     binary_long_segment_candidate_overlay: np.ndarray | None = None
     source_long_segment_candidate_overlay: np.ndarray | None = None
     long_segment_candidate_board: np.ndarray | None = None
@@ -139,6 +144,124 @@ def _describe_long_segment_candidates(
     return description_lines
 
 
+def _format_segment(line_segment) -> str:
+    return (
+        f"origin={line_segment.origin.value} "
+        f"start={line_segment.start} "
+        f"end={line_segment.end} "
+        f"axis=({line_segment.axis_start}..{line_segment.axis_end}) "
+        f"angle={line_segment.angle_degrees:.2f}"
+    )
+
+
+def _has_image(image: np.ndarray | None) -> bool:
+    return image is not None and image.size > 0
+
+
+def _has_visible_pixels(image: np.ndarray | None) -> bool:
+    return _has_image(image) and bool(np.any(image != 0))
+
+
+def _count_segment_origins(logical_lines: list[LogicalLine]) -> dict[str, int]:
+    origin_counts = {
+        origin.value: 0
+        for origin in SegmentOrigin
+    }
+    for logical_line in logical_lines:
+        for line_segment in logical_line.line_segments:
+            origin_counts[line_segment.origin.value] += 1
+    return origin_counts
+
+
+def _describe_logical_line_collection(
+    label: str,
+    logical_lines: list[LogicalLine],
+) -> list[str]:
+    origin_counts = _count_segment_origins(logical_lines)
+    total_segment_count = sum(origin_counts.values())
+    return [
+        (
+            f"{label}: lines={len(logical_lines)} "
+            f"segments={total_segment_count} "
+            f"raw={origin_counts[SegmentOrigin.RAW.value]} "
+            f"sameAxis={origin_counts[SegmentOrigin.SAME_AXIS_CONNECTION.value]} "
+            f"crossAxis={origin_counts[SegmentOrigin.CROSS_AXIS_CONNECTION.value]}"
+        )
+    ]
+
+
+def _describe_raw_segment_groups(
+    line_prefix: str,
+    logical_lines: list[LogicalLine],
+) -> list[str]:
+    description_lines: list[str] = []
+    for line_index, logical_line in enumerate(logical_lines, start=1):
+        line_id = f"{line_prefix}{line_index}"
+        consumed_segment_count = sum(
+            len(group_result.consumed_segments)
+            for group_result in logical_line.raw_segment_group_results
+        )
+        description_lines.append(
+            (
+                f"{line_id} rawSegmentsBefore={consumed_segment_count} "
+                f"rawGroupsBuilt={len(logical_line.raw_segment_group_results)} "
+                f"rawSegmentsAfter={len(logical_line.line_segments)}"
+            )
+        )
+        for group_index, group_result in enumerate(
+            logical_line.raw_segment_group_results,
+            start=1,
+        ):
+            description_lines.append(
+                (
+                    f"  - {line_id} G{group_index} "
+                    f"segmentCount={len(group_result.consumed_segments)} "
+                    f"used={len(group_result.used_segments)} "
+                    f"deferred={len(group_result.deferred_segments)} "
+                    f"status={group_result.status.value}"
+                )
+            )
+            description_lines.append(
+                f"    seedSegment={_format_segment(group_result.seed_segment)}"
+            )
+            description_lines.append(
+                f"    trialSegment={_format_segment(group_result.trial_segment)}"
+            )
+            if group_result.first_invalid_gap_point is None:
+                description_lines.append("    firstInvalidBlackGapAt=None")
+            else:
+                description_lines.append(
+                    "    firstInvalidBlackGapAt="
+                    f"{group_result.first_invalid_gap_point}"
+                )
+            description_lines.append(
+                "    acceptedBoundarySegment="
+                f"{_format_segment(group_result.accepted_boundary_segment)}"
+            )
+            description_lines.append(
+                f"    outputSegment={_format_segment(group_result.output_segment)}"
+            )
+            description_lines.append("    consumedSegments:")
+            for segment_index, line_segment in enumerate(group_result.consumed_segments):
+                description_lines.append(
+                    f"      - [{segment_index:02d}] {_format_segment(line_segment)}"
+                )
+            description_lines.append("    usedSegments:")
+            for segment_index, line_segment in enumerate(group_result.used_segments):
+                description_lines.append(
+                    f"      - [{segment_index:02d}] {_format_segment(line_segment)}"
+                )
+            description_lines.append("    deferredSegments:")
+            if not group_result.deferred_segments:
+                description_lines.append("      - none")
+            for segment_index, line_segment in enumerate(group_result.deferred_segments):
+                description_lines.append(
+                    f"      - [{segment_index:02d}] {_format_segment(line_segment)}"
+                )
+
+    return description_lines
+
+
 def run_raw_line_family_pipeline(
     active_image_path: Path,
     config,
@@ -192,6 +315,29 @@ def run_raw_line_family_pipeline(
             family_detection_result,
             config,
         )
+    )
+    (
+        binary_raw_segment_group_overlay,
+        source_raw_segment_group_overlay,
+    ) = notebook_api.build_raw_segment_group_overlays(
+        display_bgr,
+        repaired_binary,
+        line_family_result,
+        config,
+    )
+    raw_segment_group_board = notebook_api.build_raw_segment_group_board(
+        display_bgr,
+        line_family_result,
+        config,
+    )
+    (
+        binary_post_connection_logical_line_overlay,
+        source_post_connection_logical_line_overlay,
+    ) = notebook_api.build_post_connection_logical_line_overlays(
+        display_bgr,
+        repaired_binary,
+        line_family_result,
+        config,
     )
     binary_logical_line_overlay, source_logical_line_overlay = (
         notebook_api.build_logical_line_overlays(
@@ -255,6 +401,15 @@ def run_raw_line_family_pipeline(
         line_family_result=line_family_result,
         binary_family_overlay=binary_family_overlay,
         source_family_overlay=source_family_overlay,
+        raw_segment_group_board=raw_segment_group_board,
+        binary_raw_segment_group_overlay=binary_raw_segment_group_overlay,
+        source_raw_segment_group_overlay=source_raw_segment_group_overlay,
+        binary_post_connection_logical_line_overlay=(
+            binary_post_connection_logical_line_overlay
+        ),
+        source_post_connection_logical_line_overlay=(
+            source_post_connection_logical_line_overlay
+        ),
         binary_logical_line_overlay=binary_logical_line_overlay,
         source_logical_line_overlay=source_logical_line_overlay,
         binary_long_segment_candidate_overlay=binary_long_segment_candidate_overlay,
@@ -350,6 +505,83 @@ def describe_raw_line_family_artifacts(
             line_family_result.vertical_logical_lines,
         ),
     ]
+    raw_segment_group_description_lines = [
+        "",
+        "RAW segment grouping before pixel merge:",
+        *_describe_raw_segment_groups(
+            "H",
+            line_family_result.horizontal_pre_connection_logical_lines,
+        ),
+        *_describe_raw_segment_groups(
+            "V",
+            line_family_result.vertical_pre_connection_logical_lines,
+        ),
+    ]
+    post_connection_description_lines = [
+        "",
+        "Logical lines after pixel connection and before intersection pruning:",
+        *_describe_logical_line_collection(
+            "horizontalPostConnection",
+            line_family_result.horizontal_post_connection_logical_lines,
+        ),
+        *_describe_logical_line_collection(
+            "verticalPostConnection",
+            line_family_result.vertical_post_connection_logical_lines,
+        ),
+        *_describe_logical_line_collection(
+            "horizontalFinalAfterIntersections",
+            line_family_result.horizontal_logical_lines,
+        ),
+        *_describe_logical_line_collection(
+            "verticalFinalAfterIntersections",
+            line_family_result.vertical_logical_lines,
+        ),
+    ]
+    raw_segment_group_debug_lines = [
+        "",
+        "RAW segment group render artifacts:",
+        (
+            "rawSegmentGroupBoard: "
+            f"present={_has_image(artifacts.raw_segment_group_board)} "
+            f"visiblePixels={_has_visible_pixels(artifacts.raw_segment_group_board)} "
+            f"shape={None if artifacts.raw_segment_group_board is None else artifacts.raw_segment_group_board.shape}"
+        ),
+        (
+            "binaryRawSegmentGroupOverlay: "
+            f"present={_has_image(artifacts.binary_raw_segment_group_overlay)} "
+            f"visiblePixels={_has_visible_pixels(artifacts.binary_raw_segment_group_overlay)} "
+            f"shape={None if artifacts.binary_raw_segment_group_overlay is None else artifacts.binary_raw_segment_group_overlay.shape}"
+        ),
+        (
+            "sourceRawSegmentGroupOverlay: "
+            f"present={_has_image(artifacts.source_raw_segment_group_overlay)} "
+            f"visiblePixels={_has_visible_pixels(artifacts.source_raw_segment_group_overlay)} "
+            f"shape={None if artifacts.source_raw_segment_group_overlay is None else artifacts.source_raw_segment_group_overlay.shape}"
+        ),
+        (
+            "binaryPostConnectionLogicalLineOverlay: "
+            f"present={_has_image(artifacts.binary_post_connection_logical_line_overlay)} "
+            f"visiblePixels={_has_visible_pixels(artifacts.binary_post_connection_logical_line_overlay)} "
+            "shape="
+            f"{None if artifacts.binary_post_connection_logical_line_overlay is None else artifacts.binary_post_connection_logical_line_overlay.shape}"
+        ),
+        (
+            "sourcePostConnectionLogicalLineOverlay: "
+            f"present={_has_image(artifacts.source_post_connection_logical_line_overlay)} "
+            f"visiblePixels={_has_visible_pixels(artifacts.source_post_connection_logical_line_overlay)} "
+            "shape="
+            f"{None if artifacts.source_post_connection_logical_line_overlay is None else artifacts.source_post_connection_logical_line_overlay.shape}"
+        ),
+    ]
+    plot_items = build_raw_line_family_plot_items(artifacts)
+    plot_item_description_lines = [
+        "",
+        f"Notebook plot items generated: {len(plot_items)}",
+        *[
+            f"  - plot[{plot_index:02d}] {title}"
+            for plot_index, (title, _, _) in enumerate(plot_items)
+        ],
+    ]
 
     return [
         f"Original shape: {artifacts.source_bgr.shape}",
@@ -367,10 +599,13 @@ def describe_raw_line_family_artifacts(
         f"Horizontal family segments: {len(line_family_result.horizontal_segments)}",
         f"Vertical family segments: {len(line_family_result.vertical_segments)}",
         (
-            "Horizontal logical lines: "
+            "Horizontal final logical lines after intersections/frame: "
             f"{len(line_family_result.horizontal_logical_lines)}"
         ),
-        f"Vertical logical lines: {len(line_family_result.vertical_logical_lines)}",
+        (
+            "Vertical final logical lines after intersections/frame: "
+            f"{len(line_family_result.vertical_logical_lines)}"
+        ),
         f"Horizontal same-axis connection segments: {horizontal_same_axis_segments}",
         f"Vertical same-axis connection segments: {vertical_same_axis_segments}",
         f"Horizontal cross-axis connection segments: {horizontal_cross_axis_segments}",
@@ -397,7 +632,11 @@ def describe_raw_line_family_artifacts(
         f"Vertical family angle: {line_family_result.vertical_angle_degrees}",
         "",
         "This pipeline now builds logical lines and pixel-validated connections.",
+        *raw_segment_group_description_lines,
+        *post_connection_description_lines,
+        *raw_segment_group_debug_lines,
         *longest_segment_description_lines,
+        *plot_item_description_lines,
     ]
 
 
@@ -433,14 +672,62 @@ def build_raw_line_family_plot_items(
             True,
         ),
         ("raw line families on source", artifacts.source_family_overlay, True),
-        (
-            "logical lines on repair binary",
-            artifacts.binary_logical_line_overlay,
-            True,
-        ),
-        ("logical lines on source", artifacts.source_logical_line_overlay, True),
     ]
-    if artifacts.binary_long_segment_candidate_overlay is not None:
+    if _has_image(artifacts.raw_segment_group_board):
+        plot_items.append(
+            (
+                "raw segment groups board",
+                artifacts.raw_segment_group_board,
+                True,
+            )
+        )
+    if _has_image(artifacts.binary_raw_segment_group_overlay):
+        plot_items.append(
+            (
+                "raw segment groups before pixel merge on repair binary",
+                artifacts.binary_raw_segment_group_overlay,
+                True,
+            )
+        )
+    if _has_image(artifacts.source_raw_segment_group_overlay):
+        plot_items.append(
+            (
+                "raw segment groups before pixel merge on source",
+                artifacts.source_raw_segment_group_overlay,
+                True,
+            )
+        )
+    if _has_image(artifacts.binary_post_connection_logical_line_overlay):
+        plot_items.append(
+            (
+                "logical lines post connection on repair binary",
+                artifacts.binary_post_connection_logical_line_overlay,
+                True,
+            )
+        )
+    if _has_image(artifacts.source_post_connection_logical_line_overlay):
+        plot_items.append(
+            (
+                "logical lines post connection on source",
+                artifacts.source_post_connection_logical_line_overlay,
+                True,
+            )
+        )
+    plot_items.extend(
+        [
+            (
+                "logical lines final after intersections on repair binary",
+                artifacts.binary_logical_line_overlay,
+                True,
+            ),
+            (
+                "logical lines final after intersections on source",
+                artifacts.source_logical_line_overlay,
+                True,
+            ),
+        ]
+    )
+    if _has_image(artifacts.binary_long_segment_candidate_overlay):
         plot_items.append(
             (
                 "long segment candidates on repair binary",
@@ -448,7 +735,7 @@ def build_raw_line_family_plot_items(
                 True,
             )
         )
-    if artifacts.source_long_segment_candidate_overlay is not None:
+    if _has_image(artifacts.source_long_segment_candidate_overlay):
         plot_items.append(
             (
                 "long segment candidates on source",
@@ -456,7 +743,7 @@ def build_raw_line_family_plot_items(
                 True,
             )
         )
-    if artifacts.long_segment_candidate_board is not None:
+    if _has_image(artifacts.long_segment_candidate_board):
         plot_items.append(
             (
                 "logical lines board: blue=all, red=longest",
@@ -478,11 +765,11 @@ def build_raw_line_family_plot_items(
         ),
         ]
     )
-    if artifacts.binary_frame_overlay is not None:
+    if _has_image(artifacts.binary_frame_overlay):
         plot_items.append(("frames on repair binary", artifacts.binary_frame_overlay, True))
-    if artifacts.source_frame_overlay is not None:
+    if _has_image(artifacts.source_frame_overlay):
         plot_items.append(("frames on source", artifacts.source_frame_overlay, True))
-    if artifacts.binary_tolerance_rectangle_overlay is not None:
+    if _has_image(artifacts.binary_tolerance_rectangle_overlay):
         plot_items.append(
             (
                 "tolerance rectangles on repair binary",
@@ -490,7 +777,7 @@ def build_raw_line_family_plot_items(
                 True,
             )
         )
-    if artifacts.source_tolerance_rectangle_overlay is not None:
+    if _has_image(artifacts.source_tolerance_rectangle_overlay):
         plot_items.append(
             (
                 "tolerance rectangles on source",
