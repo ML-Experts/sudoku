@@ -16,9 +16,7 @@ from logical_line_connection_execution import (
     try_connect_same_axis_candidate,
 )
 from logical_line_connection_types import ConnectionKind
-from logical_line_search import (
-    build_search_area,
-)
+from logical_line_search_area import build_search_area
 
 def connect_logical_lines_by_pixels(
     binary_image: np.ndarray,

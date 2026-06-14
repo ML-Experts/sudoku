@@ -43,6 +43,7 @@ MODULE_RELOAD_ORDER = (
 MODULE_RELOAD_PREFIXES = (
     "intersection_",
     "logical_line_connection_",
+    "logical_line_search_",
     "visualization_",
 )
 

@@ -12,6 +12,10 @@ Ten dokument opisuje etap pixel-validated connection wykonywany po
 - `logical_line_connection_execution.py`
 - `logical_line_connection_types.py`
 - `logical_line_search.py`
+- `logical_line_search_area.py`
+- `logical_line_search_window_points.py`
+- `logical_line_search_goals.py`
+- `logical_line_search_pathfinding.py`
 - `logical_line_core.py`
 
 ## Wejście do etapu
@@ -89,7 +93,22 @@ W ramach tego samego typu pierwszeństwo ma mniejszy `distance_px`.
 
 ## Wyszukiwanie ścieżki
 
-Silnik wyszukiwania jest w `logical_line_search.py`.
+Po refaktorze `logical_line_search.py` jest cienką fasadą kompatybilności.
+
+Właściwa logika została rozdzielona według odpowiedzialności:
+
+- `logical_line_search_area.py`
+  - budowa `SearchArea` i test przynależności punktu do maski
+- `logical_line_search_window_points.py`
+  - zbieranie białych punktów z segmentów i całych `LogicalLine`
+  - budowa `start_points`
+- `logical_line_search_goals.py`
+  - budowa punktów celu dla `same_axis`, `cross_axis` i `cross_axis_span`
+- `logical_line_search_pathfinding.py`
+  - straight path, BFS i zamiana znalezionej ścieżki na segmenty connection
+
+Publiczne entrypointy używane przez stage connection nadal mogą być importowane
+przez `logical_line_search.py`, ale implementacja nie jest już monolitem.
 
 Najważniejsze założenia:
 
@@ -98,8 +117,9 @@ Najważniejsze założenia:
 - dla części kandydatów kod próbuje najpierw prostego łącznika,
 - jeśli to się nie uda, używany jest BFS.
 
-Ten sam moduł zawiera też helpery wykorzystywane poza samym connection, między
-innymi przez containment i merge po wierzchołku.
+Helper point-to-line używany poza samym connection, między innymi przez
+continuity dla containment i merge po wierzchołku, jest teraz wydzielony do
+`logical_line_search_point_to_line.py`.
 
 ## Wynik connection
 

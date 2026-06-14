@@ -17,6 +17,7 @@ ciągłości osi poprzecznej.
 - `logical_line_vertex_containment_merge.py`
 - `logical_line_cross_axis_continuity.py`
 - `logical_line_search.py`
+- `logical_line_search_point_to_line.py`
 - `logical_line_debug.py`
 
 ## Wspólna idea
@@ -58,7 +59,10 @@ z warunków:
   `anchor_line`.
 
 Do walidacji po pikselach używany jest helper point-to-line z
-`logical_line_search.py`.
+`logical_line_search_point_to_line.py`.
+
+`logical_line_search.py` pozostał jako cienka fasada kompatybilności dla
+publicznych importów search-related helperów.
 
 ## Etap 1. Full containment prune
 

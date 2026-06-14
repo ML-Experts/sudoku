@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from logical_line_search import (
-    try_find_white_path_from_point_to_logical_line
+from logical_line_search_point_to_line import (
+    try_find_white_path_from_point_to_logical_line,
 )
 
 if TYPE_CHECKING:

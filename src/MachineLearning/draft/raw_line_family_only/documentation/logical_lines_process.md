@@ -195,6 +195,18 @@ kodzie:
   - grupowanie linii po ciągłości osi poprzecznej
 - `logical_line_connections.py`
   - pixel-validated connection
+- `logical_line_search.py`
+  - cienka publiczna fasada dla helperów search-related
+- `logical_line_search_area.py`
+  - `SearchArea` i maska prostokąta tolerancji
+- `logical_line_search_window_points.py`
+  - zbieranie punktów okna segmentów i `LogicalLine`
+- `logical_line_search_goals.py`
+  - budowa punktów celu dla connection
+- `logical_line_search_pathfinding.py`
+  - straight path, BFS i zamiana ścieżki na segmenty connection
+- `logical_line_search_point_to_line.py`
+  - helper point-to-line używany przez continuity
 - `intersections.py`
   - publiczna fasada dla intersections, pruning i frame selection
 - `visualization.py`

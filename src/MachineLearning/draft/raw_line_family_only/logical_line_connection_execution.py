@@ -6,16 +6,22 @@ from logical_line_core import (
     LogicalLine,
     LogicalLineVertexKind,
 )
-from logical_line_search import (
+from logical_line_search_area import (
     SearchArea,
-    add_path_segments,
+    build_search_area,
+    is_point_in_search_area,
+)
+from logical_line_search_goals import (
     build_cross_axis_goal_sets,
     build_same_axis_goal_sets,
-    build_search_area,
-    build_start_points,
-    is_point_in_search_area,
-    try_find_straight_path,
+)
+from logical_line_search_pathfinding import (
+    add_path_segments,
     try_find_path,
+    try_find_straight_path,
+)
+from logical_line_search_window_points import (
+    build_start_points,
 )
 from models import SegmentOrigin
 from logical_line_connection_types import ConnectionCandidate

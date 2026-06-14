@@ -6,10 +6,9 @@ from logical_line_core import (
     LogicalLine,
     LogicalLineVertexKind,
 )
-from logical_line_search import (
-    SearchArea,
+from logical_line_search_area import SearchArea, is_point_in_search_area
+from logical_line_search_goals import (
     build_cross_axis_span_goal_points,
-    is_point_in_search_area,
 )
 from logical_line_connection_types import (
     ConnectionCandidate,
