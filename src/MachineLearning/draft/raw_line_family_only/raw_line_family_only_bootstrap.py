@@ -17,6 +17,7 @@ MODULE_RELOAD_ORDER = (
     "raw_line_family_only_logical_line_segment_geometry",
     "raw_line_family_only_raw_segment_grouping",
     "raw_line_family_only_logical_line_core",
+    "raw_line_family_only_logical_line_containment",
     "raw_line_family_only_logical_line_search",
     "raw_line_family_only_logical_line_merging",
     "raw_line_family_only_logical_line_connection_types",
@@ -59,6 +60,8 @@ class RawLineFamilyOnlyApi:
     apply_directional_close_repair: object
     detect_line_families: object
     build_line_family_overlays: object
+    build_containment_prune_board: object
+    build_containment_prune_overlays: object
     build_frame_overlays: object
     build_long_segment_candidate_board: object
     build_long_segment_candidate_overlays: object
@@ -118,6 +121,10 @@ def load_raw_line_family_only_api() -> RawLineFamilyOnlyApi:
         apply_directional_close_repair=binary_module.apply_directional_close_repair,
         detect_line_families=detection.detect_line_families,
         build_line_family_overlays=visualization.build_line_family_overlays,
+        build_containment_prune_board=visualization.build_containment_prune_board,
+        build_containment_prune_overlays=(
+            visualization.build_containment_prune_overlays
+        ),
         build_frame_overlays=visualization.build_frame_overlays,
         build_long_segment_candidate_board=(
             visualization.build_long_segment_candidate_board

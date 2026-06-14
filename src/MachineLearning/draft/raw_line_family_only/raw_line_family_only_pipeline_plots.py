@@ -66,6 +66,30 @@ def build_raw_line_family_plot_items(
                 True,
             )
         )
+    if _has_image(artifacts.containment_prune_board):
+        plot_items.append(
+            (
+                "containment prune board",
+                artifacts.containment_prune_board,
+                True,
+            )
+        )
+    if _has_image(artifacts.binary_containment_prune_overlay):
+        plot_items.append(
+            (
+                "containment prune on repair binary",
+                artifacts.binary_containment_prune_overlay,
+                True,
+            )
+        )
+    if _has_image(artifacts.source_containment_prune_overlay):
+        plot_items.append(
+            (
+                "containment prune on source",
+                artifacts.source_containment_prune_overlay,
+                True,
+            )
+        )
     if _has_image(artifacts.binary_post_connection_logical_line_overlay):
         plot_items.append(
             (

@@ -4,6 +4,10 @@ import cv2
 import numpy as np
 
 from raw_line_family_only_detection import RawLineFamilyResult
+from raw_line_family_only_visualization_logical_lines import (
+    build_logical_line_color,
+    draw_logical_line_label,
+)
 from raw_line_family_only_models import ExperimentConfig, LineFamilyName
 
 
@@ -22,7 +26,7 @@ def build_long_segment_candidate_overlays(
     ]
 
     for overlay in (binary_overlay, source_overlay):
-        for logical_line in logical_lines:
+        for line_index, logical_line in enumerate(logical_lines):
             if logical_line.family_name == LineFamilyName.HORIZONTAL:
                 segment_color = config.horizontal_family_color_bgr
             else:
@@ -39,6 +43,12 @@ def build_long_segment_candidate_overlays(
                     config.line_overlay_thickness + 2,
                     cv2.LINE_AA,
                 )
+            draw_logical_line_label(
+                overlay,
+                logical_line,
+                logical_line.debug_name or "?",
+                build_logical_line_color(logical_line, line_index, len(logical_lines)),
+            )
 
     return binary_overlay, source_overlay
 
@@ -58,7 +68,7 @@ def build_long_segment_candidate_board(
     all_line_color_bgr = (255, 0, 0)
     longest_line_color_bgr = (0, 0, 255)
 
-    for logical_line in logical_lines:
+    for line_index, logical_line in enumerate(logical_lines):
         for line_segment in logical_line.line_segments:
             cv2.line(
                 logical_line_board,
@@ -80,6 +90,12 @@ def build_long_segment_candidate_board(
                 4,
                 cv2.LINE_AA,
             )
+        draw_logical_line_label(
+            logical_line_board,
+            logical_line,
+            logical_line.debug_name or "?",
+            build_logical_line_color(logical_line, line_index, len(logical_lines)),
+        )
 
     return logical_line_board
 

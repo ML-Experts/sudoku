@@ -30,11 +30,18 @@ from raw_line_family_only_logical_lines import (
     build_logical_lines,
     connect_logical_lines_by_pixels,
 )
+from raw_line_family_only_logical_line_debug import (
+    assign_logical_line_debug_names,
+)
 from raw_line_family_only_models import (
     ExperimentConfig,
     LineFamilyName,
     LineSegment,
     ToleranceRectangle,
+)
+from raw_line_family_only_logical_line_containment import (
+    PruneContainedLogicalLinesResult,
+    proune_logical_lines_by_axis_containment,
 )
 
 
@@ -48,6 +55,8 @@ class RawLineFamilyResult:
     vertical_segments: list[LineSegment]
     horizontal_pre_connection_logical_lines: list[LogicalLine]
     vertical_pre_connection_logical_lines: list[LogicalLine]
+    horizontal_containment_prune_result: PruneContainedLogicalLinesResult | None
+    vertical_containment_prune_result: PruneContainedLogicalLinesResult | None
     horizontal_post_connection_logical_lines: list[LogicalLine]
     vertical_post_connection_logical_lines: list[LogicalLine]
     horizontal_logical_lines: list[LogicalLine]
@@ -71,6 +80,8 @@ def _build_empty_line_family_result(
         vertical_segments=[],
         horizontal_pre_connection_logical_lines=[],
         vertical_pre_connection_logical_lines=[],
+        horizontal_containment_prune_result=None,
+        vertical_containment_prune_result=None,
         horizontal_post_connection_logical_lines=[],
         vertical_post_connection_logical_lines=[],
         horizontal_logical_lines=[],
@@ -159,9 +170,9 @@ def _group_raw_segments_in_logical_lines(
     binary_image: np.ndarray,
     reference_angle_degrees: float | None,
     config: ExperimentConfig,
-) -> list[LogicalLine]:
+) -> None:
     if reference_angle_degrees is None:
-        return [logical_line.clone() for logical_line in logical_lines]
+        return
 
     for logical_line in logical_lines:
         logical_line.group_raw_segments(
@@ -170,8 +181,6 @@ def _group_raw_segments_in_logical_lines(
             angle_tolerance_degrees=config.line_family_angle_tolerance_degrees,
             black_gap_tolerance_px=config.raw_segment_group_black_gap_tolerance_px,
         )
-
-    return [logical_line.clone() for logical_line in logical_lines]
 
 
 def _detect_raw_segments(
@@ -285,6 +294,8 @@ def detect_line_families(
             vertical_segments=family_vertical_segments,
             horizontal_pre_connection_logical_lines=[],
             vertical_pre_connection_logical_lines=[],
+            horizontal_containment_prune_result=None,
+            vertical_containment_prune_result=None,
             horizontal_post_connection_logical_lines=[],
             vertical_post_connection_logical_lines=[],
             horizontal_logical_lines=[],
@@ -309,18 +320,33 @@ def detect_line_families(
         cross_axis_thickness_px=config.logical_line_cross_axis_thickness_px,
         axis_gap_tolerance_px=config.logical_line_axis_gap_tolerance_px,
     )
-    horizontal_pre_connection_logical_lines = _group_raw_segments_in_logical_lines(
+    _group_raw_segments_in_logical_lines(
         horizontal_logical_lines,
         binary_image=pixel_connection_binary,
         reference_angle_degrees=horizontal_angle_degrees,
         config=config,
     )
-    vertical_pre_connection_logical_lines = _group_raw_segments_in_logical_lines(
+    _group_raw_segments_in_logical_lines(
         vertical_logical_lines,
         binary_image=pixel_connection_binary,
         reference_angle_degrees=vertical_angle_degrees,
         config=config,
     )
+    assign_logical_line_debug_names(horizontal_logical_lines, "H")
+    assign_logical_line_debug_names(vertical_logical_lines, "V")
+    horizontal_pre_connection_logical_lines = [
+        logical_line.clone() for logical_line in horizontal_logical_lines
+    ]
+    vertical_pre_connection_logical_lines = [
+        logical_line.clone() for logical_line in vertical_logical_lines
+    ]
+
+
+    prune_contained_horizontal_logical_lines_result: PruneContainedLogicalLinesResult = proune_logical_lines_by_axis_containment(pixel_connection_binary, horizontal_logical_lines)
+    prune_contained_vertical_logical_lines_result: PruneContainedLogicalLinesResult = proune_logical_lines_by_axis_containment(pixel_connection_binary, vertical_logical_lines)
+    horizontal_logical_lines = prune_contained_horizontal_logical_lines_result.pruned_logical_lines
+    vertical_logical_lines = prune_contained_vertical_logical_lines_result.pruned_logical_lines
+
     horizontal_logical_lines, vertical_logical_lines = connect_logical_lines_by_pixels(
         pixel_connection_binary,
         horizontal_logical_lines,
@@ -367,6 +393,12 @@ def detect_line_families(
         vertical_segments=vertical_segments,
         horizontal_pre_connection_logical_lines=horizontal_pre_connection_logical_lines,
         vertical_pre_connection_logical_lines=vertical_pre_connection_logical_lines,
+        horizontal_containment_prune_result=(
+            prune_contained_horizontal_logical_lines_result
+        ),
+        vertical_containment_prune_result=(
+            prune_contained_vertical_logical_lines_result
+        ),
         horizontal_post_connection_logical_lines=horizontal_post_connection_logical_lines,
         vertical_post_connection_logical_lines=vertical_post_connection_logical_lines,
         horizontal_logical_lines=horizontal_logical_lines,

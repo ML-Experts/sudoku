@@ -6,6 +6,7 @@ import numpy as np
 from raw_line_family_only_detection import RawLineFamilyResult
 from raw_line_family_only_logical_line_core import FrameSide
 from raw_line_family_only_models import ExperimentConfig
+from raw_line_family_only_visualization_logical_lines import draw_logical_line_label
 
 
 def _frame_side_color(
@@ -65,6 +66,12 @@ def build_frame_overlays(
                 line_color,
                 thickness=-1,
                 lineType=cv2.LINE_AA,
+            )
+            draw_logical_line_label(
+                overlay,
+                logical_line,
+                logical_line.debug_name or "?",
+                line_color,
             )
 
     return binary_overlay, source_overlay

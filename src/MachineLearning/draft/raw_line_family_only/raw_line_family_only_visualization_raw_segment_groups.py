@@ -5,7 +5,11 @@ import numpy as np
 
 from raw_line_family_only_detection import RawLineFamilyResult
 from raw_line_family_only_models import ExperimentConfig
-from raw_line_family_only_visualization_logical_lines import _build_logical_line_color
+from raw_line_family_only_logical_line_debug import logical_line_debug_sort_key
+from raw_line_family_only_visualization_logical_lines import (
+    build_logical_line_color,
+    build_logical_line_label_text,
+)
 
 
 def build_raw_segment_group_overlays(
@@ -38,25 +42,26 @@ def _draw_raw_segment_groups(
         *line_family_result.horizontal_pre_connection_logical_lines,
         *line_family_result.vertical_pre_connection_logical_lines,
     ]
+    draw_raw_segment_groups_for_lines(
+        overlay,
+        logical_lines,
+        config,
+    )
 
-    line_labels: list[str] = [
-        *[
-            f"H{line_index + 1}"
-            for line_index, _ in enumerate(
-                line_family_result.horizontal_pre_connection_logical_lines
-            )
-        ],
-        *[
-            f"V{line_index + 1}"
-            for line_index, _ in enumerate(
-                line_family_result.vertical_pre_connection_logical_lines
-            )
-        ],
-    ]
 
-    for line_index, logical_line in enumerate(logical_lines):
-        line_color = _build_logical_line_color(line_index, len(logical_lines))
-        line_label = line_labels[line_index]
+def draw_raw_segment_groups_for_lines(
+    overlay: np.ndarray,
+    logical_lines: list,
+    config: ExperimentConfig,
+) -> None:
+    sorted_logical_lines = sorted(logical_lines, key=logical_line_debug_sort_key)
+    for line_index, logical_line in enumerate(sorted_logical_lines):
+        line_color = build_logical_line_color(
+            logical_line,
+            line_index,
+            len(sorted_logical_lines),
+        )
+        line_label = build_logical_line_label_text(logical_line)
         for group_index, group_result in enumerate(
             logical_line.raw_segment_group_results,
             start=1,
@@ -161,4 +166,5 @@ def build_raw_segment_group_board(
 __all__ = [
     "build_raw_segment_group_board",
     "build_raw_segment_group_overlays",
+    "draw_raw_segment_groups_for_lines",
 ]

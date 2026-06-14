@@ -38,6 +38,9 @@ class RawLineFamilyArtifacts:
     raw_segment_group_board: np.ndarray | None = None
     binary_raw_segment_group_overlay: np.ndarray | None = None
     source_raw_segment_group_overlay: np.ndarray | None = None
+    containment_prune_board: np.ndarray | None = None
+    binary_containment_prune_overlay: np.ndarray | None = None
+    source_containment_prune_overlay: np.ndarray | None = None
     binary_post_connection_logical_line_overlay: np.ndarray | None = None
     source_post_connection_logical_line_overlay: np.ndarray | None = None
     binary_long_segment_candidate_overlay: np.ndarray | None = None

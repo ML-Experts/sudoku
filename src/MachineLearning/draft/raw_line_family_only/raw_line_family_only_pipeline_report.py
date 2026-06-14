@@ -3,6 +3,10 @@ from __future__ import annotations
 import numpy as np
 
 from raw_line_family_only_intersections import LogicalLineIntersectionKind
+from raw_line_family_only_logical_line_debug import (
+    get_logical_line_debug_name,
+    logical_line_debug_sort_key,
+)
 from raw_line_family_only_logical_line_core import LogicalLine
 from raw_line_family_only_models import SegmentOrigin
 from raw_line_family_only_pipeline_artifacts import RawLineFamilyArtifacts
@@ -14,11 +18,13 @@ def _describe_long_segment_candidates(
     logical_lines: list[LogicalLine],
     minimum_length_ratio: float = 0.8,
 ) -> list[str]:
+    del line_prefix
     description_lines: list[str] = []
-    for line_index, logical_line in enumerate(logical_lines):
+    for logical_line in sorted(logical_lines, key=logical_line_debug_sort_key):
+        line_id = get_logical_line_debug_name(logical_line)
         longest_segment = logical_line.longest_segment
         if longest_segment is None:
-            description_lines.append(f"{line_prefix}[{line_index:02d}] has no segments.")
+            description_lines.append(f"{line_id} has no segments.")
             continue
 
         minimum_length = longest_segment.length * minimum_length_ratio
@@ -27,7 +33,7 @@ def _describe_long_segment_candidates(
         )
         description_lines.append(
             (
-                f"{line_prefix}[{line_index:02d}] "
+                f"{line_id} "
                 f"frameSide={logical_line.frame_side.value} "
                 f"segmentCount={len(logical_line.line_segments)} "
                 f"maxLength={longest_segment.length:.2f} "
@@ -96,9 +102,10 @@ def _describe_raw_segment_groups(
     line_prefix: str,
     logical_lines: list[LogicalLine],
 ) -> list[str]:
+    del line_prefix
     description_lines: list[str] = []
-    for line_index, logical_line in enumerate(logical_lines, start=1):
-        line_id = f"{line_prefix}{line_index}"
+    for logical_line in sorted(logical_lines, key=logical_line_debug_sort_key):
+        line_id = get_logical_line_debug_name(logical_line)
         consumed_segment_count = sum(
             len(group_result.consumed_segments)
             for group_result in logical_line.raw_segment_group_results
@@ -160,6 +167,58 @@ def _describe_raw_segment_groups(
                 description_lines.append(
                     f"      - [{segment_index:02d}] {_format_segment(line_segment)}"
                 )
+
+    return description_lines
+
+
+def _describe_containment_prune_result(
+    line_prefix: str,
+    prune_result,
+) -> list[str]:
+    if prune_result is None:
+        return [f"{line_prefix}: containment prune unavailable"]
+
+    description_lines = [
+        (
+            f"{line_prefix}: input={len(prune_result.input_logical_lines)} "
+            f"pruned={len(prune_result.pruned_logical_lines)} "
+            f"removed={len(prune_result.removed_logical_lines)} "
+            f"crossAxisGroups={len(prune_result.cross_axis_groups)}"
+        )
+    ]
+    for group_index, cross_axis_group in enumerate(
+        prune_result.cross_axis_groups,
+        start=1,
+    ):
+        description_lines.append(
+            (
+                f"  - group[{group_index:02d}] "
+                f"crossAxis=({cross_axis_group.cross_axis_start}.."
+                f"{cross_axis_group.cross_axis_end}) "
+                f"removed={len(cross_axis_group.removed_logical_lines)}"
+            )
+        )
+        container_line = cross_axis_group.container_line
+        container_label = get_logical_line_debug_name(container_line)
+        description_lines.append(
+            (
+                f"    container={container_label} "
+                f"axis=({container_line.axis_start}..{container_line.axis_end}) "
+                f"cross=({container_line.cross_axis_start}.."
+                f"{container_line.cross_axis_end}) "
+                f"removed={len(cross_axis_group.removed_logical_lines)}"
+            )
+        )
+        for removed_line in cross_axis_group.removed_logical_lines:
+            removed_label = get_logical_line_debug_name(removed_line)
+            description_lines.append(
+                (
+                    f"      - removed={removed_label} "
+                    f"axis=({removed_line.axis_start}..{removed_line.axis_end}) "
+                    f"cross=({removed_line.cross_axis_start}.."
+                    f"{removed_line.cross_axis_end})"
+                )
+            )
 
     return description_lines
 
@@ -253,6 +312,18 @@ def describe_raw_line_family_artifacts(
         *_describe_raw_segment_groups(
             "V",
             line_family_result.vertical_pre_connection_logical_lines,
+        ),
+    ]
+    containment_prune_description_lines = [
+        "",
+        "Containment prune before pixel merge:",
+        *_describe_containment_prune_result(
+            "H",
+            line_family_result.horizontal_containment_prune_result,
+        ),
+        *_describe_containment_prune_result(
+            "V",
+            line_family_result.vertical_containment_prune_result,
         ),
     ]
     post_connection_description_lines = [
@@ -371,6 +442,7 @@ def describe_raw_line_family_artifacts(
         "",
         "This pipeline now builds logical lines and pixel-validated connections.",
         *raw_segment_group_description_lines,
+        *containment_prune_description_lines,
         *post_connection_description_lines,
         *raw_segment_group_debug_lines,
         *longest_segment_description_lines,

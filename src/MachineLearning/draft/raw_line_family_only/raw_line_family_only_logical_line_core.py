@@ -30,6 +30,7 @@ if TYPE_CHECKING:
 @dataclass(slots=True)
 class LogicalLine:
     family_name: LineFamilyName
+    debug_name: str = ""
     frame_side: FrameSide = FrameSide.NONE
     line_segments: list[LineSegment] = field(
         init=False,
@@ -69,6 +70,10 @@ class LogicalLine:
         if self.end_segment is None:
             raise ValueError("LogicalLine does not have an end segment yet.")
         return self.end_segment.axis_end
+        
+    @property
+    def axis_length(self) -> int:
+        return self.axis_end - self.axis_start + 1
 
     @property
     def cross_axis_start(self) -> int:
@@ -104,6 +109,7 @@ class LogicalLine:
     def clone(self) -> "LogicalLine":
         clone = LogicalLine(
             family_name=self.family_name,
+            debug_name=self.debug_name,
             frame_side=self.frame_side,
         )
         for line_segment in self.line_segments:
@@ -113,6 +119,8 @@ class LogicalLine:
 
     def merge_logical_line(self, other_line: "LogicalLine") -> None:
         self._validate_family(other_line.family_name)
+        if not self.debug_name and other_line.debug_name:
+            self.debug_name = other_line.debug_name
         for line_segment in other_line.line_segments:
             self.add_segment(line_segment)
         if other_line.raw_segment_group_results:

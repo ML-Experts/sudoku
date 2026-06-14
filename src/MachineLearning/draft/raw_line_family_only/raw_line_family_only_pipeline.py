@@ -99,6 +99,20 @@ def run_raw_line_family_pipeline(
         config,
     )
     (
+        binary_containment_prune_overlay,
+        source_containment_prune_overlay,
+    ) = notebook_api.build_containment_prune_overlays(
+        display_bgr,
+        repaired_binary,
+        line_family_result,
+        config,
+    )
+    containment_prune_board = notebook_api.build_containment_prune_board(
+        display_bgr,
+        line_family_result,
+        config,
+    )
+    (
         binary_post_connection_logical_line_overlay,
         source_post_connection_logical_line_overlay,
     ) = notebook_api.build_post_connection_logical_line_overlays(
@@ -172,6 +186,9 @@ def run_raw_line_family_pipeline(
         raw_segment_group_board=raw_segment_group_board,
         binary_raw_segment_group_overlay=binary_raw_segment_group_overlay,
         source_raw_segment_group_overlay=source_raw_segment_group_overlay,
+        containment_prune_board=containment_prune_board,
+        binary_containment_prune_overlay=binary_containment_prune_overlay,
+        source_containment_prune_overlay=source_containment_prune_overlay,
         binary_post_connection_logical_line_overlay=(
             binary_post_connection_logical_line_overlay
         ),
