@@ -149,17 +149,33 @@ def build_raw_line_family_plot_items(
     plot_items.extend(
         [
             (
-                "logical lines final after intersections on repair binary",
+                "logical lines final after connection on repair binary",
                 artifacts.binary_logical_line_overlay,
                 True,
             ),
             (
-                "logical lines final after intersections on source",
+                "logical lines final after connection on source",
                 artifacts.source_logical_line_overlay,
                 True,
             ),
         ]
     )
+    if _has_image(artifacts.binary_logical_line_intersection_overlay):
+        plot_items.append(
+            (
+                "logical line intersections on repair binary",
+                artifacts.binary_logical_line_intersection_overlay,
+                True,
+            )
+        )
+    if _has_image(artifacts.source_logical_line_intersection_overlay):
+        plot_items.append(
+            (
+                "logical line intersections on source",
+                artifacts.source_logical_line_intersection_overlay,
+                True,
+            )
+        )
     if _has_image(artifacts.binary_long_segment_candidate_overlay):
         plot_items.append(
             (
@@ -184,24 +200,6 @@ def build_raw_line_family_plot_items(
                 True,
             )
         )
-    plot_items.extend(
-        [
-            (
-                "logical line intersections on repair binary",
-                artifacts.binary_logical_line_intersection_overlay,
-                True,
-            ),
-            (
-                "logical line intersections on source",
-                artifacts.source_logical_line_intersection_overlay,
-                True,
-            ),
-        ]
-    )
-    if _has_image(artifacts.binary_frame_overlay):
-        plot_items.append(("frames on repair binary", artifacts.binary_frame_overlay, True))
-    if _has_image(artifacts.source_frame_overlay):
-        plot_items.append(("frames on source", artifacts.source_frame_overlay, True))
     if _has_image(artifacts.binary_tolerance_rectangle_overlay):
         plot_items.append(
             (

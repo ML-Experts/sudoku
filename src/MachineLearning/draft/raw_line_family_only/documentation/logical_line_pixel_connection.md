@@ -3,7 +3,7 @@
 ## Cel
 
 Ten dokument opisuje etap pixel-validated connection wykonywany po
-`post_merge`, ale jeszcze przed intersection analysis.
+`post_merge`, który w aktualnym kodzie domyka już aktywny lifecycle linii.
 
 ## Główne pliki
 
@@ -39,6 +39,15 @@ Merge geometryczny opiera się na lokalnych tolerancjach osi.
 
 Pixel connection próbuje dodatkowo udowodnić, że dwa końce linii da się połączyć
 ścieżką po białych pikselach.
+
+W aktualnym kodzie etap ten ma dwie różne semantyki:
+
+- dla `SAME_AXIS` znaleziona ścieżka po białych pikselach jest dalej używana jako
+  geometria finalnego connection,
+- dla `CROSS_AXIS` i `CROSS_AXIS_SPAN` ścieżka po białych pikselach służy już
+  tylko do walidacji kontaktu, a finalny connector jest budowany jako jedno
+  możliwie prostoliniowe dociągnięcie z minimalnym skrętem względem końcowego
+  segmentu `LogicalLine`.
 
 ## `ToleranceRectangle`
 
@@ -78,18 +87,23 @@ W ramach tego samego typu pierwszeństwo ma mniejszy `distance_px`.
 `SAME_AXIS`
 
 - próbuje połączyć dwa końce linii tej samej rodziny,
-- po sukcesie może scalić całe logical lines.
+- po sukcesie może scalić całe logical lines,
+- używa wyszukanej ścieżki jako geometrii finalnego connection.
 
 `CROSS_AXIS`
 
 - próbuje połączyć koniec linii z wierzchołkiem linii prostopadłej,
-- dodaje segmenty połączenia, ale nie scala obu linii w jedną.
+- wymaga walidacji po obu stronach połączenia,
+- po sukcesie dodaje po jednym connectorze do wspólnego punktu spotkania,
+- nie scala obu linii w jedną.
 
 `CROSS_AXIS_SPAN`
 
 - próbuje połączyć koniec linii z punktem na ciele linii prostopadłej,
 - używa punktów celu wybranych z fragmentu linii mieszczącego się w
-  prostokącie tolerancji.
+  prostokącie tolerancji,
+- wybiera punkt kontaktu minimalizujący zmianę kąta względem końcowego
+  segmentu źródłowej linii.
 
 ## Wyszukiwanie ścieżki
 
@@ -105,7 +119,8 @@ Właściwa logika została rozdzielona według odpowiedzialności:
 - `logical_line_search_goals.py`
   - budowa punktów celu dla `same_axis`, `cross_axis` i `cross_axis_span`
 - `logical_line_search_pathfinding.py`
-  - straight path, BFS i zamiana znalezionej ścieżki na segmenty connection
+  - straight path i BFS używane do walidacji lub budowy connection zależnie od
+    typu kandydata
 
 Publiczne entrypointy używane przez stage connection nadal mogą być importowane
 przez `logical_line_search.py`, ale implementacja nie jest już monolitem.
@@ -115,7 +130,12 @@ Najważniejsze założenia:
 - ścieżka jest szukana po białych pikselach,
 - wyszukiwanie odbywa się w ograniczonym `SearchArea`,
 - dla części kandydatów kod próbuje najpierw prostego łącznika,
-- jeśli to się nie uda, używany jest BFS.
+- `SAME_AXIS` może materializować ścieżkę BFS jako segmenty connection,
+- `CROSS_AXIS` i `CROSS_AXIS_SPAN` używają BFS tylko do potwierdzenia, że
+  kontakt jest lokalnie możliwy,
+- po walidacji `cross_axis` finalna geometria connection jest wybierana tak,
+  żeby robić możliwie mało skrętów i maksymalnie zachować kierunek końcowego
+  segmentu.
 
 Helper point-to-line używany poza samym connection, między innymi przez
 continuity dla containment i merge po wierzchołku, jest teraz wydzielony do
@@ -123,7 +143,7 @@ continuity dla containment i merge po wierzchołku, jest teraz wydzielony do
 
 ## Wynik connection
 
-Po znalezieniu ścieżki kod dodaje segmenty:
+Po wykonaniu connection kod może dodać segmenty:
 
 - `SAME_AXIS_CONNECTION`
 - `CROSS_AXIS_CONNECTION`
@@ -135,6 +155,13 @@ Są to pełnoprawne `LineSegment`, które później:
 - mogą wpływać na `start_segment` i `end_segment`,
 - są widoczne w overlayach i raporcie.
 
+Ważne rozróżnienie:
+
+- dla `SAME_AXIS_CONNECTION` segmenty mogą odtwarzać realną trasę znalezioną po
+  białych pikselach,
+- dla `CROSS_AXIS_CONNECTION` segmenty są dziś kontrolowanymi dociągnięciami
+  geometrycznymi i nie odwzorowują łamanej ścieżki BFS jeden do jednego.
+
 ## Znaczenie stanu `post_connection`
 
 Po connection kod klonuje stan linii i zapisuje:
@@ -145,8 +172,18 @@ Po connection kod klonuje stan linii i zapisuje:
 To jest snapshot:
 
 - po connection,
-- przed intersection pruning,
-- przed finalnym wyborem ramki.
+- przed budową finalnych prostokątów tolerancji,
+- zgodny z finalną geometrią linii w `horizontal_logical_lines` i
+  `vertical_logical_lines`.
+
+W aktualnej wersji eksperymentu:
+
+- `horizontal_post_connection_logical_lines` i
+  `vertical_post_connection_logical_lines` to jawny snapshot diagnostyczny,
+- `horizontal_logical_lines` i `vertical_logical_lines` oznaczają już finalny
+  wynik etapu detekcji,
+- nie ma dalszego aktywnego etapu `intersection/frame`, który zmieniałby te
+  linie po connection.
 
 ## Ważna konwencja pikselowa
 

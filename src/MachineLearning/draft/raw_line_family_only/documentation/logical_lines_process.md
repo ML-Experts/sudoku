@@ -5,11 +5,22 @@
 Ten plik jest krótkim punktem wejścia do aktualnej dokumentacji eksperymentu
 `raw_line_family_only`.
 
-Po refaktorze kod w tym katalogu używa już krótkich nazw plików bez prefiksu
-`raw_line_family_only_`, ale sam wariant eksperymentu nadal nazywa się
-`raw_line_family_only`.
+Po ostatnim uproszczeniu pipeline etap `intersection` i wybór ramki zostały
+usunięte z aktywnego kodu. Końcowym stanem eksperymentu są dziś linie po
+`pixel connection` oraz zbudowane dla nich prostokąty tolerancji.
 
-Dokumentacja obejmuje dziś cały przepływ:
+Jeśli opis dokumentów i implementacja rozjeżdżają się ze sobą, źródłem prawdy
+jest aktualny kod w tym katalogu, przede wszystkim:
+
+- `pipeline/pipeline.py`
+- `detection.py`
+- `logical_line_core.py`
+- moduły `logical_line_*`
+- moduły `visualization/*`
+
+## Zakres aktualnej dokumentacji
+
+Dokumentacja obejmuje dziś:
 
 - preprocessing obrazu,
 - detekcję rodzin linii,
@@ -17,19 +28,7 @@ Dokumentacja obejmuje dziś cały przepływ:
 - full containment prune,
 - vertex containment merge,
 - pixel-validated connection,
-- analizę przecięć,
-- wybór ramki planszy,
 - wizualizacje i raportowanie artefaktów notebooka.
-
-Jeśli opis dokumentów i implementacja rozjeżdżają się ze sobą, źródłem prawdy
-jest aktualny kod w tym katalogu, przede wszystkim:
-
-- `pipeline.py`
-- `detection.py`
-- `logical_line_core.py`
-- moduły `logical_line_*`
-- moduły `intersection_*`
-- moduły `visualization_*`
 
 ## Mapa dokumentów
 
@@ -66,22 +65,19 @@ Zakres:
 - pixel connection,
 - znaczenie `SegmentOrigin`, `ConnectionKind` i `RawSegmentGroupStatus`.
 
-### 3. Przecięcia, ramka i wizualizacje
+### 3. Wizualizacje i raportowanie
 
-Plik indeksowy: `intersections_and_visualization.md`
+Pliki:
 
-Pliki szczegółowe:
-
-- `intersection_analysis_and_frame_selection.md`
 - `visualization_and_artifacts.md`
+- `intersections_and_visualization.md`
+- `intersection_analysis_and_frame_selection.md`
 
 Zakres:
 
-- analiza przecięć między rodzinami,
-- pruning i ordering,
-- kandydaci ramki i wybór najlepszej ramki,
-- `frame_side`,
-- aktualne overlaye i plansze debugowe.
+- aktualne overlaye i boardy debugowe,
+- raport tekstowy notebooka,
+- status dawnych dokumentów `intersection`.
 
 ## Skrócony przepływ end-to-end
 
@@ -105,7 +101,6 @@ Aktualny przebieg eksperymentu wygląda następująco:
    - wykonywany jest full containment prune,
    - wykonywany jest vertex containment merge,
    - wykonywany jest pixel connection,
-   - uruchamiana jest analiza przecięć i wybór ramki,
    - budowane są finalne prostokąty tolerancji.
 5. Pipeline albo notebook buduje `RawLineFamilyArtifacts` z obrazami pośrednimi,
    overlayami, boardami i wynikiem domenowym.
@@ -128,9 +123,8 @@ Najważniejsze kolekcje i wyniki trzymane w `RawLineFamilyResult`:
 - `vertical_post_connection_logical_lines`
 - `horizontal_logical_lines`
 - `vertical_logical_lines`
-- `logical_line_intersections`
-- `logical_line_border_pairs`
-- `logical_line_frames`
+- `horizontal_tolerance_rectangles`
+- `vertical_tolerance_rectangles`
 
 Interpretacja:
 
@@ -142,15 +136,13 @@ Interpretacja:
   częściowo zawartych przez wierzchołek,
 - `post_merge` oznacza stan po `vertex containment merge`, ale jeszcze przed
   pixel connection,
-- `post_connection` oznacza stan po pixel connection i przed intersection
-  pruning,
-- kolekcje bez prefiksu `pre/post` oznaczają stan finalny po analizie przecięć
-  i wyborze ramki.
+- `post_connection` oznacza snapshot po pixel connection,
+- kolekcje bez prefiksu `pre/post` oznaczają finalny stan detekcji, który jest
+  dziś równoważny stanowi po connection.
 
 ## Najważniejsze aktualizacje względem starszego opisu
 
-Poprzedni opis był częściowo zgodny ze stanem sprzed refaktoru. W aktualnym
-kodzie:
+W aktualnym kodzie:
 
 - nie ma już nazw plików z prefiksem `raw_line_family_only_`,
 - bootstrap eksportuje `load_api()` i zwraca obiekt `Api`,
@@ -161,26 +153,31 @@ kodzie:
 - po full containment prune jest osobny etap `vertex containment merge`,
 - pixel connection ma trzy klasy kandydatów:
   `same_axis`, `cross_axis`, `cross_axis_span`,
-- analiza przecięć i wybór ramki są osobnym etapem po connection,
-- wizualizacje obejmują więcej niż tylko rodziny, logical lines
-  i tolerance rectangles.
+- `same_axis` może dalej materializować ścieżkę BFS jako geometrię connection,
+  ale `cross_axis` używa BFS tylko do walidacji kontaktu i buduje finalne
+  dociągnięcia tak, żeby minimalizować skręt,
+- końcem aktywnego pipeline'u nie jest już intersection analysis, tylko stan po
+  `pixel connection`,
+- dokumenty `intersection_*` pozostały wyłącznie jako notatka historyczna o
+  usuniętym etapie.
 
 ## Mapa odpowiedzialności modułów
 
 - `bootstrap.py`
-  - ładowanie API do notebooka i kontrolowany reload modułów
-- `pipeline.py`
+  - ładowanie API do notebooka, ustawienie `sys.path` dla lokalnych podkatalogów
+    i kontrolowany reload modułów
+- `pipeline/pipeline.py`
   - główna orkiestracja preprocessingu i budowy artefaktów
-- `pipeline_artifacts.py`
+- `pipeline/pipeline_artifacts.py`
   - model `RawLineFamilyArtifacts`
-- `pipeline_report.py`
+- `pipeline/pipeline_report.py`
   - tekstowy opis artefaktów i stanów pośrednich
-- `pipeline_plots.py`
+- `pipeline/pipeline_plots.py`
   - kolejność i nazwy obrazów pokazywanych w notebooku
-- `pipeline_selection.py`
+- `pipeline/pipeline_selection.py`
   - wybór aktywnego obrazu datasetowego lub ręcznie podanej ścieżki
 - `detection.py`
-  - pełna orkiestracja detekcji rodzin, `LogicalLine` i intersections
+  - pełna orkiestracja detekcji rodzin i `LogicalLine`
 - `logical_lines.py`
   - publiczna fasada dla budowy i pixel connection linii logicznych
 - `logical_line_core.py`
@@ -204,17 +201,40 @@ kodzie:
 - `logical_line_search_goals.py`
   - budowa punktów celu dla connection
 - `logical_line_search_pathfinding.py`
-  - straight path, BFS i zamiana ścieżki na segmenty connection
+  - straight path i BFS używane przez connection jako budowa ścieżki albo sama
+    walidacja zależnie od typu kandydata
 - `logical_line_search_point_to_line.py`
   - helper point-to-line używany przez continuity
-- `intersections.py`
-  - publiczna fasada dla intersections, pruning i frame selection
-- `visualization.py`
+- `visualization/visualization.py`
   - agregacja funkcji renderujących
-- `visualization_containment.py`
+- `visualization/visualization_containment.py`
   - overlaye i boardy dla full containment prune
-- `visualization_vertex_containment_merge.py`
+- `visualization/visualization_vertex_containment_merge.py`
   - overlaye i boardy dla `vertex containment merge`
+- `visualization/visualization_logical_lines.py`
+  - overlaye `post_merge`, `post_connection` i finalnych `LogicalLine`
+- `visualization/visualization_raw_segment_groups.py`
+  - boardy i overlaye grup segmentów `RAW`
+- `visualization/visualization_tolerance_rectangles.py`
+  - overlaye prostokątów tolerancji
+- `visualization/visualization_long_segments.py`
+  - debug kandydatów długich segmentów
+
+## Notatka o importach notebooka
+
+Notebook nie importuje modułów przez pełną ścieżkę repozytorium typu
+`src.MachineLearning...`.
+
+Aktualny wzorzec to:
+
+- `import bootstrap`
+- `import pipeline`
+
+To działa dlatego, że `bootstrap.py` dodaje do `sys.path`:
+
+- katalog wariantu `raw_line_family_only`,
+- podkatalog `pipeline/`,
+- podkatalog `visualization/`.
 
 ## Kolejność czytania
 
@@ -225,6 +245,5 @@ Jeśli chcesz szybko zrozumieć system, czytaj w tej kolejności:
 3. `logical_line_build_and_grouping.md`
 4. `logical_line_containment_and_vertex_merge.md`
 5. `logical_line_pixel_connection.md`
-6. `intersections_and_visualization.md`
-7. `intersection_analysis_and_frame_selection.md`
-8. `visualization_and_artifacts.md`
+6. `visualization_and_artifacts.md`
+7. `intersections_and_visualization.md`

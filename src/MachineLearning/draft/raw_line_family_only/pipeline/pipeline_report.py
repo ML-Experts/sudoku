@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from intersections import LogicalLineIntersectionKind
+from intersection_models import LogicalLineIntersectionKind
 from logical_line_debug import (
     get_logical_line_debug_name,
     logical_line_debug_sort_key,
@@ -34,7 +34,6 @@ def _describe_long_segment_candidates(
         description_lines.append(
             (
                 f"{line_id} "
-                f"frameSide={logical_line.frame_side.value} "
                 f"segmentCount={len(logical_line.line_segments)} "
                 f"maxLength={longest_segment.length:.2f} "
                 f"threshold={minimum_length:.2f} "
@@ -94,6 +93,29 @@ def _describe_logical_line_collection(
             f"raw={origin_counts[SegmentOrigin.RAW.value]} "
             f"sameAxis={origin_counts[SegmentOrigin.SAME_AXIS_CONNECTION.value]} "
             f"crossAxis={origin_counts[SegmentOrigin.CROSS_AXIS_CONNECTION.value]}"
+        )
+    ]
+
+
+def _describe_logical_line_intersections(
+    logical_line_intersections,
+) -> list[str]:
+    cross_count = sum(
+        1
+        for logical_line_intersection in logical_line_intersections
+        if logical_line_intersection.kind == LogicalLineIntersectionKind.CROSS
+    )
+    touch_count = sum(
+        1
+        for logical_line_intersection in logical_line_intersections
+        if logical_line_intersection.kind == LogicalLineIntersectionKind.TOUCH
+    )
+    return [
+        (
+            "logicalLineIntersections: "
+            f"count={len(logical_line_intersections)} "
+            f"cross={cross_count} "
+            f"touch={touch_count}"
         )
     ]
 
@@ -309,24 +331,19 @@ def describe_raw_line_family_artifacts(
     vertical_tolerance_rectangles = len(
         line_family_result.vertical_tolerance_rectangles
     )
-    logical_line_intersection_count = len(line_family_result.logical_line_intersections)
-    logical_line_cross_intersection_count = sum(
+    logical_line_intersection_count = len(
+        line_family_result.logical_line_intersections
+    )
+    cross_intersection_count = sum(
         1
         for logical_line_intersection in line_family_result.logical_line_intersections
         if logical_line_intersection.kind == LogicalLineIntersectionKind.CROSS
     )
-    logical_line_touch_intersection_count = sum(
+    touch_intersection_count = sum(
         1
         for logical_line_intersection in line_family_result.logical_line_intersections
         if logical_line_intersection.kind == LogicalLineIntersectionKind.TOUCH
     )
-    logical_line_mutual_boundary_intersection_count = sum(
-        1
-        for logical_line_intersection in line_family_result.logical_line_intersections
-        if logical_line_intersection.is_mutual_boundary
-    )
-    logical_line_border_pair_count = len(line_family_result.logical_line_border_pairs)
-    logical_line_frame_count = len(line_family_result.logical_line_frames)
     sample_tolerance_rectangle = None
     if line_family_result.horizontal_tolerance_rectangles:
         sample_tolerance_rectangle = line_family_result.horizontal_tolerance_rectangles[
@@ -410,12 +427,15 @@ def describe_raw_line_family_artifacts(
             line_family_result.vertical_post_connection_logical_lines,
         ),
         *_describe_logical_line_collection(
-            "horizontalFinalAfterIntersections",
+            "horizontalFinal",
             line_family_result.horizontal_logical_lines,
         ),
         *_describe_logical_line_collection(
-            "verticalFinalAfterIntersections",
+            "verticalFinal",
             line_family_result.vertical_logical_lines,
+        ),
+        *_describe_logical_line_intersections(
+            line_family_result.logical_line_intersections,
         ),
     ]
     raw_segment_group_debug_lines = [
@@ -438,6 +458,22 @@ def describe_raw_line_family_artifacts(
             f"present={_has_image(artifacts.source_raw_segment_group_overlay)} "
             f"visiblePixels={_has_visible_pixels(artifacts.source_raw_segment_group_overlay)} "
             f"shape={None if artifacts.source_raw_segment_group_overlay is None else artifacts.source_raw_segment_group_overlay.shape}"
+        ),
+        (
+            "binaryLogicalLineIntersectionOverlay: "
+            f"present={_has_image(artifacts.binary_logical_line_intersection_overlay)} "
+            "visiblePixels="
+            f"{_has_visible_pixels(artifacts.binary_logical_line_intersection_overlay)} "
+            "shape="
+            f"{None if artifacts.binary_logical_line_intersection_overlay is None else artifacts.binary_logical_line_intersection_overlay.shape}"
+        ),
+        (
+            "sourceLogicalLineIntersectionOverlay: "
+            f"present={_has_image(artifacts.source_logical_line_intersection_overlay)} "
+            "visiblePixels="
+            f"{_has_visible_pixels(artifacts.source_logical_line_intersection_overlay)} "
+            "shape="
+            f"{None if artifacts.source_logical_line_intersection_overlay is None else artifacts.source_logical_line_intersection_overlay.shape}"
         ),
         (
             "vertexContainmentMergeBoard: "
@@ -512,31 +548,22 @@ def describe_raw_line_family_artifacts(
         f"Horizontal family segments: {len(line_family_result.horizontal_segments)}",
         f"Vertical family segments: {len(line_family_result.vertical_segments)}",
         (
-            "Horizontal final logical lines after intersections/frame: "
+            "Horizontal final logical lines after connection: "
             f"{len(line_family_result.horizontal_logical_lines)}"
         ),
         (
-            "Vertical final logical lines after intersections/frame: "
+            "Vertical final logical lines after connection: "
             f"{len(line_family_result.vertical_logical_lines)}"
         ),
         f"Horizontal same-axis connection segments: {horizontal_same_axis_segments}",
         f"Vertical same-axis connection segments: {vertical_same_axis_segments}",
         f"Horizontal cross-axis connection segments: {horizontal_cross_axis_segments}",
         f"Vertical cross-axis connection segments: {vertical_cross_axis_segments}",
+        f"Logical line intersections: {logical_line_intersection_count}",
+        f"Cross intersections: {cross_intersection_count}",
+        f"Touch intersections: {touch_intersection_count}",
         f"Horizontal tolerance rectangles: {horizontal_tolerance_rectangles}",
         f"Vertical tolerance rectangles: {vertical_tolerance_rectangles}",
-        f"Logical line intersections: {logical_line_intersection_count}",
-        (
-            "Logical line crosses / touches: "
-            f"{logical_line_cross_intersection_count} / "
-            f"{logical_line_touch_intersection_count}"
-        ),
-        (
-            "Mutual boundary intersections / border pairs / frames: "
-            f"{logical_line_mutual_boundary_intersection_count} / "
-            f"{logical_line_border_pair_count} / "
-            f"{logical_line_frame_count}"
-        ),
         f"Tolerance rectangle geometry: {tolerance_rectangle_geometry}",
         (
             "Horizontal family angle: "
@@ -544,7 +571,7 @@ def describe_raw_line_family_artifacts(
         ),
         f"Vertical family angle: {line_family_result.vertical_angle_degrees}",
         "",
-        "This pipeline now builds logical lines and pixel-validated connections.",
+        "This pipeline now builds logical lines through pixel-validated connection.",
         *raw_segment_group_description_lines,
         *containment_prune_description_lines,
         *vertex_containment_merge_description_lines,

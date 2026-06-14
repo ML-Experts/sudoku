@@ -1,73 +1,39 @@
-# Raw Line Family Only - intersections, ramka i wizualizacje
+# Raw Line Family Only - archiwum etapu intersections
 
-## Cel
+## Status
 
-Ten plik jest teraz krótkim indeksem końcowej części pipeline'u
-`raw_line_family_only`.
+Ten dokument jest historyczną notatką po usunięciu z aktywnego kodu etapu
+`intersection/frame`.
 
-Po refaktorze i dołożeniu nowych overlayów jeden dokument łączący
-intersections, frame selection i wszystkie wizualizacje stał się zbyt szeroki.
+W aktualnej wersji eksperymentu:
 
-## Zakres końcowego etapu
+- pipeline kończy się na `pixel connection`,
+- finalne `horizontal_logical_lines` i `vertical_logical_lines` oznaczają już
+  wynik po connection,
+- nie istnieją aktywne moduły `intersection_*`,
+- nie istnieją też overlaye intersections ani ramki.
 
-Końcowa część pipeline'u obejmuje dziś:
+## Co pozostało aktualne
 
-- analizę przecięć między poziomymi i pionowymi `LogicalLine`,
-- pruning linii na podstawie liczby przecięć,
-- budowę kandydatów ramki,
-- wybór najlepszej ramki i przypisanie `frame_side`,
-- wizualizacje i raportowanie artefaktów notebooka.
+Z dawnego opisu końcowego etapu nadal warto pamiętać tylko o tym, że:
 
-Budowa `LogicalLine`, containment, vertex merge i pixel connection są opisane w:
+- wejściem do dawnych eksperymentów intersections był stan `post_connection`,
+- wizualizacje i raport były traktowane jako część eksperymentu, a nie poboczny
+  dodatek,
+- `post_connection` nadal jest ważnym snapshotem diagnostycznym.
 
-- `logical_line_build_and_grouping.md`
-- `logical_line_containment_and_vertex_merge.md`
+## Gdzie patrzeć teraz
+
+Aktualny opis aktywnego pipeline'u znajduje się w:
+
+- `logical_lines_process.md`
+- `pipeline_overview.md`
+- `logical_line_lifecycle.md`
 - `logical_line_pixel_connection.md`
+- `visualization_and_artifacts.md`
 
-## Mapa dokumentów
+## Dlaczego plik został
 
-### 1. Analiza przecięć i wybór ramki
-
-Plik: `intersection_analysis_and_frame_selection.md`
-
-Zakres:
-
-- wejście ze stanu `post_connection`,
-- modele intersections,
-- pruning `2 -> ordering -> frame candidates -> best frame -> pruning 10`,
-- `border_pairs`,
-- przypisanie `frame_side`.
-
-### 2. Wizualizacje i artefakty
-
-Plik: `visualization_and_artifacts.md`
-
-Zakres:
-
-- agregacja renderów z `visualization.py`,
-- boardy i overlaye dla etapów pośrednich,
-- finalne overlaye intersections, frames i tolerance rectangles,
-- związek z `pipeline_report.py` i `pipeline_plots.py`.
-
-## Aktualny flow końcowego etapu
-
-```mermaid
-flowchart TD
-    postConnection[Post connection logical lines] --> collectCandidates[Collect candidate intersections]
-    collectCandidates --> prune2[Prune lines with min intersections 2]
-    prune2 --> assignOrder[Assign boundary orders]
-    assignOrder --> buildFrames[Find frame candidates]
-    buildFrames --> selectFrame[Select best frame]
-    selectFrame --> prune10[Prune lines with min intersections 10]
-    prune10 --> applySides[Apply frame_side]
-    applySides --> finalLines[Final logical lines and intersections]
-    finalLines --> overlays[Build overlays and report artifacts]
-```
-
-## Najważniejsze założenia aktualnej wersji
-
-1. Analiza przecięć działa na liniach po pixel connection, czyli na stanie
-   `post_connection`.
-2. Pruning intersections jest dwuetapowy: najpierw próg `2`, potem próg `10`.
-3. `frame_side` jest nadawane dopiero po wyborze najlepszej ramki.
-4. Wizualizacje i raport są częścią eksperymentu, a nie pobocznym dodatkiem.
+Zostawiamy ten dokument w repo jako ślad po wcześniejszym kierunku rozwoju,
+żeby łatwiej odczytać starsze notatki, commity i rozmowy odnoszące się do
+`intersections`.

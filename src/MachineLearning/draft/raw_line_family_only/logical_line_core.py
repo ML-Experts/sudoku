@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
-
 import numpy as np
 
 from geometry import (
@@ -23,20 +21,12 @@ from models import (
     ToleranceRectangle,
 )
 
-if TYPE_CHECKING:
-    from intersections import LogicalLineIntersection
-
-
 @dataclass(slots=True)
 class LogicalLine:
     family_name: LineFamilyName
     debug_name: str = ""
     frame_side: FrameSide = FrameSide.NONE
     line_segments: list[LineSegment] = field(
-        init=False,
-        default_factory=list,
-    )
-    intersections: list["LogicalLineIntersection"] = field(
         init=False,
         default_factory=list,
     )

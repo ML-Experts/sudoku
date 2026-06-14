@@ -17,14 +17,14 @@ Lifecycle `LogicalLine` obejmuje dziś:
 - full containment prune,
 - vertex containment merge,
 - pixel-validated connection,
-- snapshoty stanów `pre_connection`, `post_merge` i `post_connection`.
+- snapshoty stanów `pre_connection`, `post_merge` i `post_connection`,
+- finalne kolekcje linii po connection.
 
 Preprocessing, notebook, artefakty i pełna orkiestracja są opisane w
 `pipeline_overview.md`.
 
-Analiza przecięć, ramka i finalne wizualizacje są opisane w:
+Finalne wizualizacje i artefakty są opisane w:
 
-- `intersection_analysis_and_frame_selection.md`
 - `visualization_and_artifacts.md`
 
 ## Mapa dokumentów
@@ -61,6 +61,7 @@ Zakres:
 - `ToleranceRectangle`,
 - `ConnectionKind`,
 - wyszukiwanie ścieżki po białych pikselach,
+- rozróżnienie między connection tej samej osi i connection cross-axis,
 - segmenty `SAME_AXIS_CONNECTION` i `CROSS_AXIS_CONNECTION`,
 - znaczenie stanu `post_connection`.
 
@@ -77,7 +78,7 @@ flowchart TD
     vertexMerge --> savePostMerge[Clone post_merge state]
     savePostMerge --> pixelConnect[connect_logical_lines_by_pixels]
     pixelConnect --> savePost[Clone post_connection state]
-    savePost --> handoff[Pass lines to intersection analysis]
+    savePost --> finalLines[Final logical lines]
 ```
 
 ## Najważniejsze założenia aktualnej wersji
@@ -89,3 +90,10 @@ flowchart TD
    etapy i nie należy ich mieszać w dokumentacji.
 4. Segmenty connection są częścią finalnej linii, a nie tylko wizualnym
    dodatkiem.
+5. `SAME_AXIS` i `CROSS_AXIS` nie mają już tej samej semantyki wykonania:
+   `same-axis` może materializować ścieżkę BFS, a `cross-axis` używa BFS tylko
+   do walidacji kontaktu i później buduje prostszy connector minimalizujący
+   skręt.
+6. Końcowy stan lifecycle'u nie przechodzi już przez osobny etap
+   `intersection/frame`; finalne `horizontal_logical_lines` i
+   `vertical_logical_lines` są dziś stanem po connection.

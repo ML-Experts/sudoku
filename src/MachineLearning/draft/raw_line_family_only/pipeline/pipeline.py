@@ -153,6 +153,15 @@ def run_raw_line_family_pipeline(
         )
     )
     (
+        binary_logical_line_intersection_overlay,
+        source_logical_line_intersection_overlay,
+    ) = notebook_api.build_logical_line_intersection_overlays(
+        display_bgr,
+        repaired_binary,
+        line_family_result,
+        config,
+    )
+    (
         binary_long_segment_candidate_overlay,
         source_long_segment_candidate_overlay,
     ) = notebook_api.build_long_segment_candidate_overlays(
@@ -163,21 +172,6 @@ def run_raw_line_family_pipeline(
     )
     long_segment_candidate_board = notebook_api.build_long_segment_candidate_board(
         display_bgr,
-        line_family_result,
-        config,
-    )
-    (
-        binary_logical_line_intersection_overlay,
-        source_logical_line_intersection_overlay,
-    ) = notebook_api.build_logical_line_intersection_overlays(
-        display_bgr,
-        repaired_binary,
-        line_family_result,
-        config,
-    )
-    binary_frame_overlay, source_frame_overlay = notebook_api.build_frame_overlays(
-        display_bgr,
-        repaired_binary,
         line_family_result,
         config,
     )
@@ -233,17 +227,15 @@ def run_raw_line_family_pipeline(
         ),
         binary_logical_line_overlay=binary_logical_line_overlay,
         source_logical_line_overlay=source_logical_line_overlay,
-        binary_long_segment_candidate_overlay=binary_long_segment_candidate_overlay,
-        source_long_segment_candidate_overlay=source_long_segment_candidate_overlay,
-        long_segment_candidate_board=long_segment_candidate_board,
         binary_logical_line_intersection_overlay=(
             binary_logical_line_intersection_overlay
         ),
         source_logical_line_intersection_overlay=(
             source_logical_line_intersection_overlay
         ),
-        binary_frame_overlay=binary_frame_overlay,
-        source_frame_overlay=source_frame_overlay,
+        binary_long_segment_candidate_overlay=binary_long_segment_candidate_overlay,
+        source_long_segment_candidate_overlay=source_long_segment_candidate_overlay,
+        long_segment_candidate_board=long_segment_candidate_board,
         binary_tolerance_rectangle_overlay=binary_tolerance_rectangle_overlay,
         source_tolerance_rectangle_overlay=source_tolerance_rectangle_overlay,
     )

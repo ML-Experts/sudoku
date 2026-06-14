@@ -3,27 +3,25 @@
 ## Cel
 
 Ten dokument opisuje aktualne overlaye, boardy i artefakty raportowe używane
-przez notebook `experiment.ipynb` i przez `pipeline.py`.
+przez notebook `experiment.ipynb` i przez `pipeline/pipeline.py`.
 
 ## Główne pliki
 
-- `visualization.py`
-- `visualization_line_families.py`
-- `visualization_logical_lines.py`
-- `visualization_raw_segment_groups.py`
-- `visualization_containment.py`
-- `visualization_vertex_containment_merge.py`
-- `visualization_intersections.py`
-- `visualization_frames.py`
-- `visualization_tolerance_rectangles.py`
-- `visualization_long_segments.py`
-- `pipeline_artifacts.py`
-- `pipeline_plots.py`
-- `pipeline_report.py`
+- `visualization/visualization.py`
+- `visualization/visualization_line_families.py`
+- `visualization/visualization_logical_lines.py`
+- `visualization/visualization_raw_segment_groups.py`
+- `visualization/visualization_containment.py`
+- `visualization/visualization_vertex_containment_merge.py`
+- `visualization/visualization_tolerance_rectangles.py`
+- `visualization/visualization_long_segments.py`
+- `pipeline/pipeline_artifacts.py`
+- `pipeline/pipeline_plots.py`
+- `pipeline/pipeline_report.py`
 
-## Rola `visualization.py`
+## Rola `visualization/visualization.py`
 
-`visualization.py` jest agregatorem funkcji renderujących.
+`visualization/visualization.py` jest agregatorem funkcji renderujących.
 
 Notebook i pipeline nie powinny składać większości overlayów ręcznie z modułów
 szczegółowych, tylko korzystać z tej warstwy agregującej.
@@ -102,7 +100,7 @@ Funkcja:
 Pokazuje:
 
 - stan `post_connection`,
-- segmenty dodane przez connection przed intersection pruning.
+- segmenty dodane przez connection.
 
 ### 7. Finalne logical lines
 
@@ -113,7 +111,7 @@ Funkcje:
 
 Pokazują:
 
-- finalne linie po intersections,
+- finalne linie po connection,
 - wszystkie segmenty linii,
 - wierzchołki start i end,
 - segmenty o różnych originach.
@@ -128,30 +126,7 @@ Funkcje:
 To osobny widok diagnostyczny dla segmentów o długości co najmniej `80%`
 najdłuższego segmentu w danej linii.
 
-### 9. Intersections
-
-Funkcja:
-
-- `build_logical_line_intersection_overlays(...)`
-
-Pokazuje:
-
-- punkty `CROSS`,
-- punkty `TOUCH`,
-- wyróżnienie intersections boundary.
-
-### 10. Frames
-
-Funkcja:
-
-- `build_frame_overlays(...)`
-
-Pokazuje:
-
-- wybraną ramkę,
-- orientację boków przez kolory odpowiadające `TOP`, `BOTTOM`, `LEFT`, `RIGHT`.
-
-### 11. Tolerance rectangles
+### 9. Tolerance rectangles
 
 Funkcja:
 
@@ -179,7 +154,7 @@ Najważniejsze grupy pól:
    `repaired_binary`
 2. wynik domenowy `line_family_result`
 3. overlaye i boardy dla rodzin, grouping, containment, vertex merge,
-   post-merge, post-connection, intersections, frame i tolerance rectangles
+   post-merge, post-connection, finalnych linii i tolerance rectangles
 4. nazwy etapów, takie jak `denoise_name`, `threshold_name`, `cleanup_name`,
    `repair_name`
 
@@ -189,13 +164,9 @@ Najważniejsze grupy pól:
 
 - wynik full containment prune,
 - wynik vertex containment merge,
-- liczby intersections,
-- rozbicie `cross` vs `touch`,
-- liczbę mutual boundary intersections,
-- liczbę border pairs,
-- liczbę frames,
 - rozkład segmentów w stanie `post_merge`,
 - rozkład segmentów w stanie `post_connection`,
+- rozkład segmentów w finalnym stanie linii,
 - opis long segment candidates.
 
 To oznacza, że wizualizacje i raport opisują ten sam pipeline z dwóch
@@ -207,7 +178,7 @@ perspektyw:
 ## Plot items notebooka
 
 Kolejność obrazów pokazywanych w notebooku jest budowana przez
-`build_raw_line_family_plot_items(...)` z `pipeline_plots.py`.
+`build_raw_line_family_plot_items(...)` z `pipeline/pipeline_plots.py`.
 
 Stała część listy:
 
@@ -227,12 +198,9 @@ Opcjonalnie, jeśli odpowiednie artefakty istnieją:
 - `logical lines post vertex merge board`
 - `logical lines post connection on repair binary`
 - `long segment candidates on repair binary`
-- `frames on repair binary`
 - `tolerance rectangles on repair binary`
 
 Zawsze obecne po pełnym przebiegu:
 
-- `logical lines final after intersections on repair binary`
-- `logical lines final after intersections on source`
-- `logical line intersections on repair binary`
-- `logical line intersections on source`
+- `logical lines final after connection on repair binary`
+- `logical lines final after connection on source`

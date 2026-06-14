@@ -15,6 +15,7 @@ MODULE_RELOAD_ORDER = (
     "line_families",
     "logical_line_types",
     "logical_line_segment_geometry",
+    "intersection_models",
     "raw_segment_grouping",
     "logical_line_core",
     "logical_line_cross_axis_continuity",
@@ -26,14 +27,7 @@ MODULE_RELOAD_ORDER = (
     "logical_line_connection_candidates",
     "logical_line_connection_execution",
     "logical_line_connections",
-    "intersection_models",
-    "intersection_segment_geometry",
-    "intersection_candidates",
-    "intersection_ordering",
-    "intersection_pruning",
-    "intersection_frame",
-    "intersection_analysis",
-    "intersections",
+    "logical_line_intersections",
     "logical_lines",
     "detection",
     "visualization",
@@ -41,7 +35,6 @@ MODULE_RELOAD_ORDER = (
 
 
 MODULE_RELOAD_PREFIXES = (
-    "intersection_",
     "logical_line_connection_",
     "logical_line_search_",
     "visualization_",
@@ -63,17 +56,16 @@ class Api:
     apply_directional_close_repair: object
     detect_line_families: object
     build_line_family_overlays: object
+    build_logical_line_intersection_overlays: object
     build_containment_prune_board: object
     build_containment_prune_overlays: object
     build_vertex_containment_merge_board: object
     build_vertex_containment_merge_overlays: object
-    build_frame_overlays: object
     build_long_segment_candidate_board: object
     build_long_segment_candidate_overlays: object
     build_logical_line_overlays: object
     build_post_merge_logical_line_overlays: object
     build_post_connection_logical_line_overlays: object
-    build_logical_line_intersection_overlays: object
     build_raw_segment_group_board: object
     build_raw_segment_group_overlays: object
     build_tolerance_rectangle_overlays: object
@@ -81,12 +73,22 @@ class Api:
 
 def _ensure_variant_dir_on_sys_path() -> Path:
     variant_dir = Path(__file__).resolve().parent
+    search_paths = [
+        variant_dir / "visualization",
+        variant_dir / "pipeline",
+        variant_dir,
+    ]
 
-    variant_dir_str = str(variant_dir)
-    if variant_dir_str not in sys.path:
-        sys.path.insert(0, variant_dir_str)
+    for search_path in reversed(search_paths):
+        search_path_str = str(search_path)
+        if search_path_str in sys.path:
+            sys.path.remove(search_path_str)
+        sys.path.insert(0, search_path_str)
 
     return variant_dir
+
+
+_ensure_variant_dir_on_sys_path()
 
 
 def load_api() -> Api:
@@ -127,6 +129,9 @@ def load_api() -> Api:
         apply_directional_close_repair=binary_module.apply_directional_close_repair,
         detect_line_families=detection.detect_line_families,
         build_line_family_overlays=visualization.build_line_family_overlays,
+        build_logical_line_intersection_overlays=(
+            visualization.build_logical_line_intersection_overlays
+        ),
         build_containment_prune_board=visualization.build_containment_prune_board,
         build_containment_prune_overlays=(
             visualization.build_containment_prune_overlays
@@ -137,7 +142,6 @@ def load_api() -> Api:
         build_vertex_containment_merge_overlays=(
             visualization.build_vertex_containment_merge_overlays
         ),
-        build_frame_overlays=visualization.build_frame_overlays,
         build_long_segment_candidate_board=(
             visualization.build_long_segment_candidate_board
         ),
@@ -150,9 +154,6 @@ def load_api() -> Api:
         ),
         build_post_connection_logical_line_overlays=(
             visualization.build_post_connection_logical_line_overlays
-        ),
-        build_logical_line_intersection_overlays=(
-            visualization.build_logical_line_intersection_overlays
         ),
         build_raw_segment_group_board=visualization.build_raw_segment_group_board,
         build_raw_segment_group_overlays=(

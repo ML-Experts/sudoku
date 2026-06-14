@@ -13,27 +13,24 @@ Zakres obejmuje:
 - budowę `RawLineFamilyArtifacts`,
 - raport tekstowy i listę plotów.
 
-Szczegóły domenowe `LogicalLine`, containment, connection i intersection
-analysis są opisane w:
+Szczegóły domenowe `LogicalLine`, containment i connection są opisane w:
 
 - `logical_line_lifecycle.md`
 - `logical_line_build_and_grouping.md`
 - `logical_line_containment_and_vertex_merge.md`
 - `logical_line_pixel_connection.md`
-- `intersections_and_visualization.md`
-- `intersection_analysis_and_frame_selection.md`
 - `visualization_and_artifacts.md`
 
 ## Główne pliki
 
 - `bootstrap.py`
-- `pipeline.py`
-- `pipeline_artifacts.py`
-- `pipeline_report.py`
-- `pipeline_plots.py`
-- `pipeline_selection.py`
+- `pipeline/pipeline.py`
+- `pipeline/pipeline_artifacts.py`
+- `pipeline/pipeline_report.py`
+- `pipeline/pipeline_plots.py`
+- `pipeline/pipeline_selection.py`
 - `detection.py`
-- `visualization.py`
+- `visualization/visualization.py`
 
 ## Rola notebooka i bootstrapu
 
@@ -43,7 +40,8 @@ Notebook korzysta z API budowanego przez `load_api()` z `bootstrap.py`.
 
 Bootstrap odpowiada za:
 
-- dodanie katalogu wariantu do `sys.path`,
+- dodanie katalogu wariantu oraz podkatalogów `pipeline/` i `visualization/`
+  do `sys.path`,
 - wyczyszczenie wcześniej załadowanych modułów z bieżącego wariantu,
 - ponowny import modułów we właściwej kolejności,
 - złożenie jednego obiektu `Api`.
@@ -57,19 +55,30 @@ Najważniejsze elementy `Api`:
   - `apply_soft_component_cleanup`
   - `apply_directional_close_repair`
 - `detect_line_families`
-- funkcje renderujące z `visualization.py`
+- funkcje renderujące z `visualization/visualization.py`
 - narzędzia pomocnicze notebooka:
   - `resolve_active_image_path`
   - `path_for_display`
   - `plot_named_images`
 
-To API jest stabilnym punktem wejścia dla notebooka po refaktorze nazw plików.
+To API jest stabilnym punktem wejścia dla notebooka po refaktorze nazw plików i
+po rozdzieleniu helperów do podkatalogów `pipeline/` oraz `visualization/`.
+
+## Importy w notebooku
+
+Notebook powinien używać lokalnych importów:
+
+- `import bootstrap`
+- `import pipeline`
+
+Zamiast importów od repo root typu `from src.MachineLearning...`, bo aktywny
+kernel działa na ścieżkach dodawanych dynamicznie przez `bootstrap.py`.
 
 ## Wejście pipeline
 
 Publiczny entrypoint w warstwie pipeline'u:
 
-- `run_raw_line_family_pipeline(...)` z `pipeline.py`
+- `run_raw_line_family_pipeline(...)` z `pipeline/pipeline.py`
 
 Wejście:
 
@@ -144,7 +153,7 @@ Cel:
 - wykonać full containment prune,
 - wykonać vertex containment merge,
 - wykonać pixel connection,
-- przeprowadzić analizę przecięć i wybór ramki,
+- zbudować finalne prostokąty tolerancji,
 - zwrócić wynik do raportu i renderów notebooka.
 
 Ważne rozdzielenie odpowiedzialności:
@@ -178,10 +187,6 @@ Najważniejsze pola:
 - `vertical_logical_lines`
 - `horizontal_tolerance_rectangles`
 - `vertical_tolerance_rectangles`
-- `logical_line_intersection_analysis`
-- `logical_line_intersections`
-- `logical_line_border_pairs`
-- `logical_line_frames`
 
 Interpretacja stanów:
 
@@ -191,17 +196,18 @@ Interpretacja stanów:
 - `horizontal_vertex_containment_merge_result` i
   `vertical_vertex_containment_merge_result` opisują diagnostykę merge'u,
 - `post_merge` oznacza stan po merge'u vertex i przed pixel connection,
-- `post_connection` oznacza stan po pixel connection i przed pruningiem
-  intersection-driven,
-- kolekcje finalne oznaczają stan po intersections, pruning i frame selection.
+- `post_connection` oznacza snapshot po pixel connection,
+- kolekcje finalne `horizontal_logical_lines` i `vertical_logical_lines`
+  oznaczają dziś stan końcowy eksperymentu i są semantycznie zgodne ze stanem po
+  connection.
 
 ## Budowa `RawLineFamilyArtifacts`
 
 `run_raw_line_family_pipeline(...)` buduje następnie `RawLineFamilyArtifacts`
-z `pipeline_artifacts.py`.
+z `pipeline/pipeline_artifacts.py`.
 
 Notebook może też zbudować te artefakty ręcznie, ale powinien zachować tę samą
-semantykę pól i kolejność stanów co `pipeline.py`.
+semantykę pól i kolejność stanów co `pipeline/pipeline.py`.
 
 Artefakty można podzielić na cztery grupy.
 
@@ -241,10 +247,6 @@ Artefakty można podzielić na cztery grupy.
 - `binary_long_segment_candidate_overlay`
 - `source_long_segment_candidate_overlay`
 - `long_segment_candidate_board`
-- `binary_logical_line_intersection_overlay`
-- `source_logical_line_intersection_overlay`
-- `binary_frame_overlay`
-- `source_frame_overlay`
 - `binary_tolerance_rectangle_overlay`
 - `source_tolerance_rectangle_overlay`
 
@@ -257,7 +259,8 @@ Artefakty można podzielić na cztery grupy.
 
 ## Raport tekstowy
 
-Funkcja `describe_raw_line_family_artifacts(...)` z `pipeline_report.py` opisuje
+Funkcja `describe_raw_line_family_artifacts(...)` z `pipeline/pipeline_report.py`
+opisuje
 nie tylko finalny wynik, ale też kilka ważnych stanów pośrednich.
 
 Raport obejmuje między innymi:
@@ -269,12 +272,12 @@ Raport obejmuje między innymi:
 - liczbę segmentów `same_axis_connection`,
 - liczbę segmentów `cross_axis_connection`,
 - liczbę prostokątów tolerancji,
-- liczbę intersections, border pairs i frames,
 - statystyki RAW segment grouping,
 - statystyki full containment prune,
 - statystyki vertex containment merge,
 - stan kolekcji `post_merge`,
 - stan kolekcji `post_connection`,
+- finalny stan kolekcji logicznych linii,
 - kandydatów długich segmentów,
 - listę plotów generowanych dla notebooka.
 
@@ -284,7 +287,7 @@ podsumowaniem liczników.
 ## Plot items notebooka
 
 Kolejność obrazów pokazywanych w notebooku jest budowana przez
-`build_raw_line_family_plot_items(...)` z `pipeline_plots.py`.
+`build_raw_line_family_plot_items(...)` z `pipeline/pipeline_plots.py`.
 
 Stała część listy:
 
@@ -315,17 +318,13 @@ Opcjonalnie, jeśli artefakty istnieją:
 - `long segment candidates on repair binary`
 - `long segment candidates on source`
 - `logical lines board: blue=all, red=longest`
-- `frames on repair binary`
-- `frames on source`
 - `tolerance rectangles on repair binary`
 - `tolerance rectangles on source`
 
 Zawsze obecne po pełnym przebiegu:
 
-- `logical lines final after intersections on repair binary`
-- `logical lines final after intersections on source`
-- `logical line intersections on repair binary`
-- `logical line intersections on source`
+- `logical lines final after connection on repair binary`
+- `logical lines final after connection on source`
 
 ## Aktualny przepływ pipeline
 
@@ -340,8 +339,8 @@ flowchart TD
     grouping --> fullContainment[full containment prune]
     fullContainment --> vertexMerge[vertex containment merge]
     vertexMerge --> connection[pixel connection]
-    connection --> intersections[intersections and frame selection]
-    intersections --> buildArtifacts[Build RawLineFamilyArtifacts]
+    connection --> tolerance[build tolerance rectangles]
+    tolerance --> buildArtifacts[Build RawLineFamilyArtifacts]
     buildArtifacts --> buildPlots[Build notebook plot items]
     buildArtifacts --> buildReport[Describe artifacts]
 ```
@@ -351,10 +350,10 @@ flowchart TD
 1. Oficjalnym entrypointem orchestration jest `run_raw_line_family_pipeline(...)`.
 2. `clean_binary` i `repaired_binary` pełnią różne role i nie należy ich
    traktować jako zamienników.
-3. Pipeline przechowuje osobno stan po grouping, po merge'u vertex, po
-   connection i po intersection analysis.
+3. Pipeline przechowuje osobno stan po grouping, po merge'u vertex i po
+   connection.
 4. Notebook może budować artefakty ręcznie, ale powinien zachowywać tę samą
    listę pól co `RawLineFamilyArtifacts`.
 5. Raport i overlaye są częścią eksperymentu, a nie dodatkiem pobocznym.
-6. Źródłem prawdy dla kolejności etapów jest kod w `pipeline.py`
+6. Źródłem prawdy dla kolejności etapów jest kod w `pipeline/pipeline.py`
    i `detection.py`.
