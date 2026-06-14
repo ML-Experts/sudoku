@@ -33,15 +33,20 @@ from logical_lines import (
 from logical_line_debug import (
     assign_logical_line_debug_names,
 )
+from logical_line_cross_axis_continuity import LogicalLineCrossAxisGroup
 from models import (
     ExperimentConfig,
     LineFamilyName,
     LineSegment,
     ToleranceRectangle,
 )
-from logical_line_containment import (
+from logical_line_full_containment import (
     PruneContainedLogicalLinesResult,
-    proune_logical_lines_by_axis_containment,
+    prune_logical_lines_by_full_axis_containment,
+)
+from logical_line_vertex_containment_merge import (
+    MergeVertexContainedLogicalLinesResult,
+    merge_logical_lines_by_vertex_axis_containment,
 )
 
 
@@ -57,6 +62,14 @@ class RawLineFamilyResult:
     vertical_pre_connection_logical_lines: list[LogicalLine]
     horizontal_containment_prune_result: PruneContainedLogicalLinesResult | None
     vertical_containment_prune_result: PruneContainedLogicalLinesResult | None
+    horizontal_vertex_containment_merge_result: (
+        MergeVertexContainedLogicalLinesResult | None
+    )
+    vertical_vertex_containment_merge_result: (
+        MergeVertexContainedLogicalLinesResult | None
+    )
+    horizontal_post_merge_logical_lines: list[LogicalLine]
+    vertical_post_merge_logical_lines: list[LogicalLine]
     horizontal_post_connection_logical_lines: list[LogicalLine]
     vertical_post_connection_logical_lines: list[LogicalLine]
     horizontal_logical_lines: list[LogicalLine]
@@ -82,6 +95,10 @@ def _build_empty_line_family_result(
         vertical_pre_connection_logical_lines=[],
         horizontal_containment_prune_result=None,
         vertical_containment_prune_result=None,
+        horizontal_vertex_containment_merge_result=None,
+        vertical_vertex_containment_merge_result=None,
+        horizontal_post_merge_logical_lines=[],
+        vertical_post_merge_logical_lines=[],
         horizontal_post_connection_logical_lines=[],
         vertical_post_connection_logical_lines=[],
         horizontal_logical_lines=[],
@@ -181,6 +198,51 @@ def _group_raw_segments_in_logical_lines(
             angle_tolerance_degrees=config.line_family_angle_tolerance_degrees,
             black_gap_tolerance_px=config.raw_segment_group_black_gap_tolerance_px,
         )
+
+
+def _clone_logical_lines(
+    logical_lines: list[LogicalLine],
+) -> list[LogicalLine]:
+    return [logical_line.clone() for logical_line in logical_lines]
+
+
+def _clone_cross_axis_groups(
+    groups: list[LogicalLineCrossAxisGroup],
+) -> list[LogicalLineCrossAxisGroup]:
+    return [
+        LogicalLineCrossAxisGroup(
+            cross_axis_start=group.cross_axis_start,
+            cross_axis_end=group.cross_axis_end,
+            anchor_line=group.anchor_line.clone(),
+            grouped_logical_lines=[
+                logical_line.clone() for logical_line in group.grouped_logical_lines
+            ],
+            grouped_logical_line_ids=set(group.grouped_logical_line_ids),
+        )
+        for group in groups
+    ]
+
+
+def _clone_containment_prune_result(
+    prune_result: PruneContainedLogicalLinesResult,
+) -> PruneContainedLogicalLinesResult:
+    return PruneContainedLogicalLinesResult(
+        input_logical_lines=_clone_logical_lines(prune_result.input_logical_lines),
+        pruned_logical_lines=_clone_logical_lines(prune_result.pruned_logical_lines),
+        removed_logical_lines=_clone_logical_lines(prune_result.removed_logical_lines),
+        cross_axis_groups=_clone_cross_axis_groups(prune_result.cross_axis_groups),
+    )
+
+
+def _clone_vertex_containment_merge_result(
+    merge_result: MergeVertexContainedLogicalLinesResult,
+) -> MergeVertexContainedLogicalLinesResult:
+    return MergeVertexContainedLogicalLinesResult(
+        input_logical_lines=_clone_logical_lines(merge_result.input_logical_lines),
+        merged_logical_lines=_clone_logical_lines(merge_result.merged_logical_lines),
+        consumed_logical_lines=_clone_logical_lines(merge_result.consumed_logical_lines),
+        merge_groups=_clone_cross_axis_groups(merge_result.merge_groups),
+    )
 
 
 def _detect_raw_segments(
@@ -296,6 +358,10 @@ def detect_line_families(
             vertical_pre_connection_logical_lines=[],
             horizontal_containment_prune_result=None,
             vertical_containment_prune_result=None,
+            horizontal_vertex_containment_merge_result=None,
+            vertical_vertex_containment_merge_result=None,
+            horizontal_post_merge_logical_lines=[],
+            vertical_post_merge_logical_lines=[],
             horizontal_post_connection_logical_lines=[],
             vertical_post_connection_logical_lines=[],
             horizontal_logical_lines=[],
@@ -342,10 +408,35 @@ def detect_line_families(
     ]
 
 
-    prune_contained_horizontal_logical_lines_result: PruneContainedLogicalLinesResult = proune_logical_lines_by_axis_containment(pixel_connection_binary, horizontal_logical_lines)
-    prune_contained_vertical_logical_lines_result: PruneContainedLogicalLinesResult = proune_logical_lines_by_axis_containment(pixel_connection_binary, vertical_logical_lines)
+    prune_contained_horizontal_logical_lines_result: PruneContainedLogicalLinesResult = prune_logical_lines_by_full_axis_containment(pixel_connection_binary, horizontal_logical_lines)
+    prune_contained_vertical_logical_lines_result: PruneContainedLogicalLinesResult = prune_logical_lines_by_full_axis_containment(pixel_connection_binary, vertical_logical_lines)
     horizontal_logical_lines = prune_contained_horizontal_logical_lines_result.pruned_logical_lines
     vertical_logical_lines = prune_contained_vertical_logical_lines_result.pruned_logical_lines
+    prune_contained_horizontal_logical_lines_result = _clone_containment_prune_result(
+        prune_contained_horizontal_logical_lines_result
+    )
+    prune_contained_vertical_logical_lines_result = _clone_containment_prune_result(
+        prune_contained_vertical_logical_lines_result
+    )
+
+    merge_vertex_contained_horizontal_logical_lines_result: MergeVertexContainedLogicalLinesResult = merge_logical_lines_by_vertex_axis_containment(pixel_connection_binary, horizontal_logical_lines, horizontal_angle_degrees, config)
+    merge_vertex_contained_vertical_logical_lines_result: MergeVertexContainedLogicalLinesResult = merge_logical_lines_by_vertex_axis_containment(pixel_connection_binary, vertical_logical_lines, vertical_angle_degrees, config)
+    horizontal_logical_lines = merge_vertex_contained_horizontal_logical_lines_result.merged_logical_lines
+    vertical_logical_lines = merge_vertex_contained_vertical_logical_lines_result.merged_logical_lines
+    assign_logical_line_debug_names(horizontal_logical_lines, "H")
+    assign_logical_line_debug_names(vertical_logical_lines, "V")
+    horizontal_post_merge_logical_lines = _clone_logical_lines(horizontal_logical_lines)
+    vertical_post_merge_logical_lines = _clone_logical_lines(vertical_logical_lines)
+    merge_vertex_contained_horizontal_logical_lines_result = (
+        _clone_vertex_containment_merge_result(
+            merge_vertex_contained_horizontal_logical_lines_result
+        )
+    )
+    merge_vertex_contained_vertical_logical_lines_result = (
+        _clone_vertex_containment_merge_result(
+            merge_vertex_contained_vertical_logical_lines_result
+        )
+    )
 
     horizontal_logical_lines, vertical_logical_lines = connect_logical_lines_by_pixels(
         pixel_connection_binary,
@@ -399,6 +490,14 @@ def detect_line_families(
         vertical_containment_prune_result=(
             prune_contained_vertical_logical_lines_result
         ),
+        horizontal_vertex_containment_merge_result=(
+            merge_vertex_contained_horizontal_logical_lines_result
+        ),
+        vertical_vertex_containment_merge_result=(
+            merge_vertex_contained_vertical_logical_lines_result
+        ),
+        horizontal_post_merge_logical_lines=horizontal_post_merge_logical_lines,
+        vertical_post_merge_logical_lines=vertical_post_merge_logical_lines,
         horizontal_post_connection_logical_lines=horizontal_post_connection_logical_lines,
         vertical_post_connection_logical_lines=vertical_post_connection_logical_lines,
         horizontal_logical_lines=horizontal_logical_lines,

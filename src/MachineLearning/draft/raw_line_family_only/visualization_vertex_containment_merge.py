@@ -7,14 +7,12 @@ from detection import RawLineFamilyResult
 from models import ExperimentConfig
 from visualization_logical_lines import (
     build_logical_line_color,
+    draw_logical_lines_for_lines,
     draw_logical_line_label,
 )
-from visualization_raw_segment_groups import (
-    draw_raw_segment_groups_for_lines,
-)
 
 
-def build_containment_prune_overlays(
+def build_vertex_containment_merge_overlays(
     source_bgr: np.ndarray,
     binary_image: np.ndarray,
     line_family_result: RawLineFamilyResult,
@@ -22,81 +20,72 @@ def build_containment_prune_overlays(
 ) -> tuple[np.ndarray, np.ndarray]:
     binary_overlay = cv2.cvtColor(binary_image, cv2.COLOR_GRAY2BGR)
     source_overlay = source_bgr.copy()
-    _draw_containment_prune(binary_overlay, line_family_result, config)
-    _draw_containment_prune(source_overlay, line_family_result, config)
+    _draw_vertex_containment_merge(binary_overlay, line_family_result, config)
+    _draw_vertex_containment_merge(source_overlay, line_family_result, config)
     return binary_overlay, source_overlay
 
 
-def build_containment_prune_board(
+def build_vertex_containment_merge_board(
     source_bgr: np.ndarray,
     line_family_result: RawLineFamilyResult,
     config: ExperimentConfig,
 ) -> np.ndarray:
-    prune_board = np.full_like(source_bgr, 24)
-    pruned_lines = [
-        *(
-            []
-            if line_family_result.horizontal_containment_prune_result is None
-            else line_family_result.horizontal_containment_prune_result.pruned_logical_lines
-        ),
-        *(
-            []
-            if line_family_result.vertical_containment_prune_result is None
-            else line_family_result.vertical_containment_prune_result.pruned_logical_lines
-        ),
+    merge_board = np.full_like(source_bgr, 24)
+    merged_lines = [
+        *line_family_result.horizontal_post_merge_logical_lines,
+        *line_family_result.vertical_post_merge_logical_lines,
     ]
-    draw_raw_segment_groups_for_lines(
-        prune_board,
-        pruned_lines,
+    draw_logical_lines_for_lines(
+        merge_board,
+        merged_lines,
         config,
     )
-    return prune_board
+    return merge_board
 
 
-def _draw_containment_prune(
+def _draw_vertex_containment_merge(
     overlay: np.ndarray,
     line_family_result: RawLineFamilyResult,
     config: ExperimentConfig,
 ) -> None:
-    horizontal_result = line_family_result.horizontal_containment_prune_result
-    vertical_result = line_family_result.vertical_containment_prune_result
+    horizontal_result = line_family_result.horizontal_vertex_containment_merge_result
+    vertical_result = line_family_result.vertical_vertex_containment_merge_result
     if horizontal_result is None and vertical_result is None:
         return
 
-    containment_groups = [
-        *([] if horizontal_result is None else horizontal_result.cross_axis_groups),
-        *([] if vertical_result is None else vertical_result.cross_axis_groups),
+    merge_groups = [
+        *([] if horizontal_result is None else horizontal_result.merge_groups),
+        *([] if vertical_result is None else vertical_result.merge_groups),
     ]
-    group_count = len(containment_groups)
+    group_count = len(merge_groups)
     if group_count <= 0:
         return
 
-    group_index = 0
-    for cross_axis_group in containment_groups:
+    for group_index, cross_axis_group in enumerate(merge_groups):
         line_color = build_logical_line_color(
             cross_axis_group.anchor_line,
             group_index,
             group_count,
         )
-        for removed_line in cross_axis_group.grouped_logical_lines:
+        for consumed_line in cross_axis_group.grouped_logical_lines:
             _draw_logical_line(
                 overlay,
-                removed_line,
+                consumed_line,
                 color=(255, 255, 255),
                 config=config,
                 thickness_delta=4,
             )
             _draw_logical_line(
                 overlay,
-                removed_line,
+                consumed_line,
                 color=(0, 0, 255),
                 config=config,
                 thickness_delta=2,
             )
             draw_logical_line_label(
                 overlay,
-                removed_line,
-                label_text=f"{removed_line.debug_name or '?'} rm",
+                consumed_line,
+                label_text=f"{consumed_line.debug_name or '?'} mg",
                 color=(0, 0, 255),
             )
 
@@ -119,11 +108,10 @@ def _draw_containment_prune(
             cross_axis_group.anchor_line,
             label_text=(
                 f"{cross_axis_group.anchor_line.debug_name or '?'} "
-                f"rm={len(cross_axis_group.grouped_logical_lines)}"
+                f"mg={len(cross_axis_group.grouped_logical_lines)}"
             ),
             color=line_color,
         )
-        group_index += 1
 
 
 def _draw_logical_line(
@@ -162,6 +150,6 @@ def _draw_logical_line(
 
 
 __all__ = [
-    "build_containment_prune_board",
-    "build_containment_prune_overlays",
+    "build_vertex_containment_merge_board",
+    "build_vertex_containment_merge_overlays",
 ]

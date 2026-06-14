@@ -90,6 +90,46 @@ def build_raw_line_family_plot_items(
                 True,
             )
         )
+    if _has_image(artifacts.vertex_containment_merge_board):
+        plot_items.append(
+            (
+                "logical lines post vertex merge board",
+                artifacts.vertex_containment_merge_board,
+                True,
+            )
+        )
+    if _has_image(artifacts.binary_vertex_containment_merge_overlay):
+        plot_items.append(
+            (
+                "vertex containment merge on repair binary",
+                artifacts.binary_vertex_containment_merge_overlay,
+                True,
+            )
+        )
+    if _has_image(artifacts.source_vertex_containment_merge_overlay):
+        plot_items.append(
+            (
+                "vertex containment merge on source",
+                artifacts.source_vertex_containment_merge_overlay,
+                True,
+            )
+        )
+    if _has_image(artifacts.binary_post_merge_logical_line_overlay):
+        plot_items.append(
+            (
+                "logical lines post vertex merge on repair binary",
+                artifacts.binary_post_merge_logical_line_overlay,
+                True,
+            )
+        )
+    if _has_image(artifacts.source_post_merge_logical_line_overlay):
+        plot_items.append(
+            (
+                "logical lines post vertex merge on source",
+                artifacts.source_post_merge_logical_line_overlay,
+                True,
+            )
+        )
     if _has_image(artifacts.binary_post_connection_logical_line_overlay):
         plot_items.append(
             (

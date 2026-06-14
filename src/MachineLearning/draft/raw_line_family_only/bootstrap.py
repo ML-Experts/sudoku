@@ -17,7 +17,9 @@ MODULE_RELOAD_ORDER = (
     "logical_line_segment_geometry",
     "raw_segment_grouping",
     "logical_line_core",
-    "logical_line_containment",
+    "logical_line_cross_axis_continuity",
+    "logical_line_full_containment",
+    "logical_line_vertex_containment_merge",
     "logical_line_search",
     "logical_line_merging",
     "logical_line_connection_types",
@@ -62,10 +64,13 @@ class Api:
     build_line_family_overlays: object
     build_containment_prune_board: object
     build_containment_prune_overlays: object
+    build_vertex_containment_merge_board: object
+    build_vertex_containment_merge_overlays: object
     build_frame_overlays: object
     build_long_segment_candidate_board: object
     build_long_segment_candidate_overlays: object
     build_logical_line_overlays: object
+    build_post_merge_logical_line_overlays: object
     build_post_connection_logical_line_overlays: object
     build_logical_line_intersection_overlays: object
     build_raw_segment_group_board: object
@@ -125,6 +130,12 @@ def load_api() -> Api:
         build_containment_prune_overlays=(
             visualization.build_containment_prune_overlays
         ),
+        build_vertex_containment_merge_board=(
+            visualization.build_vertex_containment_merge_board
+        ),
+        build_vertex_containment_merge_overlays=(
+            visualization.build_vertex_containment_merge_overlays
+        ),
         build_frame_overlays=visualization.build_frame_overlays,
         build_long_segment_candidate_board=(
             visualization.build_long_segment_candidate_board
@@ -133,6 +144,9 @@ def load_api() -> Api:
             visualization.build_long_segment_candidate_overlays
         ),
         build_logical_line_overlays=visualization.build_logical_line_overlays,
+        build_post_merge_logical_line_overlays=(
+            visualization.build_post_merge_logical_line_overlays
+        ),
         build_post_connection_logical_line_overlays=(
             visualization.build_post_connection_logical_line_overlays
         ),

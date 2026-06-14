@@ -100,6 +100,21 @@ def build_post_connection_logical_line_overlays(
     )
 
 
+def build_post_merge_logical_line_overlays(
+    source_bgr: np.ndarray,
+    binary_image: np.ndarray,
+    line_family_result: RawLineFamilyResult,
+    config: ExperimentConfig,
+) -> tuple[np.ndarray, np.ndarray]:
+    return build_logical_line_overlays_for_lines(
+        source_bgr,
+        binary_image,
+        line_family_result.horizontal_post_merge_logical_lines,
+        line_family_result.vertical_post_merge_logical_lines,
+        config,
+    )
+
+
 def build_logical_line_overlays_for_lines(
     source_bgr: np.ndarray,
     binary_image: np.ndarray,
@@ -114,51 +129,59 @@ def build_logical_line_overlays_for_lines(
         *vertical_logical_lines,
     ]
 
-    for overlay in (binary_overlay, source_overlay):
-        for line_index, logical_line in enumerate(logical_lines):
-            line_color = build_logical_line_color(
-                logical_line,
-                line_index,
-                len(logical_lines),
-            )
-            for line_segment in logical_line.line_segments:
-                segment_color = line_color
-                if line_segment.origin == SegmentOrigin.SAME_AXIS_CONNECTION:
-                    segment_color = config.same_axis_connection_segment_color_bgr
-                elif line_segment.origin == SegmentOrigin.CROSS_AXIS_CONNECTION:
-                    segment_color = config.cross_axis_connection_segment_color_bgr
-                cv2.line(
-                    overlay,
-                    line_segment.start,
-                    line_segment.end,
-                    segment_color,
-                    config.line_overlay_thickness,
-                    cv2.LINE_AA,
-                )
-            cv2.circle(
-                overlay,
-                logical_line.start_vertex,
-                config.logical_line_vertex_radius,
-                line_color,
-                thickness=-1,
-                lineType=cv2.LINE_AA,
-            )
-            cv2.circle(
-                overlay,
-                logical_line.end_vertex,
-                config.logical_line_vertex_radius,
-                line_color,
-                thickness=-1,
-                lineType=cv2.LINE_AA,
-            )
-            draw_logical_line_label(
-                overlay,
-                logical_line,
-                build_logical_line_label_text(logical_line),
-                line_color,
-            )
+    draw_logical_lines_for_lines(binary_overlay, logical_lines, config)
+    draw_logical_lines_for_lines(source_overlay, logical_lines, config)
 
     return binary_overlay, source_overlay
+
+
+def draw_logical_lines_for_lines(
+    overlay: np.ndarray,
+    logical_lines,
+    config: ExperimentConfig,
+) -> None:
+    for line_index, logical_line in enumerate(logical_lines):
+        line_color = build_logical_line_color(
+            logical_line,
+            line_index,
+            len(logical_lines),
+        )
+        for line_segment in logical_line.line_segments:
+            segment_color = line_color
+            if line_segment.origin == SegmentOrigin.SAME_AXIS_CONNECTION:
+                segment_color = config.same_axis_connection_segment_color_bgr
+            elif line_segment.origin == SegmentOrigin.CROSS_AXIS_CONNECTION:
+                segment_color = config.cross_axis_connection_segment_color_bgr
+            cv2.line(
+                overlay,
+                line_segment.start,
+                line_segment.end,
+                segment_color,
+                config.line_overlay_thickness,
+                cv2.LINE_AA,
+            )
+        cv2.circle(
+            overlay,
+            logical_line.start_vertex,
+            config.logical_line_vertex_radius,
+            line_color,
+            thickness=-1,
+            lineType=cv2.LINE_AA,
+        )
+        cv2.circle(
+            overlay,
+            logical_line.end_vertex,
+            config.logical_line_vertex_radius,
+            line_color,
+            thickness=-1,
+            lineType=cv2.LINE_AA,
+        )
+        draw_logical_line_label(
+            overlay,
+            logical_line,
+            build_logical_line_label_text(logical_line),
+            line_color,
+        )
 
 
 __all__ = [
@@ -166,6 +189,8 @@ __all__ = [
     "build_logical_line_label_text",
     "build_logical_line_overlays",
     "build_logical_line_overlays_for_lines",
+    "build_post_merge_logical_line_overlays",
     "build_post_connection_logical_line_overlays",
+    "draw_logical_lines_for_lines",
     "draw_logical_line_label",
 ]

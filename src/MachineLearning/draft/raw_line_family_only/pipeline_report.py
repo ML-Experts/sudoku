@@ -195,10 +195,10 @@ def _describe_containment_prune_result(
                 f"  - group[{group_index:02d}] "
                 f"crossAxis=({cross_axis_group.cross_axis_start}.."
                 f"{cross_axis_group.cross_axis_end}) "
-                f"removed={len(cross_axis_group.removed_logical_lines)}"
+                f"removed={len(cross_axis_group.grouped_logical_lines)}"
             )
         )
-        container_line = cross_axis_group.container_line
+        container_line = cross_axis_group.anchor_line
         container_label = get_logical_line_debug_name(container_line)
         description_lines.append(
             (
@@ -206,10 +206,10 @@ def _describe_containment_prune_result(
                 f"axis=({container_line.axis_start}..{container_line.axis_end}) "
                 f"cross=({container_line.cross_axis_start}.."
                 f"{container_line.cross_axis_end}) "
-                f"removed={len(cross_axis_group.removed_logical_lines)}"
+                f"removed={len(cross_axis_group.grouped_logical_lines)}"
             )
         )
-        for removed_line in cross_axis_group.removed_logical_lines:
+        for removed_line in cross_axis_group.grouped_logical_lines:
             removed_label = get_logical_line_debug_name(removed_line)
             description_lines.append(
                 (
@@ -217,6 +217,58 @@ def _describe_containment_prune_result(
                     f"axis=({removed_line.axis_start}..{removed_line.axis_end}) "
                     f"cross=({removed_line.cross_axis_start}.."
                     f"{removed_line.cross_axis_end})"
+                )
+            )
+
+    return description_lines
+
+
+def _describe_vertex_containment_merge_result(
+    line_prefix: str,
+    merge_result,
+) -> list[str]:
+    if merge_result is None:
+        return [f"{line_prefix}: vertex containment merge unavailable"]
+
+    description_lines = [
+        (
+            f"{line_prefix}: input={len(merge_result.input_logical_lines)} "
+            f"merged={len(merge_result.merged_logical_lines)} "
+            f"consumed={len(merge_result.consumed_logical_lines)} "
+            f"mergeGroups={len(merge_result.merge_groups)}"
+        )
+    ]
+    for group_index, merge_group in enumerate(
+        merge_result.merge_groups,
+        start=1,
+    ):
+        description_lines.append(
+            (
+                f"  - group[{group_index:02d}] "
+                f"crossAxis=({merge_group.cross_axis_start}.."
+                f"{merge_group.cross_axis_end}) "
+                f"consumed={len(merge_group.grouped_logical_lines)}"
+            )
+        )
+        anchor_line = merge_group.anchor_line
+        anchor_label = get_logical_line_debug_name(anchor_line)
+        description_lines.append(
+            (
+                f"    anchor={anchor_label} "
+                f"axis=({anchor_line.axis_start}..{anchor_line.axis_end}) "
+                f"cross=({anchor_line.cross_axis_start}.."
+                f"{anchor_line.cross_axis_end}) "
+                f"consumed={len(merge_group.grouped_logical_lines)}"
+            )
+        )
+        for consumed_line in merge_group.grouped_logical_lines:
+            consumed_label = get_logical_line_debug_name(consumed_line)
+            description_lines.append(
+                (
+                    f"      - consumed={consumed_label} "
+                    f"axis=({consumed_line.axis_start}..{consumed_line.axis_end}) "
+                    f"cross=({consumed_line.cross_axis_start}.."
+                    f"{consumed_line.cross_axis_end})"
                 )
             )
 
@@ -326,9 +378,29 @@ def describe_raw_line_family_artifacts(
             line_family_result.vertical_containment_prune_result,
         ),
     ]
+    vertex_containment_merge_description_lines = [
+        "",
+        "Vertex containment merge before pixel connection:",
+        *_describe_vertex_containment_merge_result(
+            "H",
+            line_family_result.horizontal_vertex_containment_merge_result,
+        ),
+        *_describe_vertex_containment_merge_result(
+            "V",
+            line_family_result.vertical_vertex_containment_merge_result,
+        ),
+    ]
     post_connection_description_lines = [
         "",
-        "Logical lines after pixel connection and before intersection pruning:",
+        "Logical lines after vertex containment merge and pixel connection:",
+        *_describe_logical_line_collection(
+            "horizontalPostMerge",
+            line_family_result.horizontal_post_merge_logical_lines,
+        ),
+        *_describe_logical_line_collection(
+            "verticalPostMerge",
+            line_family_result.vertical_post_merge_logical_lines,
+        ),
         *_describe_logical_line_collection(
             "horizontalPostConnection",
             line_family_result.horizontal_post_connection_logical_lines,
@@ -366,6 +438,38 @@ def describe_raw_line_family_artifacts(
             f"present={_has_image(artifacts.source_raw_segment_group_overlay)} "
             f"visiblePixels={_has_visible_pixels(artifacts.source_raw_segment_group_overlay)} "
             f"shape={None if artifacts.source_raw_segment_group_overlay is None else artifacts.source_raw_segment_group_overlay.shape}"
+        ),
+        (
+            "vertexContainmentMergeBoard: "
+            f"present={_has_image(artifacts.vertex_containment_merge_board)} "
+            f"visiblePixels={_has_visible_pixels(artifacts.vertex_containment_merge_board)} "
+            f"shape={None if artifacts.vertex_containment_merge_board is None else artifacts.vertex_containment_merge_board.shape}"
+        ),
+        (
+            "binaryVertexContainmentMergeOverlay: "
+            f"present={_has_image(artifacts.binary_vertex_containment_merge_overlay)} "
+            f"visiblePixels={_has_visible_pixels(artifacts.binary_vertex_containment_merge_overlay)} "
+            f"shape={None if artifacts.binary_vertex_containment_merge_overlay is None else artifacts.binary_vertex_containment_merge_overlay.shape}"
+        ),
+        (
+            "sourceVertexContainmentMergeOverlay: "
+            f"present={_has_image(artifacts.source_vertex_containment_merge_overlay)} "
+            f"visiblePixels={_has_visible_pixels(artifacts.source_vertex_containment_merge_overlay)} "
+            f"shape={None if artifacts.source_vertex_containment_merge_overlay is None else artifacts.source_vertex_containment_merge_overlay.shape}"
+        ),
+        (
+            "binaryPostMergeLogicalLineOverlay: "
+            f"present={_has_image(artifacts.binary_post_merge_logical_line_overlay)} "
+            f"visiblePixels={_has_visible_pixels(artifacts.binary_post_merge_logical_line_overlay)} "
+            "shape="
+            f"{None if artifacts.binary_post_merge_logical_line_overlay is None else artifacts.binary_post_merge_logical_line_overlay.shape}"
+        ),
+        (
+            "sourcePostMergeLogicalLineOverlay: "
+            f"present={_has_image(artifacts.source_post_merge_logical_line_overlay)} "
+            f"visiblePixels={_has_visible_pixels(artifacts.source_post_merge_logical_line_overlay)} "
+            "shape="
+            f"{None if artifacts.source_post_merge_logical_line_overlay is None else artifacts.source_post_merge_logical_line_overlay.shape}"
         ),
         (
             "binaryPostConnectionLogicalLineOverlay: "
@@ -443,6 +547,7 @@ def describe_raw_line_family_artifacts(
         "This pipeline now builds logical lines and pixel-validated connections.",
         *raw_segment_group_description_lines,
         *containment_prune_description_lines,
+        *vertex_containment_merge_description_lines,
         *post_connection_description_lines,
         *raw_segment_group_debug_lines,
         *longest_segment_description_lines,

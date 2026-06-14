@@ -113,6 +113,29 @@ def run_raw_line_family_pipeline(
         config,
     )
     (
+        binary_vertex_containment_merge_overlay,
+        source_vertex_containment_merge_overlay,
+    ) = notebook_api.build_vertex_containment_merge_overlays(
+        display_bgr,
+        repaired_binary,
+        line_family_result,
+        config,
+    )
+    vertex_containment_merge_board = notebook_api.build_vertex_containment_merge_board(
+        display_bgr,
+        line_family_result,
+        config,
+    )
+    (
+        binary_post_merge_logical_line_overlay,
+        source_post_merge_logical_line_overlay,
+    ) = notebook_api.build_post_merge_logical_line_overlays(
+        display_bgr,
+        repaired_binary,
+        line_family_result,
+        config,
+    )
+    (
         binary_post_connection_logical_line_overlay,
         source_post_connection_logical_line_overlay,
     ) = notebook_api.build_post_connection_logical_line_overlays(
@@ -189,6 +212,19 @@ def run_raw_line_family_pipeline(
         containment_prune_board=containment_prune_board,
         binary_containment_prune_overlay=binary_containment_prune_overlay,
         source_containment_prune_overlay=source_containment_prune_overlay,
+        vertex_containment_merge_board=vertex_containment_merge_board,
+        binary_vertex_containment_merge_overlay=(
+            binary_vertex_containment_merge_overlay
+        ),
+        source_vertex_containment_merge_overlay=(
+            source_vertex_containment_merge_overlay
+        ),
+        binary_post_merge_logical_line_overlay=(
+            binary_post_merge_logical_line_overlay
+        ),
+        source_post_merge_logical_line_overlay=(
+            source_post_merge_logical_line_overlay
+        ),
         binary_post_connection_logical_line_overlay=(
             binary_post_connection_logical_line_overlay
         ),

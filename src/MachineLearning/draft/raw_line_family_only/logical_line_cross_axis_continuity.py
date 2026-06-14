@@ -18,17 +18,9 @@ if TYPE_CHECKING:
 class LogicalLineCrossAxisGroup:
     cross_axis_start: int
     cross_axis_end: int
-    container_line: LogicalLine
-    removed_logical_lines: list[LogicalLine]
-    removed_logical_lines_by_ids: set[int]
-
-
-@dataclass(frozen=True, slots=True)
-class PruneContainedLogicalLinesResult:
-    input_logical_lines: list[LogicalLine]
-    pruned_logical_lines: list[LogicalLine]
-    removed_logical_lines: list[LogicalLine]
-    cross_axis_groups: list[LogicalLineCrossAxisGroup]
+    anchor_line: LogicalLine
+    grouped_logical_lines: list[LogicalLine]
+    grouped_logical_line_ids: set[int]
 
 
 def logical_line_is_smaller_or_equal(
@@ -37,15 +29,6 @@ def logical_line_is_smaller_or_equal(
 ) -> bool:
     return candidate_line.axis_length <= container_line.axis_length
 
-
-def logical_line_is_contained_on_axis(
-    container_line: "LogicalLine",
-    candidate_line: "LogicalLine",
-) -> bool:
-    return (
-        container_line.axis_start <= candidate_line.axis_start
-        and candidate_line.axis_end <= container_line.axis_end
-    )
 
 def find_candidates_in_cross_axis(
     container_line: LogicalLine,
@@ -198,107 +181,10 @@ def check_if_logical_line_is_contained_in_cross_axis(
             return True    
             
         return False;
-
-
-def proune_logical_lines_by_axis_containment(
-    binary_image: np.ndarray,
-    logical_lines: list[LogicalLine],
-) -> PruneContainedLogicalLinesResult:
-    """
-    Dzieli posortowaną grupę logical lines na mniejsze grupy containment.
     
-    Wynik:
-    - pierwsza linia w każdej podgrupie to container_line
-    - oraz removed_logical_lines zawiera wszystkie linie, które zostały usunięte z candidates_lines
-    - logical_lines zawiera kontener i wszystkie linie zawarte
-      w jego axis_start..axis_end
-    """    
     
-    if not logical_lines:
-        return PruneContainedLogicalLinesResult(
-            input_logical_lines=logical_lines,
-            pruned_logical_lines=[],
-            removed_logical_lines=[],
-            cross_axis_groups=[]
-        )
-
-    if len(logical_lines) == 1:
-        group: LogicalLineCrossAxisGroup = group_logical_lines_by_cross_axis_continuity(
-            logical_lines[0], 
-            binary_image, 
-            []
-        )
-
-        return PruneContainedLogicalLinesResult(
-            input_logical_lines=logical_lines,
-            pruned_logical_lines=logical_lines,
-            removed_logical_lines=[],
-            cross_axis_groups=[group]
-        )
-
-    sorted_group_lines: list[LogicalLine] = sorted(
-        logical_lines,
-        key=lambda logical_line: (
-            -logical_line.axis_length,
-            logical_line.axis_start,
-            logical_line.axis_end
-        )
-    )
-
-    groups: list[LogicalLineCrossAxisGroup] = []
-    remaining_lines = list(sorted_group_lines)
-
-    while remaining_lines:
-        container_line: LogicalLine = remaining_lines[0]
-        contained_lines: list[LogicalLine] = []
-        next_remaining_lines: list[LogicalLine] = []
-        
-        for logical_line in remaining_lines:
-            if logical_line is container_line:
-                continue
-
-            if logical_line_is_contained_on_axis(container_line, logical_line):
-                contained_lines.append(logical_line)
-                continue
-
-            next_remaining_lines.append(logical_line)
-
-        group: LogicalLineCrossAxisGroup = group_logical_lines_by_cross_axis_continuity(container_line, binary_image, contained_lines)
-        
-        getback_to_next_remaining_lines: list[LogicalLine] = [
-            line
-            for line in contained_lines
-            if id(line) not in group.removed_logical_lines_by_ids
-        ]
-
-        remaining_lines: list[LogicalLine] = sorted(
-            next_remaining_lines + getback_to_next_remaining_lines,
-            key=lambda logical_line: (
-                -logical_line.axis_length,
-                logical_line.axis_start,
-                logical_line.axis_end
-            )
-        )
-
-        groups.append(group)
-
-    pruned_lines: list[LogicalLine] = [group.container_line for group in groups]
-
-    removed_lines: list[LogicalLine] = [
-        logical_line
-        for group in groups
-        for logical_line in group.removed_logical_lines
-    ]
-
-    return PruneContainedLogicalLinesResult(
-        input_logical_lines=logical_lines,
-        pruned_logical_lines=pruned_lines,
-        removed_logical_lines=removed_lines,
-        cross_axis_groups=groups
-    )
-
 def group_logical_lines_by_cross_axis_continuity(
-    container_line: LogicalLine,
+    anchor_line: LogicalLine,
     binary_image: np.ndarray,
     logical_lines: list["LogicalLine"],
 ) -> LogicalLineCrossAxisGroup:
@@ -310,15 +196,15 @@ def group_logical_lines_by_cross_axis_continuity(
 
     if not logical_lines:
         return LogicalLineCrossAxisGroup(
-            cross_axis_start=container_line.cross_axis_start,
-            cross_axis_end=container_line.cross_axis_end,
-            container_line=container_line,
-            removed_logical_lines=[],
-            removed_logical_lines_by_ids=[]
+            cross_axis_start=anchor_line.cross_axis_start,
+            cross_axis_end=anchor_line.cross_axis_end,
+            anchor_line=anchor_line,
+            grouped_logical_lines=[],
+            grouped_logical_line_ids=set()
         )
 
     sorted_lines = sorted(
-        logical_lines + [container_line],
+        logical_lines + [anchor_line],
         key=lambda logical_line: (
             min(
                 abs(logical_line.cross_axis_start), 
@@ -327,9 +213,9 @@ def group_logical_lines_by_cross_axis_continuity(
         )
     )
 
-    candidates_lines: list[LogicalLine] = find_candidates_in_cross_axis(container_line, binary_image, sorted_lines)
+    candidates_lines: list[LogicalLine] = find_candidates_in_cross_axis(anchor_line, binary_image, sorted_lines)
 
-    proune_lines: list[LogicalLine] = candidates_lines + [container_line]
+    proune_lines: list[LogicalLine] = candidates_lines + [anchor_line]
 
     min_cross_axis_start = min(
         min(line.cross_axis_start for line in proune_lines),
@@ -346,13 +232,13 @@ def group_logical_lines_by_cross_axis_continuity(
     return LogicalLineCrossAxisGroup(
         cross_axis_start=min_cross_axis_start,
         cross_axis_end=max_cross_axis_end,
-        container_line=container_line,
-        removed_logical_lines=candidates_lines,
-        removed_logical_lines_by_ids=ids
+        anchor_line=anchor_line,
+        grouped_logical_lines=candidates_lines,
+        grouped_logical_line_ids=ids
     )
 
 
 __all__ = [
-    "PruneContainedLogicalLinesResult",
-    "proune_logical_lines_by_axis_containment"
+    "LogicalLineCrossAxisGroup",
+    "group_logical_lines_by_cross_axis_continuity"
 ]
