@@ -13,6 +13,7 @@ przez notebook `experiment.ipynb` i przez `pipeline/pipeline.py`.
 - `visualization/visualization_raw_segment_groups.py`
 - `visualization/visualization_containment.py`
 - `visualization/visualization_vertex_containment_merge.py`
+- `visualization/visualization_intersections.py`
 - `visualization/visualization_tolerance_rectangles.py`
 - `visualization/visualization_long_segments.py`
 - `pipeline/pipeline_artifacts.py`
@@ -126,7 +127,21 @@ Funkcje:
 To osobny widok diagnostyczny dla segmentów o długości co najmniej `80%`
 najdłuższego segmentu w danej linii.
 
-### 9. Tolerance rectangles
+### 9. Intersections
+
+Funkcja:
+
+- `build_logical_line_intersection_overlays(...)`
+
+Pokazuje:
+
+- aktywne `logical_line_intersections` zbudowane po connection,
+- rozróżnienie `cross` i `touch`,
+- punkt przecięcia wraz z etykietą pary linii,
+- dodatkowy marker boundary, jeśli przecięcie ma już ustawione
+  `horizontal_order` albo `vertical_order` na granicy linii.
+
+### 10. Tolerance rectangles
 
 Funkcja:
 
@@ -154,7 +169,8 @@ Najważniejsze grupy pól:
    `repaired_binary`
 2. wynik domenowy `line_family_result`
 3. overlaye i boardy dla rodzin, grouping, containment, vertex merge,
-   post-merge, post-connection, finalnych linii i tolerance rectangles
+   post-merge, post-connection, finalnych linii, intersections i tolerance
+   rectangles
 4. nazwy etapów, takie jak `denoise_name`, `threshold_name`, `cleanup_name`,
    `repair_name`
 
@@ -167,6 +183,7 @@ Najważniejsze grupy pól:
 - rozkład segmentów w stanie `post_merge`,
 - rozkład segmentów w stanie `post_connection`,
 - rozkład segmentów w finalnym stanie linii,
+- liczność przecięć `cross` i `touch`,
 - opis long segment candidates.
 
 To oznacza, że wizualizacje i raport opisują ten sam pipeline z dwóch
@@ -197,6 +214,7 @@ Opcjonalnie, jeśli odpowiednie artefakty istnieją:
 - `containment prune board`
 - `logical lines post vertex merge board`
 - `logical lines post connection on repair binary`
+- `logical line intersections on repair binary`
 - `long segment candidates on repair binary`
 - `tolerance rectangles on repair binary`
 
@@ -204,3 +222,8 @@ Zawsze obecne po pełnym przebiegu:
 
 - `logical lines final after connection on repair binary`
 - `logical lines final after connection on source`
+
+Jeśli overlay intersections został zbudowany, notebook pokazuje też:
+
+- `logical line intersections on repair binary`
+- `logical line intersections on source`

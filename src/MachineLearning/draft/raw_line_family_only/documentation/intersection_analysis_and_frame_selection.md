@@ -6,11 +6,12 @@ Ten dokument opisuje usunięty etap eksperymentu.
 
 W aktywnym kodzie:
 
-- nie ma już modułów `intersections.py` ani `intersection_*`,
-- `detect_line_families(...)` nie wykonuje już intersection analysis,
+- istnieją aktywne moduły `intersection_models.py` i
+  `logical_line_intersections.py`,
+- `detect_line_families(...)` buduje dziś aktywne `logical_line_intersections`,
+- nadal nie ma etapu `intersection analysis`,
 - `RawLineFamilyResult` nie przechowuje już pól:
   - `logical_line_intersection_analysis`
-  - `logical_line_intersections`
   - `logical_line_border_pairs`
   - `logical_line_frames`
 - `FrameSide` pozostaje w modelu jako historyczny enum, ale nie jest już
@@ -41,6 +42,7 @@ Dziś po `pixel connection` kod:
   `vertical_post_connection_logical_lines`,
 - traktuje `horizontal_logical_lines` i `vertical_logical_lines` jako finalny
   wynik etapu detekcji,
+- buduje aktywne `logical_line_intersections`,
 - buduje `horizontal_tolerance_rectangles` i `vertical_tolerance_rectangles`.
 
 ## Gdzie patrzeć zamiast tutaj

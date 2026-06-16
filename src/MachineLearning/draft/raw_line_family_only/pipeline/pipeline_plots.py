@@ -149,12 +149,12 @@ def build_raw_line_family_plot_items(
     plot_items.extend(
         [
             (
-                "logical lines final after connection on repair binary",
+                "logical lines final on repair binary",
                 artifacts.binary_logical_line_overlay,
                 True,
             ),
             (
-                "logical lines final after connection on source",
+                "logical lines final on source",
                 artifacts.source_logical_line_overlay,
                 True,
             ),
@@ -173,6 +173,22 @@ def build_raw_line_family_plot_items(
             (
                 "logical line intersections on source",
                 artifacts.source_logical_line_intersection_overlay,
+                True,
+            )
+        )
+    if _has_image(artifacts.binary_intersection_kind_map_overlay):
+        plot_items.append(
+            (
+                "intersection kind map on repair binary",
+                artifacts.binary_intersection_kind_map_overlay,
+                True,
+            )
+        )
+    if _has_image(artifacts.source_intersection_kind_map_overlay):
+        plot_items.append(
+            (
+                "intersection kind map on source",
+                artifacts.source_intersection_kind_map_overlay,
                 True,
             )
         )
@@ -200,19 +216,19 @@ def build_raw_line_family_plot_items(
                 True,
             )
         )
-    if _has_image(artifacts.binary_tolerance_rectangle_overlay):
+    if _has_image(artifacts.binary_trimmed_logical_line_overlay):
         plot_items.append(
             (
-                "tolerance rectangles on repair binary",
-                artifacts.binary_tolerance_rectangle_overlay,
+                "logical lines trimmed vs post connection on repair binary",
+                artifacts.binary_trimmed_logical_line_overlay,
                 True,
             )
         )
-    if _has_image(artifacts.source_tolerance_rectangle_overlay):
+    if _has_image(artifacts.source_trimmed_logical_line_overlay):
         plot_items.append(
             (
-                "tolerance rectangles on source",
-                artifacts.source_tolerance_rectangle_overlay,
+                "logical lines trimmed vs post connection on source",
+                artifacts.source_trimmed_logical_line_overlay,
                 True,
             )
         )

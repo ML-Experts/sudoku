@@ -3,7 +3,8 @@
 ## Cel
 
 Ten dokument opisuje etap pixel-validated connection wykonywany po
-`post_merge`, który w aktualnym kodzie domyka już aktywny lifecycle linii.
+`post_merge`, który domyka geometrię aktywnego lifecycle linii przed etapem
+zbierania intersections.
 
 ## Główne pliki
 
@@ -172,7 +173,7 @@ Po connection kod klonuje stan linii i zapisuje:
 To jest snapshot:
 
 - po connection,
-- przed budową finalnych prostokątów tolerancji,
+- przed budową aktywnych intersections i finalnych prostokątów tolerancji,
 - zgodny z finalną geometrią linii w `horizontal_logical_lines` i
   `vertical_logical_lines`.
 
@@ -182,8 +183,27 @@ W aktualnej wersji eksperymentu:
   `vertical_post_connection_logical_lines` to jawny snapshot diagnostyczny,
 - `horizontal_logical_lines` i `vertical_logical_lines` oznaczają już finalny
   wynik etapu detekcji,
+- po connection działa aktywne zbieranie `logical_line_intersections`,
 - nie ma dalszego aktywnego etapu `intersection/frame`, który zmieniałby te
-  linie po connection.
+  linie po connection albo wybierał ramkę planszy.
+
+## Co dzieje się po connection
+
+Po zapisaniu snapshotu `post_connection` kod:
+
+- traktuje `horizontal_logical_lines` i `vertical_logical_lines` jako finalną
+  geometrię linii,
+- buduje `logical_line_intersections` na parach finalnych linii poziomych i
+  pionowych,
+- dopiero potem buduje `horizontal_tolerance_rectangles` i
+  `vertical_tolerance_rectangles`.
+
+To rozdzielenie jest ważne:
+
+- connection nadal odpowiada za geometrię linii,
+- intersections nie modyfikują jeszcze linii, tylko opisują wykryte punkty,
+- przyszły etap naprawy granic może używać `kind`, `horizontal_order` i
+  `vertical_order`, ale nie jest jeszcze częścią aktywnego kodu.
 
 ## Ważna konwencja pikselowa
 

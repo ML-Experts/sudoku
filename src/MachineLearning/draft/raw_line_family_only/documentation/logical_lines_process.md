@@ -5,9 +5,10 @@
 Ten plik jest krótkim punktem wejścia do aktualnej dokumentacji eksperymentu
 `raw_line_family_only`.
 
-Po ostatnim uproszczeniu pipeline etap `intersection` i wybór ramki zostały
-usunięte z aktywnego kodu. Końcowym stanem eksperymentu są dziś linie po
-`pixel connection` oraz zbudowane dla nich prostokąty tolerancji.
+Po ostatnim uproszczeniu usunięty został etap wyboru ramki, ale do aktywnego
+kodu wróciło zbieranie `logical_line_intersections`. Końcowym stanem
+eksperymentu są dziś linie po `pixel connection`, aktywne intersections oraz
+zbudowane dla nich prostokąty tolerancji.
 
 Jeśli opis dokumentów i implementacja rozjeżdżają się ze sobą, źródłem prawdy
 jest aktualny kod w tym katalogu, przede wszystkim:
@@ -28,6 +29,7 @@ Dokumentacja obejmuje dziś:
 - full containment prune,
 - vertex containment merge,
 - pixel-validated connection,
+- zbieranie intersections po connection,
 - wizualizacje i raportowanie artefaktów notebooka.
 
 ## Mapa dokumentów
@@ -101,6 +103,7 @@ Aktualny przebieg eksperymentu wygląda następująco:
    - wykonywany jest full containment prune,
    - wykonywany jest vertex containment merge,
    - wykonywany jest pixel connection,
+   - budowane są `logical_line_intersections`,
    - budowane są finalne prostokąty tolerancji.
 5. Pipeline albo notebook buduje `RawLineFamilyArtifacts` z obrazami pośrednimi,
    overlayami, boardami i wynikiem domenowym.
@@ -123,6 +126,7 @@ Najważniejsze kolekcje i wyniki trzymane w `RawLineFamilyResult`:
 - `vertical_post_connection_logical_lines`
 - `horizontal_logical_lines`
 - `vertical_logical_lines`
+- `logical_line_intersections`
 - `horizontal_tolerance_rectangles`
 - `vertical_tolerance_rectangles`
 
@@ -137,6 +141,8 @@ Interpretacja:
 - `post_merge` oznacza stan po `vertex containment merge`, ale jeszcze przed
   pixel connection,
 - `post_connection` oznacza snapshot po pixel connection,
+- `logical_line_intersections` oznacza aktywne przecięcia policzone na finalnej
+  geometrii linii po connection,
 - kolekcje bez prefiksu `pre/post` oznaczają finalny stan detekcji, który jest
   dziś równoważny stanowi po connection.
 
@@ -156,10 +162,14 @@ W aktualnym kodzie:
 - `same_axis` może dalej materializować ścieżkę BFS jako geometrię connection,
   ale `cross_axis` używa BFS tylko do walidacji kontaktu i buduje finalne
   dociągnięcia tak, żeby minimalizować skręt,
-- końcem aktywnego pipeline'u nie jest już intersection analysis, tylko stan po
-  `pixel connection`,
-- dokumenty `intersection_*` pozostały wyłącznie jako notatka historyczna o
-  usuniętym etapie.
+- aktywne intersections są dziś liczone po `pixel connection`,
+- model przecięcia przechowuje niezależne `kind`, `horizontal_order` i
+  `vertical_order`,
+- `horizontal_order` i `vertical_order` startują od `NONE` i są przygotowane
+  pod kolejny etap klasyfikacji / naprawy,
+- nie wrócił dawny etap `intersection analysis` ani wybór ramki,
+- `intersection_analysis_and_frame_selection.md` pozostał jako notatka
+  historyczna o usuniętym etapie.
 
 ## Mapa odpowiedzialności modułów
 
@@ -192,6 +202,12 @@ W aktualnym kodzie:
   - grupowanie linii po ciągłości osi poprzecznej
 - `logical_line_connections.py`
   - pixel-validated connection
+- `intersection_models.py`
+  - model `LogicalLineIntersection`, `LogicalLineIntersectionKind` i
+    `IntersectionOrder`
+- `logical_line_intersections.py`
+  - aktywne zbieranie intersections po connection i wybór referencyjnej pary
+    segmentów
 - `logical_line_search.py`
   - cienka publiczna fasada dla helperów search-related
 - `logical_line_search_area.py`
@@ -213,6 +229,8 @@ W aktualnym kodzie:
   - overlaye i boardy dla `vertex containment merge`
 - `visualization/visualization_logical_lines.py`
   - overlaye `post_merge`, `post_connection` i finalnych `LogicalLine`
+- `visualization/visualization_intersections.py`
+  - overlaye aktywnych intersections
 - `visualization/visualization_raw_segment_groups.py`
   - boardy i overlaye grup segmentów `RAW`
 - `visualization/visualization_tolerance_rectangles.py`

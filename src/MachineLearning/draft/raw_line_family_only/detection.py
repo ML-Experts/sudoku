@@ -17,7 +17,10 @@ from geometry import (
     classify_line_segment,
     signed_angle_offset_degrees,
 )
-from intersection_models import LogicalLineIntersection
+from intersection_model import (
+    LogicalLineIntersection,
+    LogicalLineIntersectionDebugCandidate,
+)
 from logical_lines import (
     LogicalLine,
     build_logical_lines,
@@ -26,7 +29,7 @@ from logical_lines import (
 from logical_line_debug import (
     assign_logical_line_debug_names,
 )
-from logical_line_intersections import build_logical_line_intersections
+from logical_line_intersections import assign_logical_line_intersections
 from logical_line_cross_axis_continuity import LogicalLineCrossAxisGroup
 from models import (
     ExperimentConfig,
@@ -42,6 +45,7 @@ from logical_line_vertex_containment_merge import (
     MergeVertexContainedLogicalLinesResult,
     merge_logical_lines_by_vertex_axis_containment,
 )
+from logical_line_intersection_trimming import trim_logical_lines_to_intersections
 
 
 @dataclass(frozen=True)
@@ -69,8 +73,6 @@ class RawLineFamilyResult:
     horizontal_logical_lines: list[LogicalLine]
     vertical_logical_lines: list[LogicalLine]
     logical_line_intersections: list[LogicalLineIntersection]
-    horizontal_tolerance_rectangles: list[ToleranceRectangle]
-    vertical_tolerance_rectangles: list[ToleranceRectangle]
 
 
 def _build_empty_line_family_result(
@@ -95,8 +97,6 @@ def _build_empty_line_family_result(
         horizontal_logical_lines=[],
         vertical_logical_lines=[],
         logical_line_intersections=[],
-        horizontal_tolerance_rectangles=[],
-        vertical_tolerance_rectangles=[],
     )
 
 
@@ -146,28 +146,6 @@ def _collect_family_by_reference_angle(
             family_segments.append(line_segment)
 
     return family_segments
-
-
-def _build_tolerance_rectangles(
-    logical_lines: list[LogicalLine],
-    config: ExperimentConfig,
-) -> list[ToleranceRectangle]:
-    return [
-        tolerance_rectangle
-        for logical_line in logical_lines
-        for tolerance_rectangle in (
-            logical_line.build_tolerance_rectangle(
-                reference_vertex=logical_line.start_vertex,
-                direction_length=config.tolerance_rectangle_vector_length_px,
-                padding=config.tolerance_rectangle_padding_px,
-            ),
-            logical_line.build_tolerance_rectangle(
-                reference_vertex=logical_line.end_vertex,
-                direction_length=config.tolerance_rectangle_vector_length_px,
-                padding=config.tolerance_rectangle_padding_px,
-            ),
-        )
-    ]
 
 
 def _group_raw_segments_in_logical_lines(
@@ -230,6 +208,17 @@ def _clone_vertex_containment_merge_result(
         merged_logical_lines=_clone_logical_lines(merge_result.merged_logical_lines),
         consumed_logical_lines=_clone_logical_lines(merge_result.consumed_logical_lines),
         merge_groups=_clone_cross_axis_groups(merge_result.merge_groups),
+    )
+
+
+def _logical_line_has_intersection_duplicates(
+    logical_line: LogicalLine,
+) -> bool:
+    return any(
+        logical_line_intersection_candidate.duplicate_count > 1
+        for logical_line_intersection_candidate in (
+            logical_line.intersection_debug_candidates
+        )
     )
 
 
@@ -355,8 +344,6 @@ def detect_line_families(
             horizontal_logical_lines=[],
             vertical_logical_lines=[],
             logical_line_intersections=[],
-            horizontal_tolerance_rectangles=[],
-            vertical_tolerance_rectangles=[],
         )
 
     horizontal_segments = family_horizontal_segments
@@ -432,24 +419,28 @@ def detect_line_families(
         rectangle_vector_length_px=config.tolerance_rectangle_vector_length_px,
         rectangle_padding_px=config.tolerance_rectangle_padding_px,
     )
-    horizontal_post_connection_logical_lines = [
-        logical_line.clone() for logical_line in horizontal_logical_lines
-    ]
-    vertical_post_connection_logical_lines = [
-        logical_line.clone() for logical_line in vertical_logical_lines
-    ]
-    logical_line_intersections = build_logical_line_intersections(
+    horizontal_post_connection_logical_lines = _clone_logical_lines(
+        horizontal_logical_lines
+    )
+    vertical_post_connection_logical_lines = _clone_logical_lines(
+        vertical_logical_lines
+    )
+
+    assign_logical_line_intersections(
         horizontal_logical_lines,
         vertical_logical_lines,
     )
-    horizontal_tolerance_rectangles = _build_tolerance_rectangles(
+
+    trim_logical_lines_to_intersections(
         horizontal_logical_lines,
-        config,
-    )
-    vertical_tolerance_rectangles = _build_tolerance_rectangles(
         vertical_logical_lines,
-        config,
     )
+
+    logical_line_intersections = [
+        logical_line_intersection
+        for logical_line in horizontal_logical_lines
+        for logical_line_intersection in logical_line.intersections
+    ]
 
     return RawLineFamilyResult(
         raw_segment_count=len(family_detection_segments),
@@ -474,13 +465,15 @@ def detect_line_families(
         ),
         horizontal_post_merge_logical_lines=horizontal_post_merge_logical_lines,
         vertical_post_merge_logical_lines=vertical_post_merge_logical_lines,
-        horizontal_post_connection_logical_lines=horizontal_post_connection_logical_lines,
-        vertical_post_connection_logical_lines=vertical_post_connection_logical_lines,
+        horizontal_post_connection_logical_lines=(
+            horizontal_post_connection_logical_lines
+        ),
+        vertical_post_connection_logical_lines=(
+            vertical_post_connection_logical_lines
+        ),
         horizontal_logical_lines=horizontal_logical_lines,
         vertical_logical_lines=vertical_logical_lines,
         logical_line_intersections=logical_line_intersections,
-        horizontal_tolerance_rectangles=horizontal_tolerance_rectangles,
-        vertical_tolerance_rectangles=vertical_tolerance_rectangles,
     )
 
 

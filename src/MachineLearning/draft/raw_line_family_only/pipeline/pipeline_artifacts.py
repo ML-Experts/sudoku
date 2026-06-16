@@ -35,6 +35,8 @@ class RawLineFamilyArtifacts:
     source_logical_line_overlay: np.ndarray
     binary_logical_line_intersection_overlay: np.ndarray | None = None
     source_logical_line_intersection_overlay: np.ndarray | None = None
+    binary_intersection_kind_map_overlay: np.ndarray | None = None
+    source_intersection_kind_map_overlay: np.ndarray | None = None
     raw_segment_group_board: np.ndarray | None = None
     binary_raw_segment_group_overlay: np.ndarray | None = None
     source_raw_segment_group_overlay: np.ndarray | None = None
@@ -48,11 +50,11 @@ class RawLineFamilyArtifacts:
     source_post_merge_logical_line_overlay: np.ndarray | None = None
     binary_post_connection_logical_line_overlay: np.ndarray | None = None
     source_post_connection_logical_line_overlay: np.ndarray | None = None
+    binary_trimmed_logical_line_overlay: np.ndarray | None = None
+    source_trimmed_logical_line_overlay: np.ndarray | None = None
     binary_long_segment_candidate_overlay: np.ndarray | None = None
     source_long_segment_candidate_overlay: np.ndarray | None = None
     long_segment_candidate_board: np.ndarray | None = None
-    binary_tolerance_rectangle_overlay: np.ndarray | None = None
-    source_tolerance_rectangle_overlay: np.ndarray | None = None
 
 
 __all__ = [

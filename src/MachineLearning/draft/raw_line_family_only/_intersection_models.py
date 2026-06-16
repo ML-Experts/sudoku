@@ -27,7 +27,8 @@ class LogicalLineIntersection:
     ref_horizontal_segment: LineSegment
     ref_vertical_segment: LineSegment
     point: tuple[int, int]
-    kind: LogicalLineIntersectionKind
+    horizontal_kind: LogicalLineIntersectionKind
+    vertical_kind: LogicalLineIntersectionKind
     horizontal_order: IntersectionOrder = IntersectionOrder.NONE
     vertical_order: IntersectionOrder = IntersectionOrder.NONE
 
@@ -56,15 +57,43 @@ class LogicalLineIntersection:
         }
 
     @property
+    def is_horizontal_cross(self) -> bool:
+        return self.horizontal_kind == LogicalLineIntersectionKind.CROSS
+
+    @property
+    def is_vertical_cross(self) -> bool:
+        return self.vertical_kind == LogicalLineIntersectionKind.CROSS
+
+    @property
     def is_mutual_boundary(self) -> bool:
         return self.is_horizontal_boundary and self.is_vertical_boundary
 
     @property
-    def requires_boundary_repair(self) -> bool:
-        if self.kind != LogicalLineIntersectionKind.CROSS:
-            return False
+    def is_mutual_cross(self) -> bool:
+        return self.is_horizontal_cross and self.is_vertical_cross
 
-        return self.is_horizontal_boundary or self.is_vertical_boundary
+    @property
+    def is_asymmetric_kind(self) -> bool:
+        return self.horizontal_kind != self.vertical_kind
+
+    @property
+    def kind_pair_label(self) -> str:
+        return f"{self.horizontal_kind.value}_{self.vertical_kind.value}"
+
+    @property
+    def requires_horizontal_boundary_repair(self) -> bool:
+        return self.is_horizontal_cross and self.is_horizontal_boundary
+
+    @property
+    def requires_vertical_boundary_repair(self) -> bool:
+        return self.is_vertical_cross and self.is_vertical_boundary
+
+    @property
+    def requires_boundary_repair(self) -> bool:
+        return (
+            self.requires_horizontal_boundary_repair
+            or self.requires_vertical_boundary_repair
+        )
 
 
 __all__ = [

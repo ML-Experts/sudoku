@@ -153,9 +153,27 @@ def run_raw_line_family_pipeline(
         )
     )
     (
+        binary_trimmed_logical_line_overlay,
+        source_trimmed_logical_line_overlay,
+    ) = notebook_api.build_trimmed_logical_line_overlays(
+        display_bgr,
+        repaired_binary,
+        line_family_result,
+        config,
+    )
+    (
         binary_logical_line_intersection_overlay,
         source_logical_line_intersection_overlay,
     ) = notebook_api.build_logical_line_intersection_overlays(
+        display_bgr,
+        repaired_binary,
+        line_family_result,
+        config,
+    )
+    (
+        binary_intersection_kind_map_overlay,
+        source_intersection_kind_map_overlay,
+    ) = notebook_api.build_logical_line_intersection_kind_map_overlays(
         display_bgr,
         repaired_binary,
         line_family_result,
@@ -227,12 +245,16 @@ def run_raw_line_family_pipeline(
         ),
         binary_logical_line_overlay=binary_logical_line_overlay,
         source_logical_line_overlay=source_logical_line_overlay,
+        binary_trimmed_logical_line_overlay=binary_trimmed_logical_line_overlay,
+        source_trimmed_logical_line_overlay=source_trimmed_logical_line_overlay,
         binary_logical_line_intersection_overlay=(
             binary_logical_line_intersection_overlay
         ),
         source_logical_line_intersection_overlay=(
             source_logical_line_intersection_overlay
         ),
+        binary_intersection_kind_map_overlay=binary_intersection_kind_map_overlay,
+        source_intersection_kind_map_overlay=source_intersection_kind_map_overlay,
         binary_long_segment_candidate_overlay=binary_long_segment_candidate_overlay,
         source_long_segment_candidate_overlay=source_long_segment_candidate_overlay,
         long_segment_candidate_board=long_segment_candidate_board,

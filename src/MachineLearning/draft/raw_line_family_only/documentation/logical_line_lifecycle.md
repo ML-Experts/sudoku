@@ -17,6 +17,7 @@ Lifecycle `LogicalLine` obejmuje dziś:
 - full containment prune,
 - vertex containment merge,
 - pixel-validated connection,
+- zbieranie przecięć między rodziną poziomą i pionową,
 - snapshoty stanów `pre_connection`, `post_merge` i `post_connection`,
 - finalne kolekcje linii po connection.
 
@@ -65,6 +66,17 @@ Zakres:
 - segmenty `SAME_AXIS_CONNECTION` i `CROSS_AXIS_CONNECTION`,
 - znaczenie stanu `post_connection`.
 
+### 4. Intersections
+
+Plik: `intersections_and_visualization.md`
+
+Zakres:
+
+- model `LogicalLineIntersection`,
+- niezależne pole `kind` oraz pola `horizontal_order` / `vertical_order`,
+- wybór referencyjnej pary segmentów dla przecięcia,
+- znaczenie aktywnego etapu intersections po connection.
+
 ## Aktualny flow
 
 ```mermaid
@@ -78,7 +90,8 @@ flowchart TD
     vertexMerge --> savePostMerge[Clone post_merge state]
     savePostMerge --> pixelConnect[connect_logical_lines_by_pixels]
     pixelConnect --> savePost[Clone post_connection state]
-    savePost --> finalLines[Final logical lines]
+    savePost --> buildIntersections[build logical line intersections]
+    buildIntersections --> finalLines[Final logical lines + intersections]
 ```
 
 ## Najważniejsze założenia aktualnej wersji
@@ -94,6 +107,8 @@ flowchart TD
    `same-axis` może materializować ścieżkę BFS, a `cross-axis` używa BFS tylko
    do walidacji kontaktu i później buduje prostszy connector minimalizujący
    skręt.
-6. Końcowy stan lifecycle'u nie przechodzi już przez osobny etap
+6. Końcowa geometria linii nie przechodzi już przez osobny etap
    `intersection/frame`; finalne `horizontal_logical_lines` i
    `vertical_logical_lines` są dziś stanem po connection.
+7. Po connection działa aktywne zbieranie `logical_line_intersections`, ale nie
+   wrócił dawny etap analizy ramki ani przypisywania `frame_side`.

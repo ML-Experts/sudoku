@@ -7,6 +7,7 @@ from geometry import (
     LineSegmentIntersectionResult,
     line_segments_intersect,
 )
+from logical_line_segment_geometry import rebuild_segment_axis_range
 from logical_line_types import (
     FrameSide,
     LogicalLineVertexKind,
@@ -19,6 +20,13 @@ from models import (
     LineFamilyName,
     LineSegment,
     ToleranceRectangle,
+)
+
+from intersection_model import (
+    LogicalLineIntersection,
+    LogicalLineIntersectionDebugCandidate,
+    IntersectionOrder,
+    LogicalLineIntersectionKind,
 )
 
 @dataclass(slots=True)
@@ -36,6 +44,14 @@ class LogicalLine:
     )
     start_segment: LineSegment | None = field(init=False, default=None)
     end_segment: LineSegment | None = field(init=False, default=None)
+    intersections: list[LogicalLineIntersection] = field(
+        init=False,
+        default_factory=list,
+    )
+    intersection_debug_candidates: list[LogicalLineIntersectionDebugCandidate] = field(
+        init=False,
+        default_factory=list,
+    )
 
     @property
     def start_vertex(self) -> tuple[int, int]:
@@ -105,6 +121,8 @@ class LogicalLine:
         for line_segment in self.line_segments:
             clone.add_segment(line_segment)
         clone.raw_segment_group_results = list(self.raw_segment_group_results)
+        clone.intersections = []
+        clone.intersection_debug_candidates = []
         return clone
 
     def merge_logical_line(self, other_line: "LogicalLine") -> None:
@@ -213,6 +231,43 @@ class LogicalLine:
             raise ValueError("LogicalLine does not have an end segment yet.")
         return self.end_segment
 
+    # def align_segment_boundary_to_axis(
+    #     self,
+    #     axis_value: int,
+    #     line_segment: LineSegment,
+    # ) -> LineSegment:
+    #     if line_segment not in self.line_segments:
+    #         raise ValueError("The provided segment does not belong to this LogicalLine.")
+
+    #     vertex_kind = self._resolve_segment_boundary_vertex_kind(
+    #         line_segment,
+    #         axis_value,
+    #     )
+    #     if vertex_kind == LogicalLineVertexKind.START:
+    #         if axis_value <= line_segment.axis_start:
+    #             return line_segment
+    #         updated_segment = rebuild_segment_axis_range(
+    #             line_segment,
+    #             axis_start=axis_value,
+    #         )
+    #     else:
+    #         if axis_value >= line_segment.axis_end:
+    #             return line_segment
+    #         updated_segment = rebuild_segment_axis_range(
+    #             line_segment,
+    #             axis_end=axis_value,
+    #         )
+
+    #     if updated_segment is None:
+    #         if len(self.line_segments) == 1:
+    #             return line_segment
+    #         self._replace_segment(line_segment, None)
+    #         replacement_segment = self.get_vertex_segment(vertex_kind)
+    #         return replacement_segment
+
+    #     self._replace_segment(line_segment, updated_segment)
+    #     return updated_segment
+
     def build_tolerance_rectangle(
         self,
         reference_vertex: tuple[int, int],
@@ -271,6 +326,130 @@ class LogicalLine:
                 current_segment.axis_start,
             ),
         )
+
+    def trim_to_intersections(self) -> bool:
+        if not self.line_segments or not self.intersections:
+            return False
+
+        start_intersection = next(
+            (
+                intersection
+                for intersection in self.intersections
+                if intersection.order in {
+                    IntersectionOrder.START,
+                    IntersectionOrder.BOTH,
+                }
+            ),
+            None,
+        )
+        end_intersection = next(
+            (
+                intersection
+                for intersection in reversed(self.intersections)
+                if intersection.order in {
+                    IntersectionOrder.END,
+                    IntersectionOrder.BOTH,
+                }
+            ),
+            None,
+        )
+
+        if start_intersection is None or end_intersection is None:
+            return False
+
+        if self.family_name == LineFamilyName.HORIZONTAL:
+            start_axis_value = start_intersection.horizontal_axis_value
+            end_axis_value = end_intersection.horizontal_axis_value
+        elif self.family_name == LineFamilyName.VERTICAL:
+            start_axis_value = start_intersection.vertical_axis_value
+            end_axis_value = end_intersection.vertical_axis_value
+        else:
+            raise NotImplementedError(
+                "Intersection trimming is available only for classified logical lines."
+            )
+
+        if start_axis_value > end_axis_value:
+            return False
+
+        # Jedno przecięcie (BOTH) nie daje dwóch granic do sensownego trimowania.
+        if start_intersection is end_intersection:
+            start_intersection.kind = LogicalLineIntersectionKind.TOUCH
+            return False
+
+        start_segment_index: int | None = None
+        end_segment_index: int | None = None
+
+        if start_intersection.intersected_segment_axis in self.line_segments:
+            start_segment_index = self.line_segments.index(
+                start_intersection.intersected_segment_axis
+            )
+        if end_intersection.intersected_segment_axis in self.line_segments:
+            end_segment_index = self.line_segments.index(
+                end_intersection.intersected_segment_axis
+            )
+
+        if start_segment_index is None:
+            for index, line_segment in enumerate(self.line_segments):
+                if line_segment.axis_start <= start_axis_value <= line_segment.axis_end:
+                    start_segment_index = index
+                    break
+
+        if end_segment_index is None:
+            for index in range(len(self.line_segments) - 1, -1, -1):
+                line_segment = self.line_segments[index]
+                if line_segment.axis_start <= end_axis_value <= line_segment.axis_end:
+                    end_segment_index = index
+                    break
+
+        if start_segment_index is None or end_segment_index is None:
+            return False
+
+        if start_segment_index > end_segment_index:
+            return False
+
+        trimmed_segments = list(
+            self.line_segments[start_segment_index : end_segment_index + 1]
+        )
+        if not trimmed_segments:
+            return False
+
+        if len(trimmed_segments) == 1:
+            updated_segment = rebuild_segment_axis_range(
+                trimmed_segments[0],
+                axis_start=start_axis_value,
+                axis_end=end_axis_value,
+            )
+            if updated_segment is None:
+                return False
+            trimmed_segments[0] = updated_segment
+        else:
+            first_segment = trimmed_segments[0]
+            if start_axis_value > first_segment.axis_start:
+                updated_first_segment = rebuild_segment_axis_range(
+                    first_segment,
+                    axis_start=start_axis_value,
+                )
+                if updated_first_segment is None:
+                    return False
+                trimmed_segments[0] = updated_first_segment
+
+            last_segment = trimmed_segments[-1]
+            if end_axis_value < last_segment.axis_end:
+                updated_last_segment = rebuild_segment_axis_range(
+                    last_segment,
+                    axis_end=end_axis_value,
+                )
+                if updated_last_segment is None:
+                    return False
+                trimmed_segments[-1] = updated_last_segment
+
+        geometry_changed = trimmed_segments != self.line_segments
+        self.replace_segments(trimmed_segments)
+
+        start_intersection.kind = LogicalLineIntersectionKind.TOUCH
+        end_intersection.kind = LogicalLineIntersectionKind.TOUCH
+
+        return geometry_changed
 
     def _recognition_vector_for_vertex(
         self,
