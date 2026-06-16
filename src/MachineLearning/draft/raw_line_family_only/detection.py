@@ -38,6 +38,9 @@ from logical_line_frames import (
     build_boundary_groups,
     find_logical_line_frame_candidates,
 )
+from logical_line_frame_ranking import (
+    rank_logical_line_frame_candidates,
+)
 from logical_line_cross_axis_continuity import LogicalLineCrossAxisGroup
 from models import (
     ExperimentConfig,
@@ -84,6 +87,7 @@ class RawLineFamilyResult:
     horizontal_boundary_groups: list[LogicalLineBoundaryGroup]
     vertical_boundary_groups: list[LogicalLineBoundaryGroup]
     logical_line_frame_candidates: list[LogicalLineFrameCandidate]
+    selected_logical_line_frame_candidate: LogicalLineFrameCandidate | None
 
 
 def _build_empty_line_family_result(
@@ -111,6 +115,7 @@ def _build_empty_line_family_result(
         horizontal_boundary_groups=[],
         vertical_boundary_groups=[],
         logical_line_frame_candidates=[],
+        selected_logical_line_frame_candidate=None,
     )
 
 
@@ -361,6 +366,7 @@ def detect_line_families(
             horizontal_boundary_groups=[],
             vertical_boundary_groups=[],
             logical_line_frame_candidates=[],
+            selected_logical_line_frame_candidate=None,
         )
 
     horizontal_segments = family_horizontal_segments
@@ -470,6 +476,12 @@ def detect_line_families(
         horizontal_boundary_groups,
         vertical_boundary_groups,
     )
+    logical_line_frame_candidates = rank_logical_line_frame_candidates(
+        logical_line_frame_candidates
+    )
+    selected_logical_line_frame_candidate = None
+    if logical_line_frame_candidates:
+        selected_logical_line_frame_candidate = logical_line_frame_candidates[0]
 
     return RawLineFamilyResult(
         raw_segment_count=len(family_detection_segments),
@@ -506,6 +518,7 @@ def detect_line_families(
         horizontal_boundary_groups=horizontal_boundary_groups,
         vertical_boundary_groups=vertical_boundary_groups,
         logical_line_frame_candidates=logical_line_frame_candidates,
+        selected_logical_line_frame_candidate=selected_logical_line_frame_candidate,
     )
 
 

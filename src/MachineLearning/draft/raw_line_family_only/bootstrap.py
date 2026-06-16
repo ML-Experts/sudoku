@@ -32,6 +32,7 @@ MODULE_RELOAD_ORDER = (
     "logical_lines",
     "frame_model",
     "logical_line_frames",
+    "logical_line_frame_ranking",
     "detection",
     "visualization",
 )
@@ -61,6 +62,7 @@ class Api:
     build_line_family_overlays: object
     build_logical_line_intersection_overlays: object
     build_logical_line_frame_overlay: object
+    build_selected_logical_line_frame_overlay: object
     build_containment_prune_board: object
     build_vertex_containment_merge_board: object
     build_logical_line_overlays: object
@@ -132,6 +134,9 @@ def load_api() -> Api:
         ),
         build_logical_line_frame_overlay=(
             visualization.build_logical_line_frame_overlay
+        ),
+        build_selected_logical_line_frame_overlay=(
+            visualization.build_selected_logical_line_frame_overlay
         ),
         build_containment_prune_board=visualization.build_containment_prune_board,
         build_vertex_containment_merge_board=(

@@ -117,17 +117,36 @@ def _describe_logical_line_frames(line_family_result) -> list[str]:
             f"verticalGroups={len(line_family_result.vertical_boundary_groups)}"
         )
     ]
+    selected_frame_candidate = line_family_result.selected_logical_line_frame_candidate
     for frame_index, frame_candidate in enumerate(frame_candidates, start=1):
         left_line = get_logical_line_debug_name(frame_candidate.left_line)
         right_line = get_logical_line_debug_name(frame_candidate.right_line)
         top_line = get_logical_line_debug_name(frame_candidate.top_line)
         bottom_line = get_logical_line_debug_name(frame_candidate.bottom_line)
+        ranking_debug = frame_candidate.ranking_debug
+        selection_marker = ""
+        if frame_candidate is selected_frame_candidate:
+            selection_marker = " [selected]"
         description_lines.append(
             (
                 f"  {frame_index:02d}. "
                 f"{left_line}->{right_line}->{top_line}->{bottom_line}"
+                f"{selection_marker}"
             )
         )
+        if ranking_debug is not None:
+            description_lines.append(
+                (
+                    "      "
+                    f"inner={ranking_debug.inner_horizontal_count}/"
+                    f"{ranking_debug.inner_vertical_count} "
+                    f"deviation={ranking_debug.inner_line_count_deviation} "
+                    f"vertexCorners={ranking_debug.matched_vertex_corner_count}/4 "
+                    f"orderCorners={ranking_debug.matched_order_corner_count}/4 "
+                    f"orderChecks={ranking_debug.matched_order_expectation_count}/8 "
+                    f"perimeter={ranking_debug.perimeter_px}"
+                )
+            )
 
     return description_lines
 
@@ -510,6 +529,14 @@ def describe_raw_line_family_artifacts(
             f"{_has_visible_pixels(artifacts.source_logical_line_frame_overlay)} "
             "shape="
             f"{None if artifacts.source_logical_line_frame_overlay is None else artifacts.source_logical_line_frame_overlay.shape}"
+        ),
+        (
+            "sourceSelectedLogicalLineFrameOverlay: "
+            f"present={_has_image(artifacts.source_selected_logical_line_frame_overlay)} "
+            "visiblePixels="
+            f"{_has_visible_pixels(artifacts.source_selected_logical_line_frame_overlay)} "
+            "shape="
+            f"{None if artifacts.source_selected_logical_line_frame_overlay is None else artifacts.source_selected_logical_line_frame_overlay.shape}"
         ),
     ]
     plot_items = build_raw_line_family_plot_items(artifacts)

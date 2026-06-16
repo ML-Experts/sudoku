@@ -29,8 +29,35 @@ def build_logical_line_frame_overlay(
             frame_index,
             frame_color,
             config,
+            include_selection_marker=False,
         )
 
+    return source_overlay
+
+
+def build_selected_logical_line_frame_overlay(
+    source_bgr: np.ndarray,
+    binary_image: np.ndarray,
+    line_family_result: RawLineFamilyResult,
+    config: ExperimentConfig,
+) -> np.ndarray:
+    del binary_image
+    source_overlay = source_bgr.copy()
+
+    selected_frame_candidate = (
+        line_family_result.selected_logical_line_frame_candidate
+    )
+    if selected_frame_candidate is None:
+        return source_overlay
+
+    _draw_frame_candidate(
+        source_overlay,
+        selected_frame_candidate,
+        selected_frame_candidate.ranking_position or 1,
+        _build_selected_frame_color(),
+        config,
+        include_selection_marker=True,
+    )
     return source_overlay
 
 
@@ -41,12 +68,17 @@ def _build_frame_color(frame_index: int) -> tuple[int, int, int]:
     return int(bgr_color[0]), int(bgr_color[1]), int(bgr_color[2])
 
 
+def _build_selected_frame_color() -> tuple[int, int, int]:
+    return (0, 255, 255)
+
+
 def _draw_frame_candidate(
     overlay: np.ndarray,
     frame_candidate: LogicalLineFrameCandidate,
     frame_index: int,
     frame_color: tuple[int, int, int],
     config: ExperimentConfig,
+    include_selection_marker: bool,
 ) -> None:
     frame_vertices = _resolve_frame_vertices(frame_candidate)
     if frame_vertices is None:
@@ -67,7 +99,11 @@ def _draw_frame_candidate(
             cv2.LINE_AA,
         )
 
-    label_text = _build_frame_label(frame_candidate, frame_index)
+    label_text = _build_frame_label(
+        frame_candidate,
+        frame_index,
+        include_selection_marker=include_selection_marker,
+    )
     center_x = int(
         round(
             (
@@ -154,17 +190,22 @@ def _resolve_intersection_point(
 def _build_frame_label(
     frame_candidate: LogicalLineFrameCandidate,
     frame_index: int,
+    include_selection_marker: bool,
 ) -> str:
     left_line_name = get_logical_line_debug_name(frame_candidate.left_line)
     right_line_name = get_logical_line_debug_name(frame_candidate.right_line)
     top_line_name = get_logical_line_debug_name(frame_candidate.top_line)
     bottom_line_name = get_logical_line_debug_name(frame_candidate.bottom_line)
-    return (
+    label_text = (
         f"F{frame_index:02d} "
         f"{left_line_name}->{right_line_name}->{top_line_name}->{bottom_line_name}"
     )
+    if include_selection_marker and frame_candidate.is_selected:
+        return f"{label_text} best"
+    return label_text
 
 
 __all__ = [
     "build_logical_line_frame_overlay",
+    "build_selected_logical_line_frame_overlay",
 ]
