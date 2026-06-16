@@ -100,21 +100,6 @@ def build_post_connection_logical_line_overlays(
     )
 
 
-def build_post_merge_logical_line_overlays(
-    source_bgr: np.ndarray,
-    binary_image: np.ndarray,
-    line_family_result: RawLineFamilyResult,
-    config: ExperimentConfig,
-) -> tuple[np.ndarray, np.ndarray]:
-    return build_logical_line_overlays_for_lines(
-        source_bgr,
-        binary_image,
-        line_family_result.horizontal_post_merge_logical_lines,
-        line_family_result.vertical_post_merge_logical_lines,
-        config,
-    )
-
-
 def build_logical_line_overlays_for_lines(
     source_bgr: np.ndarray,
     binary_image: np.ndarray,
@@ -189,7 +174,6 @@ __all__ = [
     "build_logical_line_label_text",
     "build_logical_line_overlays",
     "build_logical_line_overlays_for_lines",
-    "build_post_merge_logical_line_overlays",
     "build_post_connection_logical_line_overlays",
     "draw_logical_lines_for_lines",
     "draw_logical_line_label",

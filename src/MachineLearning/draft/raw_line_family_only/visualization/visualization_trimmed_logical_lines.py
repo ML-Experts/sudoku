@@ -72,31 +72,30 @@ def build_trimmed_logical_line_overlays(
     binary_image: np.ndarray,
     line_family_result: RawLineFamilyResult,
     config: ExperimentConfig,
-) -> tuple[np.ndarray, np.ndarray]:
-    binary_overlay = cv2.cvtColor(binary_image, cv2.COLOR_GRAY2BGR)
+) -> np.ndarray:
+    del binary_image
     source_overlay = source_bgr.copy()
 
-    for overlay in (binary_overlay, source_overlay):
-        _draw_line_collection(
-            overlay,
-            [
-                *line_family_result.horizontal_post_connection_logical_lines,
-                *line_family_result.vertical_post_connection_logical_lines,
-            ],
-            config,
-            muted=True,
-        )
-        _draw_line_collection(
-            overlay,
-            [
-                *line_family_result.horizontal_logical_lines,
-                *line_family_result.vertical_logical_lines,
-            ],
-            config,
-            muted=False,
-        )
+    _draw_line_collection(
+        source_overlay,
+        [
+            *line_family_result.horizontal_post_connection_logical_lines,
+            *line_family_result.vertical_post_connection_logical_lines,
+        ],
+        config,
+        muted=True,
+    )
+    _draw_line_collection(
+        source_overlay,
+        [
+            *line_family_result.horizontal_logical_lines,
+            *line_family_result.vertical_logical_lines,
+        ],
+        config,
+        muted=False,
+    )
 
-    return binary_overlay, source_overlay
+    return source_overlay
 
 
 __all__ = [

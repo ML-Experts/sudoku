@@ -11,47 +11,6 @@ from pipeline_artifacts import RawLineFamilyArtifacts
 from pipeline_plots import build_raw_line_family_plot_items
 
 
-def _describe_long_segment_candidates(
-    line_prefix: str,
-    logical_lines: list[LogicalLine],
-    minimum_length_ratio: float = 0.8,
-) -> list[str]:
-    del line_prefix
-    description_lines: list[str] = []
-    for logical_line in sorted(logical_lines, key=logical_line_debug_sort_key):
-        line_id = get_logical_line_debug_name(logical_line)
-        longest_segment = logical_line.longest_segment
-        if longest_segment is None:
-            description_lines.append(f"{line_id} has no segments.")
-            continue
-
-        minimum_length = longest_segment.length * minimum_length_ratio
-        candidate_segments = logical_line.collect_long_segments(
-            minimum_length_ratio=minimum_length_ratio,
-        )
-        description_lines.append(
-            (
-                f"{line_id} "
-                f"segmentCount={len(logical_line.line_segments)} "
-                f"maxLength={longest_segment.length:.2f} "
-                f"threshold={minimum_length:.2f} "
-                f"selected={len(candidate_segments)}"
-            )
-        )
-        for segment_index, line_segment in enumerate(candidate_segments):
-            description_lines.append(
-                (
-                    f"  - candidate[{segment_index:02d}] "
-                    f"length={line_segment.length:.2f} "
-                    f"origin={line_segment.origin.value} "
-                    f"start={line_segment.start} "
-                    f"end={line_segment.end}"
-                )
-            )
-
-    return description_lines
-
-
 def _format_segment(line_segment) -> str:
     return (
         f"origin={line_segment.origin.value} "
@@ -394,18 +353,6 @@ def describe_raw_line_family_artifacts(
     )
 
 
-    longest_segment_description_lines = [
-        "",
-        "Longest segment candidates per logical line (>= 80% of max length):",
-        *_describe_long_segment_candidates(
-            "H",
-            line_family_result.horizontal_logical_lines,
-        ),
-        *_describe_long_segment_candidates(
-            "V",
-            line_family_result.vertical_logical_lines,
-        ),
-    ]
     raw_segment_group_description_lines = [
         "",
         "RAW segment grouping before pixel merge:",
@@ -473,9 +420,9 @@ def describe_raw_line_family_artifacts(
             line_family_result.logical_line_intersections,
         ),
     ]
-    raw_segment_group_debug_lines = [
+    render_artifact_debug_lines = [
         "",
-        "RAW segment group render artifacts:",
+        "Retained render artifacts:",
         (
             "rawSegmentGroupBoard: "
             f"present={_has_image(artifacts.raw_segment_group_board)} "
@@ -483,85 +430,16 @@ def describe_raw_line_family_artifacts(
             f"shape={None if artifacts.raw_segment_group_board is None else artifacts.raw_segment_group_board.shape}"
         ),
         (
-            "binaryRawSegmentGroupOverlay: "
-            f"present={_has_image(artifacts.binary_raw_segment_group_overlay)} "
-            f"visiblePixels={_has_visible_pixels(artifacts.binary_raw_segment_group_overlay)} "
-            f"shape={None if artifacts.binary_raw_segment_group_overlay is None else artifacts.binary_raw_segment_group_overlay.shape}"
-        ),
-        (
-            "sourceRawSegmentGroupOverlay: "
-            f"present={_has_image(artifacts.source_raw_segment_group_overlay)} "
-            f"visiblePixels={_has_visible_pixels(artifacts.source_raw_segment_group_overlay)} "
-            f"shape={None if artifacts.source_raw_segment_group_overlay is None else artifacts.source_raw_segment_group_overlay.shape}"
-        ),
-        (
-            "binaryLogicalLineIntersectionOverlay: "
-            f"present={_has_image(artifacts.binary_logical_line_intersection_overlay)} "
-            "visiblePixels="
-            f"{_has_visible_pixels(artifacts.binary_logical_line_intersection_overlay)} "
-            "shape="
-            f"{None if artifacts.binary_logical_line_intersection_overlay is None else artifacts.binary_logical_line_intersection_overlay.shape}"
-        ),
-        (
-            "sourceLogicalLineIntersectionOverlay: "
-            f"present={_has_image(artifacts.source_logical_line_intersection_overlay)} "
-            "visiblePixels="
-            f"{_has_visible_pixels(artifacts.source_logical_line_intersection_overlay)} "
-            "shape="
-            f"{None if artifacts.source_logical_line_intersection_overlay is None else artifacts.source_logical_line_intersection_overlay.shape}"
-        ),
-        (
-            "binaryIntersectionKindMapOverlay: "
-            f"present={_has_image(artifacts.binary_intersection_kind_map_overlay)} "
-            f"visiblePixels={_has_visible_pixels(artifacts.binary_intersection_kind_map_overlay)} "
-            "shape="
-            f"{None if artifacts.binary_intersection_kind_map_overlay is None else artifacts.binary_intersection_kind_map_overlay.shape}"
-        ),
-        (
-            "sourceIntersectionKindMapOverlay: "
-            f"present={_has_image(artifacts.source_intersection_kind_map_overlay)} "
-            f"visiblePixels={_has_visible_pixels(artifacts.source_intersection_kind_map_overlay)} "
-            "shape="
-            f"{None if artifacts.source_intersection_kind_map_overlay is None else artifacts.source_intersection_kind_map_overlay.shape}"
+            "containmentPruneBoard: "
+            f"present={_has_image(artifacts.containment_prune_board)} "
+            f"visiblePixels={_has_visible_pixels(artifacts.containment_prune_board)} "
+            f"shape={None if artifacts.containment_prune_board is None else artifacts.containment_prune_board.shape}"
         ),
         (
             "vertexContainmentMergeBoard: "
             f"present={_has_image(artifacts.vertex_containment_merge_board)} "
             f"visiblePixels={_has_visible_pixels(artifacts.vertex_containment_merge_board)} "
             f"shape={None if artifacts.vertex_containment_merge_board is None else artifacts.vertex_containment_merge_board.shape}"
-        ),
-        (
-            "binaryVertexContainmentMergeOverlay: "
-            f"present={_has_image(artifacts.binary_vertex_containment_merge_overlay)} "
-            f"visiblePixels={_has_visible_pixels(artifacts.binary_vertex_containment_merge_overlay)} "
-            f"shape={None if artifacts.binary_vertex_containment_merge_overlay is None else artifacts.binary_vertex_containment_merge_overlay.shape}"
-        ),
-        (
-            "sourceVertexContainmentMergeOverlay: "
-            f"present={_has_image(artifacts.source_vertex_containment_merge_overlay)} "
-            f"visiblePixels={_has_visible_pixels(artifacts.source_vertex_containment_merge_overlay)} "
-            f"shape={None if artifacts.source_vertex_containment_merge_overlay is None else artifacts.source_vertex_containment_merge_overlay.shape}"
-        ),
-        (
-            "binaryPostMergeLogicalLineOverlay: "
-            f"present={_has_image(artifacts.binary_post_merge_logical_line_overlay)} "
-            f"visiblePixels={_has_visible_pixels(artifacts.binary_post_merge_logical_line_overlay)} "
-            "shape="
-            f"{None if artifacts.binary_post_merge_logical_line_overlay is None else artifacts.binary_post_merge_logical_line_overlay.shape}"
-        ),
-        (
-            "sourcePostMergeLogicalLineOverlay: "
-            f"present={_has_image(artifacts.source_post_merge_logical_line_overlay)} "
-            f"visiblePixels={_has_visible_pixels(artifacts.source_post_merge_logical_line_overlay)} "
-            "shape="
-            f"{None if artifacts.source_post_merge_logical_line_overlay is None else artifacts.source_post_merge_logical_line_overlay.shape}"
-        ),
-        (
-            "binaryPostConnectionLogicalLineOverlay: "
-            f"present={_has_image(artifacts.binary_post_connection_logical_line_overlay)} "
-            f"visiblePixels={_has_visible_pixels(artifacts.binary_post_connection_logical_line_overlay)} "
-            "shape="
-            f"{None if artifacts.binary_post_connection_logical_line_overlay is None else artifacts.binary_post_connection_logical_line_overlay.shape}"
         ),
         (
             "sourcePostConnectionLogicalLineOverlay: "
@@ -571,11 +449,18 @@ def describe_raw_line_family_artifacts(
             f"{None if artifacts.source_post_connection_logical_line_overlay is None else artifacts.source_post_connection_logical_line_overlay.shape}"
         ),
         (
-            "binaryTrimmedLogicalLineOverlay: "
-            f"present={_has_image(artifacts.binary_trimmed_logical_line_overlay)} "
-            f"visiblePixels={_has_visible_pixels(artifacts.binary_trimmed_logical_line_overlay)} "
+            "binaryLogicalLineOverlay: "
+            f"present={_has_image(artifacts.binary_logical_line_overlay)} "
+            f"visiblePixels={_has_visible_pixels(artifacts.binary_logical_line_overlay)} "
             "shape="
-            f"{None if artifacts.binary_trimmed_logical_line_overlay is None else artifacts.binary_trimmed_logical_line_overlay.shape}"
+            f"{artifacts.binary_logical_line_overlay.shape}"
+        ),
+        (
+            "sourceLogicalLineOverlay: "
+            f"present={_has_image(artifacts.source_logical_line_overlay)} "
+            f"visiblePixels={_has_visible_pixels(artifacts.source_logical_line_overlay)} "
+            "shape="
+            f"{artifacts.source_logical_line_overlay.shape}"
         ),
         (
             "sourceTrimmedLogicalLineOverlay: "
@@ -583,6 +468,14 @@ def describe_raw_line_family_artifacts(
             f"visiblePixels={_has_visible_pixels(artifacts.source_trimmed_logical_line_overlay)} "
             "shape="
             f"{None if artifacts.source_trimmed_logical_line_overlay is None else artifacts.source_trimmed_logical_line_overlay.shape}"
+        ),
+        (
+            "sourceLogicalLineIntersectionOverlay: "
+            f"present={_has_image(artifacts.source_logical_line_intersection_overlay)} "
+            "visiblePixels="
+            f"{_has_visible_pixels(artifacts.source_logical_line_intersection_overlay)} "
+            "shape="
+            f"{None if artifacts.source_logical_line_intersection_overlay is None else artifacts.source_logical_line_intersection_overlay.shape}"
         ),
     ]
     plot_items = build_raw_line_family_plot_items(artifacts)
@@ -642,8 +535,7 @@ def describe_raw_line_family_artifacts(
         *containment_prune_description_lines,
         *vertex_containment_merge_description_lines,
         *post_connection_description_lines,
-        *raw_segment_group_debug_lines,
-        *longest_segment_description_lines,
+        *render_artifact_debug_lines,
         *plot_item_description_lines,
     ]
 

@@ -50,22 +50,6 @@ def build_raw_line_family_plot_items(
                 True,
             )
         )
-    if _has_image(artifacts.binary_raw_segment_group_overlay):
-        plot_items.append(
-            (
-                "raw segment groups before pixel merge on repair binary",
-                artifacts.binary_raw_segment_group_overlay,
-                True,
-            )
-        )
-    if _has_image(artifacts.source_raw_segment_group_overlay):
-        plot_items.append(
-            (
-                "raw segment groups before pixel merge on source",
-                artifacts.source_raw_segment_group_overlay,
-                True,
-            )
-        )
     if _has_image(artifacts.containment_prune_board):
         plot_items.append(
             (
@@ -74,59 +58,11 @@ def build_raw_line_family_plot_items(
                 True,
             )
         )
-    if _has_image(artifacts.binary_containment_prune_overlay):
-        plot_items.append(
-            (
-                "containment prune on repair binary",
-                artifacts.binary_containment_prune_overlay,
-                True,
-            )
-        )
-    if _has_image(artifacts.source_containment_prune_overlay):
-        plot_items.append(
-            (
-                "containment prune on source",
-                artifacts.source_containment_prune_overlay,
-                True,
-            )
-        )
     if _has_image(artifacts.vertex_containment_merge_board):
         plot_items.append(
             (
                 "logical lines post vertex merge board",
                 artifacts.vertex_containment_merge_board,
-                True,
-            )
-        )
-    if _has_image(artifacts.binary_vertex_containment_merge_overlay):
-        plot_items.append(
-            (
-                "vertex containment merge on repair binary",
-                artifacts.binary_vertex_containment_merge_overlay,
-                True,
-            )
-        )
-    if _has_image(artifacts.source_vertex_containment_merge_overlay):
-        plot_items.append(
-            (
-                "vertex containment merge on source",
-                artifacts.source_vertex_containment_merge_overlay,
-                True,
-            )
-        )
-    if _has_image(artifacts.binary_post_merge_logical_line_overlay):
-        plot_items.append(
-            (
-                "logical lines post vertex merge on repair binary",
-                artifacts.binary_post_merge_logical_line_overlay,
-                True,
-            )
-        )
-    if _has_image(artifacts.source_post_merge_logical_line_overlay):
-        plot_items.append(
-            (
-                "logical lines post vertex merge on source",
-                artifacts.source_post_merge_logical_line_overlay,
                 True,
             )
         )
@@ -160,67 +96,11 @@ def build_raw_line_family_plot_items(
             ),
         ]
     )
-    if _has_image(artifacts.binary_logical_line_intersection_overlay):
-        plot_items.append(
-            (
-                "logical line intersections on repair binary",
-                artifacts.binary_logical_line_intersection_overlay,
-                True,
-            )
-        )
     if _has_image(artifacts.source_logical_line_intersection_overlay):
         plot_items.append(
             (
                 "logical line intersections on source",
                 artifacts.source_logical_line_intersection_overlay,
-                True,
-            )
-        )
-    if _has_image(artifacts.binary_intersection_kind_map_overlay):
-        plot_items.append(
-            (
-                "intersection kind map on repair binary",
-                artifacts.binary_intersection_kind_map_overlay,
-                True,
-            )
-        )
-    if _has_image(artifacts.source_intersection_kind_map_overlay):
-        plot_items.append(
-            (
-                "intersection kind map on source",
-                artifacts.source_intersection_kind_map_overlay,
-                True,
-            )
-        )
-    if _has_image(artifacts.binary_long_segment_candidate_overlay):
-        plot_items.append(
-            (
-                "long segment candidates on repair binary",
-                artifacts.binary_long_segment_candidate_overlay,
-                True,
-            )
-        )
-    if _has_image(artifacts.source_long_segment_candidate_overlay):
-        plot_items.append(
-            (
-                "long segment candidates on source",
-                artifacts.source_long_segment_candidate_overlay,
-                True,
-            )
-        )
-    if _has_image(artifacts.long_segment_candidate_board):
-        plot_items.append(
-            (
-                "logical lines board: blue=all, red=longest",
-                artifacts.long_segment_candidate_board,
-                True,
-            )
-        )
-    if _has_image(artifacts.binary_trimmed_logical_line_overlay):
-        plot_items.append(
-            (
-                "logical lines trimmed vs post connection on repair binary",
-                artifacts.binary_trimmed_logical_line_overlay,
                 True,
             )
         )

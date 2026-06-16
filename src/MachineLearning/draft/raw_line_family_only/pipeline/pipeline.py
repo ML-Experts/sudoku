@@ -85,55 +85,25 @@ def run_raw_line_family_pipeline(
         )
     )
     (
-        binary_raw_segment_group_overlay,
-        source_raw_segment_group_overlay,
-    ) = notebook_api.build_raw_segment_group_overlays(
-        display_bgr,
-        repaired_binary,
-        line_family_result,
-        config,
-    )
-    raw_segment_group_board = notebook_api.build_raw_segment_group_board(
-        display_bgr,
-        line_family_result,
-        config,
-    )
-    (
-        binary_containment_prune_overlay,
-        source_containment_prune_overlay,
-    ) = notebook_api.build_containment_prune_overlays(
-        display_bgr,
-        repaired_binary,
-        line_family_result,
-        config,
-    )
-    containment_prune_board = notebook_api.build_containment_prune_board(
-        display_bgr,
-        line_family_result,
-        config,
-    )
-    (
-        binary_vertex_containment_merge_overlay,
-        source_vertex_containment_merge_overlay,
-    ) = notebook_api.build_vertex_containment_merge_overlays(
-        display_bgr,
-        repaired_binary,
-        line_family_result,
-        config,
-    )
-    vertex_containment_merge_board = notebook_api.build_vertex_containment_merge_board(
-        display_bgr,
-        line_family_result,
-        config,
-    )
-    (
-        binary_post_merge_logical_line_overlay,
-        source_post_merge_logical_line_overlay,
-    ) = notebook_api.build_post_merge_logical_line_overlays(
-        display_bgr,
-        repaired_binary,
-        line_family_result,
-        config,
+        raw_segment_group_board,
+        containment_prune_board,
+        vertex_containment_merge_board,
+    ) = (
+        notebook_api.build_raw_segment_group_board(
+            display_bgr,
+            line_family_result,
+            config,
+        ),
+        notebook_api.build_containment_prune_board(
+            display_bgr,
+            line_family_result,
+            config,
+        ),
+        notebook_api.build_vertex_containment_merge_board(
+            display_bgr,
+            line_family_result,
+            config,
+        ),
     )
     (
         binary_post_connection_logical_line_overlay,
@@ -153,7 +123,6 @@ def run_raw_line_family_pipeline(
         )
     )
     (
-        binary_trimmed_logical_line_overlay,
         source_trimmed_logical_line_overlay,
     ) = notebook_api.build_trimmed_logical_line_overlays(
         display_bgr,
@@ -162,44 +131,12 @@ def run_raw_line_family_pipeline(
         config,
     )
     (
-        binary_logical_line_intersection_overlay,
         source_logical_line_intersection_overlay,
     ) = notebook_api.build_logical_line_intersection_overlays(
         display_bgr,
         repaired_binary,
         line_family_result,
         config,
-    )
-    (
-        binary_intersection_kind_map_overlay,
-        source_intersection_kind_map_overlay,
-    ) = notebook_api.build_logical_line_intersection_kind_map_overlays(
-        display_bgr,
-        repaired_binary,
-        line_family_result,
-        config,
-    )
-    (
-        binary_long_segment_candidate_overlay,
-        source_long_segment_candidate_overlay,
-    ) = notebook_api.build_long_segment_candidate_overlays(
-        display_bgr,
-        repaired_binary,
-        line_family_result,
-        config,
-    )
-    long_segment_candidate_board = notebook_api.build_long_segment_candidate_board(
-        display_bgr,
-        line_family_result,
-        config,
-    )
-    binary_tolerance_rectangle_overlay, source_tolerance_rectangle_overlay = (
-        notebook_api.build_tolerance_rectangle_overlays(
-            display_bgr,
-            repaired_binary,
-            line_family_result,
-            config,
-        )
     )
 
     return RawLineFamilyArtifacts(
@@ -219,24 +156,8 @@ def run_raw_line_family_pipeline(
         binary_family_overlay=binary_family_overlay,
         source_family_overlay=source_family_overlay,
         raw_segment_group_board=raw_segment_group_board,
-        binary_raw_segment_group_overlay=binary_raw_segment_group_overlay,
-        source_raw_segment_group_overlay=source_raw_segment_group_overlay,
         containment_prune_board=containment_prune_board,
-        binary_containment_prune_overlay=binary_containment_prune_overlay,
-        source_containment_prune_overlay=source_containment_prune_overlay,
         vertex_containment_merge_board=vertex_containment_merge_board,
-        binary_vertex_containment_merge_overlay=(
-            binary_vertex_containment_merge_overlay
-        ),
-        source_vertex_containment_merge_overlay=(
-            source_vertex_containment_merge_overlay
-        ),
-        binary_post_merge_logical_line_overlay=(
-            binary_post_merge_logical_line_overlay
-        ),
-        source_post_merge_logical_line_overlay=(
-            source_post_merge_logical_line_overlay
-        ),
         binary_post_connection_logical_line_overlay=(
             binary_post_connection_logical_line_overlay
         ),
@@ -245,21 +166,10 @@ def run_raw_line_family_pipeline(
         ),
         binary_logical_line_overlay=binary_logical_line_overlay,
         source_logical_line_overlay=source_logical_line_overlay,
-        binary_trimmed_logical_line_overlay=binary_trimmed_logical_line_overlay,
         source_trimmed_logical_line_overlay=source_trimmed_logical_line_overlay,
-        binary_logical_line_intersection_overlay=(
-            binary_logical_line_intersection_overlay
-        ),
         source_logical_line_intersection_overlay=(
             source_logical_line_intersection_overlay
         ),
-        binary_intersection_kind_map_overlay=binary_intersection_kind_map_overlay,
-        source_intersection_kind_map_overlay=source_intersection_kind_map_overlay,
-        binary_long_segment_candidate_overlay=binary_long_segment_candidate_overlay,
-        source_long_segment_candidate_overlay=source_long_segment_candidate_overlay,
-        long_segment_candidate_board=long_segment_candidate_board,
-        binary_tolerance_rectangle_overlay=binary_tolerance_rectangle_overlay,
-        source_tolerance_rectangle_overlay=source_tolerance_rectangle_overlay,
     )
 
 

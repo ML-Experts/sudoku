@@ -12,27 +12,6 @@ from visualization_logical_lines import (
 )
 
 
-def build_raw_segment_group_overlays(
-    source_bgr: np.ndarray,
-    binary_image: np.ndarray,
-    line_family_result: RawLineFamilyResult,
-    config: ExperimentConfig,
-) -> tuple[np.ndarray, np.ndarray]:
-    binary_overlay = cv2.cvtColor(binary_image, cv2.COLOR_GRAY2BGR)
-    source_overlay = source_bgr.copy()
-    _draw_raw_segment_groups(
-        binary_overlay,
-        line_family_result,
-        config,
-    )
-    _draw_raw_segment_groups(
-        source_overlay,
-        line_family_result,
-        config,
-    )
-    return binary_overlay, source_overlay
-
-
 def _draw_raw_segment_groups(
     overlay: np.ndarray,
     line_family_result: RawLineFamilyResult,
@@ -165,6 +144,5 @@ def build_raw_segment_group_board(
 
 __all__ = [
     "build_raw_segment_group_board",
-    "build_raw_segment_group_overlays",
     "draw_raw_segment_groups_for_lines",
 ]
