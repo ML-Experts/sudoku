@@ -10,7 +10,8 @@ W aktualnej wersji eksperymentu:
 - `pixel connection` nie jest już ostatnią modyfikacją geometrii linii,
 - po connection kod buduje aktywne `logical_line_intersections`,
 - potem trimuje linie do przecięć i ponownie przelicza intersections,
-- nie ma aktywnego etapu wyboru ramki ani przypisania `frame_side`,
+- po finalnych intersections buduje grupy boundary i kandydatów ramek,
+- nie ma aktywnego etapu rankingu ramek ani przypisania `frame_side`,
 - intersections mają już własny overlay w notebooku i pipeline.
 
 ## Główne pliki
@@ -23,6 +24,8 @@ W aktualnej wersji eksperymentu:
 - `detection.py`
 - `pipeline/pipeline.py`
 - `pipeline/pipeline_report.py`
+- `logical_line_frames.py`
+- `visualization/visualization_frames.py`
 
 ## Wejście do etapu
 
@@ -123,6 +126,23 @@ Ten widok pokazuje różnicę między:
 
 - przygaszonym stanem `post_connection`,
 - finalnymi liniami po trimie do przecięć.
+
+## Kandydaci ramek po intersections
+
+Po finalnym trimie i po finalnym przeliczeniu intersections aktywny kod buduje:
+
+- `horizontal_boundary_groups`,
+- `vertical_boundary_groups`,
+- `logical_line_frame_candidates`.
+
+Jest to etap heurystycznego znalezienia wszystkich ramek spełniających kryteria
+boundary i wzajemnych przecięć grup.
+
+Ważne:
+
+- ten etap nie wybiera jeszcze najlepszej ramki,
+- `frame_side` nie jest ustawiane,
+- overlay ramek jest osobnym retained artifactem notebooka i pipeline'u.
 
 ## Gdzie patrzeć teraz
 

@@ -21,6 +21,10 @@ from intersection_model import (
     LogicalLineIntersection,
     LogicalLineIntersectionDebugCandidate,
 )
+from frame_model import (
+    LogicalLineBoundaryGroup,
+    LogicalLineFrameCandidate,
+)
 from logical_lines import (
     LogicalLine,
     build_logical_lines,
@@ -30,6 +34,10 @@ from logical_line_debug import (
     assign_logical_line_debug_names,
 )
 from logical_line_intersections import assign_logical_line_intersections
+from logical_line_frames import (
+    build_boundary_groups,
+    find_logical_line_frame_candidates,
+)
 from logical_line_cross_axis_continuity import LogicalLineCrossAxisGroup
 from models import (
     ExperimentConfig,
@@ -73,6 +81,9 @@ class RawLineFamilyResult:
     horizontal_logical_lines: list[LogicalLine]
     vertical_logical_lines: list[LogicalLine]
     logical_line_intersections: list[LogicalLineIntersection]
+    horizontal_boundary_groups: list[LogicalLineBoundaryGroup]
+    vertical_boundary_groups: list[LogicalLineBoundaryGroup]
+    logical_line_frame_candidates: list[LogicalLineFrameCandidate]
 
 
 def _build_empty_line_family_result(
@@ -97,6 +108,9 @@ def _build_empty_line_family_result(
         horizontal_logical_lines=[],
         vertical_logical_lines=[],
         logical_line_intersections=[],
+        horizontal_boundary_groups=[],
+        vertical_boundary_groups=[],
+        logical_line_frame_candidates=[],
     )
 
 
@@ -344,6 +358,9 @@ def detect_line_families(
             horizontal_logical_lines=[],
             vertical_logical_lines=[],
             logical_line_intersections=[],
+            horizontal_boundary_groups=[],
+            vertical_boundary_groups=[],
+            logical_line_frame_candidates=[],
         )
 
     horizontal_segments = family_horizontal_segments
@@ -441,6 +458,18 @@ def detect_line_families(
         for logical_line in horizontal_logical_lines
         for logical_line_intersection in logical_line.intersections
     ]
+    horizontal_boundary_groups = build_boundary_groups(
+        horizontal_logical_lines,
+        vertical_logical_lines,
+    )
+    vertical_boundary_groups = build_boundary_groups(
+        vertical_logical_lines,
+        horizontal_logical_lines,
+    )
+    logical_line_frame_candidates = find_logical_line_frame_candidates(
+        horizontal_boundary_groups,
+        vertical_boundary_groups,
+    )
 
     return RawLineFamilyResult(
         raw_segment_count=len(family_detection_segments),
@@ -474,6 +503,9 @@ def detect_line_families(
         horizontal_logical_lines=horizontal_logical_lines,
         vertical_logical_lines=vertical_logical_lines,
         logical_line_intersections=logical_line_intersections,
+        horizontal_boundary_groups=horizontal_boundary_groups,
+        vertical_boundary_groups=vertical_boundary_groups,
+        logical_line_frame_candidates=logical_line_frame_candidates,
     )
 
 

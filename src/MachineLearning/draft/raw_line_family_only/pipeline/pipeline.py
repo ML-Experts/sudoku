@@ -138,6 +138,12 @@ def run_raw_line_family_pipeline(
         line_family_result,
         config,
     )
+    source_logical_line_frame_overlay = notebook_api.build_logical_line_frame_overlay(
+        display_bgr,
+        repaired_binary,
+        line_family_result,
+        config,
+    )
 
     return RawLineFamilyArtifacts(
         source_bgr=source_bgr,
@@ -170,6 +176,7 @@ def run_raw_line_family_pipeline(
         source_logical_line_intersection_overlay=(
             source_logical_line_intersection_overlay
         ),
+        source_logical_line_frame_overlay=source_logical_line_frame_overlay,
     )
 
 

@@ -40,6 +40,7 @@ class RawLineFamilyArtifacts:
     source_post_connection_logical_line_overlay: np.ndarray | None = None
     source_logical_line_intersection_overlay: np.ndarray | None = None
     source_trimmed_logical_line_overlay: np.ndarray | None = None
+    source_logical_line_frame_overlay: np.ndarray | None = None
 
 
 __all__ = [

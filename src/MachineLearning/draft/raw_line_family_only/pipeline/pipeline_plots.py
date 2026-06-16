@@ -112,6 +112,14 @@ def build_raw_line_family_plot_items(
                 True,
             )
         )
+    if _has_image(artifacts.source_logical_line_frame_overlay):
+        plot_items.append(
+            (
+                "logical line frames on source",
+                artifacts.source_logical_line_frame_overlay,
+                True,
+            )
+        )
     return plot_items
 
 

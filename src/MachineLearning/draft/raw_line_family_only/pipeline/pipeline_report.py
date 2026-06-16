@@ -107,6 +107,31 @@ def _describe_logical_line_intersections(
     ]
 
 
+def _describe_logical_line_frames(line_family_result) -> list[str]:
+    frame_candidates = line_family_result.logical_line_frame_candidates
+    description_lines = [
+        (
+            "logicalLineFrames: "
+            f"count={len(frame_candidates)} "
+            f"horizontalGroups={len(line_family_result.horizontal_boundary_groups)} "
+            f"verticalGroups={len(line_family_result.vertical_boundary_groups)}"
+        )
+    ]
+    for frame_index, frame_candidate in enumerate(frame_candidates, start=1):
+        left_line = get_logical_line_debug_name(frame_candidate.left_line)
+        right_line = get_logical_line_debug_name(frame_candidate.right_line)
+        top_line = get_logical_line_debug_name(frame_candidate.top_line)
+        bottom_line = get_logical_line_debug_name(frame_candidate.bottom_line)
+        description_lines.append(
+            (
+                f"  {frame_index:02d}. "
+                f"{left_line}->{right_line}->{top_line}->{bottom_line}"
+            )
+        )
+
+    return description_lines
+
+
 def _describe_raw_segment_groups(
     line_prefix: str,
     logical_lines: list[LogicalLine],
@@ -419,6 +444,7 @@ def describe_raw_line_family_artifacts(
         *_describe_logical_line_intersections(
             line_family_result.logical_line_intersections,
         ),
+        *_describe_logical_line_frames(line_family_result),
     ]
     render_artifact_debug_lines = [
         "",
@@ -477,6 +503,14 @@ def describe_raw_line_family_artifacts(
             "shape="
             f"{None if artifacts.source_logical_line_intersection_overlay is None else artifacts.source_logical_line_intersection_overlay.shape}"
         ),
+        (
+            "sourceLogicalLineFrameOverlay: "
+            f"present={_has_image(artifacts.source_logical_line_frame_overlay)} "
+            "visiblePixels="
+            f"{_has_visible_pixels(artifacts.source_logical_line_frame_overlay)} "
+            "shape="
+            f"{None if artifacts.source_logical_line_frame_overlay is None else artifacts.source_logical_line_frame_overlay.shape}"
+        ),
     ]
     plot_items = build_raw_line_family_plot_items(artifacts)
     plot_item_description_lines = [
@@ -524,6 +558,7 @@ def describe_raw_line_family_artifacts(
         f"Middle intersections: {middle_intersection_count}",
         f"End intersections: {end_intersection_count}",
         f"Both intersections: {both_intersection_count}",
+        f"Logical line frames: {len(line_family_result.logical_line_frame_candidates)}",
         (
             "Horizontal family angle: "
             f"{line_family_result.horizontal_angle_degrees}"

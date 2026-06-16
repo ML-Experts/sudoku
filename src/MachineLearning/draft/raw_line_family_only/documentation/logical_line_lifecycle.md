@@ -18,7 +18,8 @@ Lifecycle `LogicalLine` obejmuje dziś:
 - vertex containment merge,
 - pixel-validated connection,
 - intersections po connection,
-- trim linii do przecięć i ponowne przeliczenie intersections.
+- trim linii do przecięć i ponowne przeliczenie intersections,
+- budowę grup boundary i kandydatów ramek po finalnej geometrii.
 
 ## Snapshoty i stany
 
@@ -29,6 +30,9 @@ Najważniejsze stany pośrednie:
 - `post_connection` - stan po `pixel connection`, ale przed trimem,
 - finalne `horizontal_logical_lines` i `vertical_logical_lines` - stan po trimie
   i po ponownym przeliczeniu intersections.
+- `horizontal_boundary_groups`, `vertical_boundary_groups` i
+  `logical_line_frame_candidates` - stan zbudowany na bazie finalnych linii i
+  finalnych intersections.
 
 Ważne:
 
@@ -91,4 +95,6 @@ Zakres:
 2. `post_connection` nie jest dziś stanem finalnym.
 3. Po connection działa aktywne przypisanie intersections, trim i ponowne
    przeliczenie intersections.
-4. Dawny etap analizy ramki i `frame_side` nie wrócił do aktywnego pipeline'u.
+4. Po trimie działa aktywna budowa grup boundary i kandydatów ramek.
+5. Dawny etap analizy ramki z rankingiem i `frame_side` nie wrócił do aktywnego
+   pipeline'u.

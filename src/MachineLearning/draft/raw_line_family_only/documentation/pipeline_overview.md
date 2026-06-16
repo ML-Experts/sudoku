@@ -122,7 +122,8 @@ Pełny przebieg wykonuje:
 6. pixel connection,
 7. przypisanie intersections,
 8. trim linii do przecięć,
-9. ponowne przeliczenie intersections.
+9. ponowne przeliczenie intersections,
+10. budowę grup boundary i kandydatów ramek.
 
 Ważne:
 
@@ -154,6 +155,9 @@ Najważniejsze pola:
 - `horizontal_logical_lines`
 - `vertical_logical_lines`
 - `logical_line_intersections`
+- `horizontal_boundary_groups`
+- `vertical_boundary_groups`
+- `logical_line_frame_candidates`
 
 Interpretacja stanów:
 
@@ -162,6 +166,10 @@ Interpretacja stanów:
 - `post_connection` - stan po `pixel connection`, ale przed trimem,
 - kolekcje bez prefiksu `pre/post` - finalny stan po trimie,
 - `logical_line_intersections` - intersections policzone na finalnej geometrii.
+- `horizontal_boundary_groups` i `vertical_boundary_groups` - grupy linii zbudowane
+  po finalnym `START/END`,
+- `logical_line_frame_candidates` - wszystkie znalezione kandydaty ramek bez
+  rankingu i bez wyboru najlepszego.
 
 ## `RawLineFamilyArtifacts`
 
@@ -189,6 +197,7 @@ Interpretacja stanów:
    - `source_logical_line_overlay`
    - `source_trimmed_logical_line_overlay`
    - `source_logical_line_intersection_overlay`
+   - `source_logical_line_frame_overlay`
 4. nazw etapów:
    - `denoise_name`
    - `threshold_name`
@@ -211,6 +220,7 @@ Raport obejmuje między innymi:
 - finalną liczbę `LogicalLine`,
 - liczbę segmentów `same_axis_connection` i `cross_axis_connection`,
 - liczbę przecięć `cross` i `touch`,
+- liczbę grup boundary i kandydatów ramek,
 - statystyki grouping `RAW`, containment prune i vertex merge,
 - stan `post_merge`, `post_connection` i finalny stan linii,
 - listę plotów generowanych dla notebooka.
@@ -240,6 +250,7 @@ Opcjonalnie, jeśli artefakty istnieją:
 - `logical lines post connection on source`
 - `logical line intersections on source`
 - `logical lines trimmed vs post connection on source`
+- `logical line frames on source`
 
 Zawsze obecne po pełnym przebiegu:
 
@@ -252,4 +263,5 @@ Zawsze obecne po pełnym przebiegu:
 2. Pipeline przechowuje osobno stan po grouping, po merge'u, po connection i
    finalny stan po trimie.
 3. Raport i overlaye są częścią eksperymentu, a nie pobocznym dodatkiem.
-4. Dawny etap wyboru ramki nie jest częścią aktywnego pipeline'u.
+4. Po finalnych intersections pipeline buduje grupy boundary i kandydaty ramek.
+5. Ranking ramek i wybór najlepszej ramki nie są częścią aktywnego pipeline'u.

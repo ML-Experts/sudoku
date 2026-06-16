@@ -12,6 +12,9 @@ from visualization_line_families import (
 from visualization_intersections import (
     build_logical_line_intersection_overlays,
 )
+from visualization_frames import (
+    build_logical_line_frame_overlay,
+)
 from visualization_logical_lines import (
     build_logical_line_overlays,
     build_logical_line_overlays_for_lines,
@@ -28,6 +31,7 @@ from visualization_raw_segment_groups import (
 __all__ = [
     "build_line_family_overlays",
     "build_logical_line_intersection_overlays",
+    "build_logical_line_frame_overlay",
     "build_containment_prune_board",
     "build_vertex_containment_merge_board",
     "build_logical_line_overlays",

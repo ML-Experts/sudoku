@@ -14,6 +14,7 @@ przez notebook `experiment.ipynb` i przez `pipeline/pipeline.py`.
 - `visualization/visualization_containment.py`
 - `visualization/visualization_vertex_containment_merge.py`
 - `visualization/visualization_intersections.py`
+- `visualization/visualization_frames.py`
 - `visualization/visualization_trimmed_logical_lines.py`
 - `pipeline/pipeline_artifacts.py`
 - `pipeline/pipeline_plots.py`
@@ -140,6 +141,18 @@ Pokazuje:
 - punkt przecięcia wraz z etykietą pary linii,
 - dodatkowy marker boundary wynikający z `order`.
 
+### 10. Logical line frames
+
+Funkcja:
+
+- `build_logical_line_frame_overlay(...)`
+
+Pokazuje:
+
+- kandydatów ramek zbudowanych po finalnym trimie i po finalnych intersections,
+- jeden retained overlay na obrazie źródłowym,
+- etykietę ramki z debug names linii granicznych.
+
 ## Czego aktualny pipeline nie renderuje osobno
 
 Po uproszczeniu zestawu obrazów aktywny kod nie buduje już osobnych retained
@@ -166,7 +179,7 @@ Najważniejsze grupy pól:
    `repaired_binary`
 2. wynik domenowy `line_family_result`
 3. overlaye i boardy dla rodzin, grouping, containment, vertex merge,
-   post-connection, finalnych linii, intersections oraz widoku trimmed
+   post-connection, finalnych linii, intersections, ramek oraz widoku trimmed
 4. nazwy etapów, takie jak `denoise_name`, `threshold_name`, `cleanup_name`,
    `repair_name`
 
@@ -180,6 +193,7 @@ Najważniejsze grupy pól:
 - rozkład segmentów w stanie `post_connection`,
 - rozkład segmentów w finalnym stanie linii po trimie,
 - liczność przecięć `cross` i `touch`,
+- liczbę grup boundary i kandydatów ramek,
 - obecność retained artifactów overlayowych.
 
 To oznacza, że wizualizacje i raport opisują ten sam pipeline z dwóch
@@ -213,6 +227,7 @@ Opcjonalnie, jeśli odpowiednie artefakty istnieją:
 - `logical lines post connection on source`
 - `logical line intersections on source`
 - `logical lines trimmed vs post connection on source`
+- `logical line frames on source`
 
 Zawsze obecne po pełnym przebiegu:
 
