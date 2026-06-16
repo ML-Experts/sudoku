@@ -2,36 +2,44 @@
 
 ## Cel
 
-Ten plik jest teraz krótkim indeksem dokumentacji dla etapu `LogicalLine`.
+Ten plik jest krótką mapą etapu `LogicalLine`.
 
-Po refaktorze i rozbudowie heurystyk lifecycle linii logicznych jest już zbyt
-duży, żeby utrzymywać cały opis w jednym pliku bez niepotrzebnego kontekstu.
+Pełna orkiestracja pipeline'u jest opisana w `pipeline_overview.md`, a ten plik
+ma tylko ustawić pojęcia, snapshoty i dokumenty szczegółowe.
 
-## Zakres tego etapu
+## Zakres lifecycle
 
 Lifecycle `LogicalLine` obejmuje dziś:
 
-- budowę linii z segmentów rodzin poziomych i pionowych,
-- merge geometryczny segmentów i całych linii,
+- budowę linii z segmentów rodzin,
+- merge geometryczny,
 - grouping segmentów `RAW`,
 - full containment prune,
 - vertex containment merge,
 - pixel-validated connection,
-- zbieranie przecięć między rodziną poziomą i pionową,
-- trimowanie linii do przecięć i ponowne przeliczenie przecięć,
-- snapshoty stanów `pre_connection`, `post_merge` i `post_connection`,
-- finalne kolekcje linii po trimie do przecięć.
+- intersections po connection,
+- trim linii do przecięć i ponowne przeliczenie intersections.
 
-Preprocessing, notebook, artefakty i pełna orkiestracja są opisane w
-`pipeline_overview.md`.
+## Snapshoty i stany
 
-Finalne wizualizacje i artefakty są opisane w:
+Najważniejsze stany pośrednie:
 
-- `visualization_and_artifacts.md`
+- `pre_connection` - stan po grouping `RAW`,
+- `post_merge` - stan po `vertex containment merge`,
+- `post_connection` - stan po `pixel connection`, ale przed trimem,
+- finalne `horizontal_logical_lines` i `vertical_logical_lines` - stan po trimie
+  i po ponownym przeliczeniu intersections.
 
-## Mapa dokumentów
+Ważne:
 
-### 1. Budowa linii i grouping `RAW`
+- `LogicalLine` jest głównym nośnikiem stanu domenowego dla etapu linii,
+- segmenty connection są częścią finalnej geometrii linii,
+- `SegmentOrigin` ma dziś tylko `RAW`, `SAME_AXIS_CONNECTION`,
+  `CROSS_AXIS_CONNECTION`.
+
+## Dokumenty szczegółowe
+
+### 1. Budowa i grouping
 
 Plik: `logical_line_build_and_grouping.md`
 
@@ -40,8 +48,8 @@ Zakres:
 - modele bazowe i `LogicalLine`,
 - budowa wstępnych linii,
 - merge geometryczny,
-- grouping segmentów `RAW`,
-- znaczenie stanu `pre_connection`.
+- grouping `RAW`,
+- znaczenie `pre_connection`.
 
 ### 2. Containment i merge po wierzchołku
 
@@ -50,9 +58,9 @@ Plik: `logical_line_containment_and_vertex_merge.md`
 Zakres:
 
 - full containment prune,
-- grupowanie po ciągłości osi poprzecznej,
+- grupowanie po osi poprzecznej,
 - vertex containment merge,
-- znaczenie stanu `post_merge`.
+- znaczenie `post_merge`.
 
 ### 3. Pixel connection
 
@@ -62,59 +70,25 @@ Zakres:
 
 - `ToleranceRectangle`,
 - `ConnectionKind`,
-- wyszukiwanie ścieżki po białych pikselach,
-- rozróżnienie między connection tej samej osi i connection cross-axis,
-- segmenty `SAME_AXIS_CONNECTION` i `CROSS_AXIS_CONNECTION`,
-- znaczenie stanu `post_connection`.
+- search po białych pikselach,
+- semantyka `SAME_AXIS_CONNECTION` i `CROSS_AXIS_CONNECTION`,
+- znaczenie `post_connection`.
 
-### 4. Intersections
+### 4. Intersections i overlaye
 
 Plik: `intersections_and_visualization.md`
 
 Zakres:
 
 - model `LogicalLineIntersection`,
-- niezależne pola `kind` oraz `order`,
-- wybór referencyjnej pary segmentów dla przecięcia,
-- znaczenie aktywnego etapu intersections i trimu po connection.
+- niezależne pola `kind` i `order`,
+- trim do przecięć,
+- overlay intersections i widok trimmed vs post-connection.
 
-## Aktualny flow
+## Najważniejsze założenia
 
-```mermaid
-flowchart TD
-    familySegments[Classified family segments] --> buildLines[build_logical_lines]
-    buildLines --> mergeLines[merge_logical_lines]
-    mergeLines --> groupRaw[group_raw_segments in each line]
-    groupRaw --> savePre[Clone pre_connection state]
-    savePre --> fullContainment[full containment prune]
-    fullContainment --> vertexMerge[vertex containment merge]
-    vertexMerge --> savePostMerge[Clone post_merge state]
-    savePostMerge --> pixelConnect[connect_logical_lines_by_pixels]
-    pixelConnect --> savePost[Clone post_connection state]
-    savePost --> assignIntersections[assign logical line intersections]
-    assignIntersections --> trimToIntersections[trim logical lines to intersections]
-    trimToIntersections --> reassignIntersections[reassign logical line intersections]
-    reassignIntersections --> finalLines[Final trimmed logical lines + intersections]
-```
-
-## Najważniejsze założenia aktualnej wersji
-
-1. `LogicalLine` jest głównym nośnikiem stanu domenowego dla etapu linii.
-2. `logical_lines.py` jest publiczną fasadą, a logika jest rozbita na mniejsze
-   wyspecjalizowane moduły `logical_line_*`.
-3. Grouping `RAW`, containment, vertex merge i pixel connection to cztery różne
-   etapy i nie należy ich mieszać w dokumentacji.
-4. Segmenty connection są częścią finalnej linii, a nie tylko wizualnym
-   dodatkiem.
-5. `SAME_AXIS` i `CROSS_AXIS` nie mają już tej samej semantyki wykonania:
-   `same-axis` może materializować ścieżkę BFS, a `cross-axis` używa BFS tylko
-   do walidacji kontaktu i później buduje prostszy connector minimalizujący
-   skręt.
-6. `horizontal_post_connection_logical_lines` i
-   `vertical_post_connection_logical_lines` są dziś snapshotem po connection,
-   ale jeszcze przed trimem do przecięć.
-7. Finalne `horizontal_logical_lines` i `vertical_logical_lines` są już stanem
-   po trimie do przecięć i po ponownym przeliczeniu intersections.
-8. Po connection działa aktywne zbieranie `logical_line_intersections`, a potem
-   aktywny trim geometrii linii do przecięć; nie wrócił natomiast dawny etap
-   analizy ramki ani przypisywania `frame_side`.
+1. Grouping `RAW`, containment, vertex merge i pixel connection to osobne etapy.
+2. `post_connection` nie jest dziś stanem finalnym.
+3. Po connection działa aktywne przypisanie intersections, trim i ponowne
+   przeliczenie intersections.
+4. Dawny etap analizy ramki i `frame_side` nie wrócił do aktywnego pipeline'u.

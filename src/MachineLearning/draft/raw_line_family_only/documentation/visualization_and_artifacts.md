@@ -98,6 +98,9 @@ Pokazuje:
 - segmenty dodane przez connection,
 - geometrię jeszcze nieobciętą do przecięć.
 
+Prostokąty tolerancji są wykorzystywane wewnętrznie przez etap connection, ale
+aktualny pipeline nie renderuje ich jako osobnego retained overlayu.
+
 ### 7. Finalne logical lines
 
 Funkcje:
@@ -136,6 +139,16 @@ Pokazuje:
 - rozróżnienie `cross` i `touch`,
 - punkt przecięcia wraz z etykietą pary linii,
 - dodatkowy marker boundary wynikający z `order`.
+
+## Czego aktualny pipeline nie renderuje osobno
+
+Po uproszczeniu zestawu obrazów aktywny kod nie buduje już osobnych retained
+widoków dla:
+
+- prostokątów tolerancji,
+- map `intersection kind`,
+- kandydatów długich segmentów,
+- historycznych wariantów overlayów `post_merge` na `source` i na `repair`.
 
 ## `RawLineFamilyArtifacts`
 

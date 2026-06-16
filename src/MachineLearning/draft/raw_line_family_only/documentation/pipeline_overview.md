@@ -5,15 +5,16 @@
 Ten dokument opisuje aktualną orkiestrację eksperymentu
 `raw_line_family_only` z perspektywy notebooka i pipeline'u.
 
-Zakres obejmuje:
+Jeśli dokumentacja i implementacja rozjeżdżają się ze sobą, źródłem prawdy jest
+kod, przede wszystkim:
 
-- bootstrap API do notebooka,
-- preprocessing obrazu,
-- sposób wywołania `detect_line_families(...)`,
-- budowę `RawLineFamilyArtifacts`,
-- raport tekstowy i listę plotów.
+- `pipeline/pipeline.py`
+- `detection.py`
+- `logical_line_core.py`
+- `logical_lines.py`
+- moduły `visualization/*`
 
-Szczegóły domenowe `LogicalLine`, containment i connection są opisane w:
+Dokumenty szczegółowe:
 
 - `logical_line_lifecycle.md`
 - `logical_line_build_and_grouping.md`
@@ -22,64 +23,29 @@ Szczegóły domenowe `LogicalLine`, containment i connection są opisane w:
 - `intersections_and_visualization.md`
 - `visualization_and_artifacts.md`
 
-## Główne pliki
-
-- `bootstrap.py`
-- `pipeline/pipeline.py`
-- `pipeline/pipeline_artifacts.py`
-- `pipeline/pipeline_report.py`
-- `pipeline/pipeline_plots.py`
-- `pipeline/pipeline_selection.py`
-- `detection.py`
-- `visualization/visualization.py`
-
-## Rola notebooka i bootstrapu
+## Notebook i bootstrap
 
 Aktualny notebook eksperymentalny to `experiment.ipynb`.
 
 Notebook korzysta z API budowanego przez `load_api()` z `bootstrap.py`.
+Bootstrap:
 
-Bootstrap odpowiada za:
-
-- dodanie katalogu wariantu oraz podkatalogów `pipeline/` i `visualization/`
-  do `sys.path`,
-- wyczyszczenie wcześniej załadowanych modułów z bieżącego wariantu,
-- ponowny import modułów we właściwej kolejności,
-- złożenie jednego obiektu `Api`.
-
-Najważniejsze elementy `Api`:
-
-- `ExperimentConfig`
-- funkcje preprocessingu:
-  - `apply_median_denoise`
-  - `apply_gaussian_threshold`
-  - `apply_soft_component_cleanup`
-  - `apply_directional_close_repair`
-- `detect_line_families`
-- funkcje renderujące z `visualization/visualization.py`
-- narzędzia pomocnicze notebooka:
-  - `resolve_active_image_path`
-  - `path_for_display`
-  - `plot_named_images`
-
-To API jest stabilnym punktem wejścia dla notebooka po refaktorze nazw plików i
-po rozdzieleniu helperów do podkatalogów `pipeline/` oraz `visualization/`.
-
-## Importy w notebooku
+- dodaje katalog wariantu oraz `pipeline/` i `visualization/` do `sys.path`,
+- czyści wcześniej załadowane moduły z bieżącego wariantu,
+- importuje moduły w ustalonej kolejności,
+- składa obiekt `Api` używany przez notebook.
 
 Notebook powinien używać lokalnych importów:
 
 - `import bootstrap`
 - `import pipeline`
 
-Zamiast importów od repo root typu `from src.MachineLearning...`, bo aktywny
-kernel działa na ścieżkach dodawanych dynamicznie przez `bootstrap.py`.
+Nie należy wracać do importów od repo root typu `from src.MachineLearning...`.
 
-## Wejście pipeline
+## Publiczny entrypoint
 
-Publiczny entrypoint w warstwie pipeline'u:
-
-- `run_raw_line_family_pipeline(...)` z `pipeline/pipeline.py`
+Publicznym entrypointem warstwy pipeline jest
+`run_raw_line_family_pipeline(...)` z `pipeline/pipeline.py`.
 
 Wejście:
 
@@ -91,12 +57,12 @@ Wyjście:
 
 - `RawLineFamilyArtifacts`
 
-## Etapy preprocessingu
+## Preprocessing
 
-Aktualna kolejność w `run_raw_line_family_pipeline(...)`:
+Aktualna kolejność preprocessingu:
 
-1. wczytanie obrazu przez `load_image_bgr(...)`
-2. przygotowanie obrazu do pracy i wyświetlania przez `resize_for_display(...)`
+1. `load_image_bgr(...)`
+2. `resize_for_display(...)`
 3. konwersja do skali szarości:
    - `gray_image`
 4. median denoise:
@@ -115,15 +81,16 @@ Aktualna kolejność w `run_raw_line_family_pipeline(...)`:
 
 Znaczenie obrazów:
 
-- `clean_binary` jest używane do detekcji rodzin i wejściowych segmentów Hougha,
-- `repaired_binary` jest używane jako obraz do pixel connection i do większości
-  finalnych overlayów debugowych.
+- `clean_binary` służy do detekcji rodzin i wejściowych segmentów Hougha,
+- `repaired_binary` służy do pixel connection i większości finalnych overlayów,
+- prostokąty tolerancji są geometrią pomocniczą connection i nie są osobnym
+  retained artifactem notebooka.
 
 ## Dwa przebiegi `detect_line_families(...)`
 
 Pipeline wywołuje `detect_line_families(...)` dwa razy.
 
-### Przebieg 1: tylko rodziny
+### 1. Przebieg tylko dla rodzin
 
 Wywołanie:
 
@@ -132,12 +99,10 @@ Wywołanie:
 Cel:
 
 - dostać `horizontal_segments` i `vertical_segments`,
-- zbudować overlay rodzin linii na `clean_binary` i na obrazie źródłowym,
+- zbudować overlay rodzin na `clean_binary` i na obrazie źródłowym,
 - nie uruchamiać cięższych etapów `LogicalLine`.
 
-To jest czysto diagnostyczny przebieg do wizualizacji segmentów rodzin.
-
-### Przebieg 2: pełna detekcja
+### 2. Pełna detekcja
 
 Wywołanie:
 
@@ -147,25 +112,26 @@ Wywołanie:
   pixel_connection_binary_image=repaired_binary,
   )`
 
-Cel:
+Pełny przebieg wykonuje:
 
-- zbudować komplet stanów pośrednich i finalnych,
-- uruchomić grouping `RAW`,
-- wykonać full containment prune,
-- wykonać vertex containment merge,
-- wykonać pixel connection,
-- przypisać przecięcia między rodzinami linii,
-- przyciąć linie do przecięć i ponownie przeliczyć intersections,
-- zwrócić wynik do raportu i renderów notebooka.
+1. klasyfikację segmentów Hougha do rodzin,
+2. budowę wstępnych `LogicalLine`,
+3. grouping `RAW`,
+4. full containment prune,
+5. vertex containment merge,
+6. pixel connection,
+7. przypisanie intersections,
+8. trim linii do przecięć,
+9. ponowne przeliczenie intersections.
 
-Ważne rozdzielenie odpowiedzialności:
+Ważne:
 
 - rodziny i wejściowe segmenty pochodzą z `clean_binary`,
 - walidacja przejść po pikselach odbywa się na `repaired_binary`.
 
-## Co zwraca `detect_line_families(...)`
+## `RawLineFamilyResult`
 
-Główny wynik domenowy to `RawLineFamilyResult` z `detection.py`.
+Główny wynik domenowy zwracany z `detection.py` to `RawLineFamilyResult`.
 
 Najważniejsze pola:
 
@@ -191,95 +157,68 @@ Najważniejsze pola:
 
 Interpretacja stanów:
 
-- `pre_connection` oznacza stan po grouping segmentów `RAW`,
-- `horizontal_containment_prune_result` i `vertical_containment_prune_result`
-  opisują full containment prune pomiędzy grouping `RAW` a merge'em vertex,
-- `horizontal_vertex_containment_merge_result` i
-  `vertical_vertex_containment_merge_result` opisują diagnostykę merge'u,
-- `post_merge` oznacza stan po merge'u vertex i przed pixel connection,
-- `post_connection` oznacza snapshot po pixel connection, ale jeszcze przed
-  trimem do przecięć,
-- kolekcje finalne `horizontal_logical_lines` i `vertical_logical_lines`
-  oznaczają dziś stan końcowy eksperymentu po trimie do przecięć,
-- `logical_line_intersections` oznacza aktywny etap zbierania przecięć po
-  connection oraz po odświeżeniu ich po trimie,
-- `order` w modelu przecięcia opisuje pozycję przecięcia na linii osiowej.
+- `pre_connection` - stan po grouping `RAW`,
+- `post_merge` - stan po `vertex containment merge`,
+- `post_connection` - stan po `pixel connection`, ale przed trimem,
+- kolekcje bez prefiksu `pre/post` - finalny stan po trimie,
+- `logical_line_intersections` - intersections policzone na finalnej geometrii.
 
-## Budowa `RawLineFamilyArtifacts`
+## `RawLineFamilyArtifacts`
 
-`run_raw_line_family_pipeline(...)` buduje następnie `RawLineFamilyArtifacts`
-z `pipeline/pipeline_artifacts.py`.
+`run_raw_line_family_pipeline(...)` buduje `RawLineFamilyArtifacts` z:
 
-Notebook może też zbudować te artefakty ręcznie, ale powinien zachować tę samą
+1. obrazów preprocessingu:
+   - `source_bgr`
+   - `display_bgr`
+   - `gray_image`
+   - `denoised_image`
+   - `binary_image`
+   - `clean_binary`
+   - `repaired_binary`
+2. wyniku domenowego:
+   - `line_family_result`
+3. overlayów i boardów:
+   - `binary_family_overlay`
+   - `source_family_overlay`
+   - `raw_segment_group_board`
+   - `containment_prune_board`
+   - `vertex_containment_merge_board`
+   - `binary_post_connection_logical_line_overlay`
+   - `source_post_connection_logical_line_overlay`
+   - `binary_logical_line_overlay`
+   - `source_logical_line_overlay`
+   - `source_trimmed_logical_line_overlay`
+   - `source_logical_line_intersection_overlay`
+4. nazw etapów:
+   - `denoise_name`
+   - `threshold_name`
+   - `cleanup_name`
+   - `repair_name`
+
+Notebook może budować artefakty ręcznie, ale powinien zachować tę samą
 semantykę pól i kolejność stanów co `pipeline/pipeline.py`.
-
-Artefakty można podzielić na cztery grupy.
-
-### 1. Obrazy preprocessingu
-
-- `source_bgr`
-- `display_bgr`
-- `gray_image`
-- `denoised_image`
-- `binary_image`
-- `clean_binary`
-- `repaired_binary`
-
-### 2. Wynik domenowy
-
-- `line_family_result`
-
-### 3. Overlaye i boardy
-
-- `binary_family_overlay`
-- `source_family_overlay`
-- `raw_segment_group_board`
-- `containment_prune_board`
-- `vertex_containment_merge_board`
-- `binary_post_connection_logical_line_overlay`
-- `source_post_connection_logical_line_overlay`
-- `binary_logical_line_overlay`
-- `source_logical_line_overlay`
-- `source_trimmed_logical_line_overlay`
-- `source_logical_line_intersection_overlay`
-
-### 4. Nazwy etapów
-
-- `denoise_name`
-- `threshold_name`
-- `cleanup_name`
-- `repair_name`
 
 ## Raport tekstowy
 
-Funkcja `describe_raw_line_family_artifacts(...)` z `pipeline/pipeline_report.py`
-opisuje
-nie tylko finalny wynik, ale też kilka ważnych stanów pośrednich.
+`describe_raw_line_family_artifacts(...)` z `pipeline/pipeline_report.py`
+opisuje nie tylko finalny wynik, ale też stany pośrednie.
 
 Raport obejmuje między innymi:
 
-- kształty obrazów i nazwy etapów preprocessingu,
+- kształty obrazów i nazwy preprocessingu,
 - liczbę surowych segmentów Hougha,
 - liczbę segmentów rodzin poziomych i pionowych,
 - finalną liczbę `LogicalLine`,
-- liczbę segmentów `same_axis_connection`,
-- liczbę segmentów `cross_axis_connection`,
+- liczbę segmentów `same_axis_connection` i `cross_axis_connection`,
 - liczbę przecięć `cross` i `touch`,
-- statystyki RAW segment grouping,
-- statystyki full containment prune,
-- statystyki vertex containment merge,
-- stan kolekcji `post_merge`,
-- stan kolekcji `post_connection`,
-- finalny stan kolekcji logicznych linii po trimie,
+- statystyki grouping `RAW`, containment prune i vertex merge,
+- stan `post_merge`, `post_connection` i finalny stan linii,
 - listę plotów generowanych dla notebooka.
-
-To ważne, bo raport jest dzisiaj źródłem debug contextu, a nie tylko krótkim
-podsumowaniem liczników.
 
 ## Plot items notebooka
 
-Kolejność obrazów pokazywanych w notebooku jest budowana przez
-`build_raw_line_family_plot_items(...)` z `pipeline/pipeline_plots.py`.
+Kolejność obrazów buduje `build_raw_line_family_plot_items(...)` z
+`pipeline/pipeline_plots.py`.
 
 Stała część listy:
 
@@ -307,37 +246,10 @@ Zawsze obecne po pełnym przebiegu:
 - `logical lines final on repair binary`
 - `logical lines final on source`
 
-## Aktualny przepływ pipeline
+## Najważniejsze założenia
 
-```mermaid
-flowchart TD
-    loadApi[Load notebook API] --> loadImage[Load source image]
-    loadImage --> preprocess[Preprocess image]
-    preprocess --> familyPass[detect_line_families on clean_binary only families]
-    preprocess --> fullPass[detect_line_families on clean_binary with repaired_binary for pixel connection]
-    familyPass --> familyOverlay[Build family overlays]
-    fullPass --> grouping[group raw segments]
-    grouping --> fullContainment[full containment prune]
-    fullContainment --> vertexMerge[vertex containment merge]
-    vertexMerge --> connection[pixel connection]
-    connection --> savePost[Clone post_connection state]
-    savePost --> intersections[assign logical line intersections]
-    intersections --> trim[trim logical lines to intersections]
-    trim --> finalIntersections[reassign logical line intersections]
-    finalIntersections --> buildArtifacts[Build RawLineFamilyArtifacts]
-    buildArtifacts --> buildPlots[Build notebook plot items]
-    buildArtifacts --> buildReport[Describe artifacts]
-```
-
-## Najważniejsze założenia aktualnej wersji
-
-1. Oficjalnym entrypointem orchestration jest `run_raw_line_family_pipeline(...)`.
-2. `clean_binary` i `repaired_binary` pełnią różne role i nie należy ich
-   traktować jako zamienników.
-3. Pipeline przechowuje osobno stan po grouping, po merge'u vertex, po
-   connection oraz finalny stan po trimie do przecięć.
-4. Notebook może budować artefakty ręcznie, ale powinien zachowywać tę samą
-   listę pól co `RawLineFamilyArtifacts`.
-5. Raport i overlaye są częścią eksperymentu, a nie dodatkiem pobocznym.
-6. Źródłem prawdy dla kolejności etapów jest kod w `pipeline/pipeline.py`
-   i `detection.py`.
+1. `clean_binary` i `repaired_binary` pełnią różne role i nie są zamiennikami.
+2. Pipeline przechowuje osobno stan po grouping, po merge'u, po connection i
+   finalny stan po trimie.
+3. Raport i overlaye są częścią eksperymentu, a nie pobocznym dodatkiem.
+4. Dawny etap wyboru ramki nie jest częścią aktywnego pipeline'u.
