@@ -18,8 +18,9 @@ Lifecycle `LogicalLine` obejmuje dziś:
 - vertex containment merge,
 - pixel-validated connection,
 - zbieranie przecięć między rodziną poziomą i pionową,
+- trimowanie linii do przecięć i ponowne przeliczenie przecięć,
 - snapshoty stanów `pre_connection`, `post_merge` i `post_connection`,
-- finalne kolekcje linii po connection.
+- finalne kolekcje linii po trimie do przecięć.
 
 Preprocessing, notebook, artefakty i pełna orkiestracja są opisane w
 `pipeline_overview.md`.
@@ -73,9 +74,9 @@ Plik: `intersections_and_visualization.md`
 Zakres:
 
 - model `LogicalLineIntersection`,
-- niezależne pole `kind` oraz pola `horizontal_order` / `vertical_order`,
+- niezależne pola `kind` oraz `order`,
 - wybór referencyjnej pary segmentów dla przecięcia,
-- znaczenie aktywnego etapu intersections po connection.
+- znaczenie aktywnego etapu intersections i trimu po connection.
 
 ## Aktualny flow
 
@@ -90,8 +91,10 @@ flowchart TD
     vertexMerge --> savePostMerge[Clone post_merge state]
     savePostMerge --> pixelConnect[connect_logical_lines_by_pixels]
     pixelConnect --> savePost[Clone post_connection state]
-    savePost --> buildIntersections[build logical line intersections]
-    buildIntersections --> finalLines[Final logical lines + intersections]
+    savePost --> assignIntersections[assign logical line intersections]
+    assignIntersections --> trimToIntersections[trim logical lines to intersections]
+    trimToIntersections --> reassignIntersections[reassign logical line intersections]
+    reassignIntersections --> finalLines[Final trimmed logical lines + intersections]
 ```
 
 ## Najważniejsze założenia aktualnej wersji
@@ -107,8 +110,11 @@ flowchart TD
    `same-axis` może materializować ścieżkę BFS, a `cross-axis` używa BFS tylko
    do walidacji kontaktu i później buduje prostszy connector minimalizujący
    skręt.
-6. Końcowa geometria linii nie przechodzi już przez osobny etap
-   `intersection/frame`; finalne `horizontal_logical_lines` i
-   `vertical_logical_lines` są dziś stanem po connection.
-7. Po connection działa aktywne zbieranie `logical_line_intersections`, ale nie
-   wrócił dawny etap analizy ramki ani przypisywania `frame_side`.
+6. `horizontal_post_connection_logical_lines` i
+   `vertical_post_connection_logical_lines` są dziś snapshotem po connection,
+   ale jeszcze przed trimem do przecięć.
+7. Finalne `horizontal_logical_lines` i `vertical_logical_lines` są już stanem
+   po trimie do przecięć i po ponownym przeliczeniu intersections.
+8. Po connection działa aktywne zbieranie `logical_line_intersections`, a potem
+   aktywny trim geometrii linii do przecięć; nie wrócił natomiast dawny etap
+   analizy ramki ani przypisywania `frame_side`.

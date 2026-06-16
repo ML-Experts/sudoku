@@ -245,4 +245,4 @@ To jest snapshot po grouping `RAW`, ale jeszcze przed:
 - full containment prune,
 - vertex containment merge,
 - pixel connection,
-- budową finalnych prostokątów tolerancji.
+- budową intersections i trimem do przecięć.

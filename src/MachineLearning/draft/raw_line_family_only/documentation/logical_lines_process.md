@@ -7,8 +7,8 @@ Ten plik jest krótkim punktem wejścia do aktualnej dokumentacji eksperymentu
 
 Po ostatnim uproszczeniu usunięty został etap wyboru ramki, ale do aktywnego
 kodu wróciło zbieranie `logical_line_intersections`. Końcowym stanem
-eksperymentu są dziś linie po `pixel connection`, aktywne intersections oraz
-zbudowane dla nich prostokąty tolerancji.
+eksperymentu są dziś linie po `pixel connection`, po trimie do przecięć oraz
+aktywne intersections policzone już na tej finalnej geometrii.
 
 Jeśli opis dokumentów i implementacja rozjeżdżają się ze sobą, źródłem prawdy
 jest aktualny kod w tym katalogu, przede wszystkim:
@@ -30,6 +30,7 @@ Dokumentacja obejmuje dziś:
 - vertex containment merge,
 - pixel-validated connection,
 - zbieranie intersections po connection,
+- trim linii do przecięć i ponowne przeliczenie intersections,
 - wizualizacje i raportowanie artefaktów notebooka.
 
 ## Mapa dokumentów
@@ -104,7 +105,8 @@ Aktualny przebieg eksperymentu wygląda następująco:
    - wykonywany jest vertex containment merge,
    - wykonywany jest pixel connection,
    - budowane są `logical_line_intersections`,
-   - budowane są finalne prostokąty tolerancji.
+   - wykonywany jest trim linii do przecięć,
+   - intersections są przeliczane ponownie na finalnej geometrii.
 5. Pipeline albo notebook buduje `RawLineFamilyArtifacts` z obrazami pośrednimi,
    overlayami, boardami i wynikiem domenowym.
 
@@ -127,8 +129,6 @@ Najważniejsze kolekcje i wyniki trzymane w `RawLineFamilyResult`:
 - `horizontal_logical_lines`
 - `vertical_logical_lines`
 - `logical_line_intersections`
-- `horizontal_tolerance_rectangles`
-- `vertical_tolerance_rectangles`
 
 Interpretacja:
 
@@ -140,11 +140,12 @@ Interpretacja:
   częściowo zawartych przez wierzchołek,
 - `post_merge` oznacza stan po `vertex containment merge`, ale jeszcze przed
   pixel connection,
-- `post_connection` oznacza snapshot po pixel connection,
+- `post_connection` oznacza snapshot po pixel connection, ale jeszcze przed
+  trimem do przecięć,
 - `logical_line_intersections` oznacza aktywne przecięcia policzone na finalnej
-  geometrii linii po connection,
+  geometrii linii po trimie,
 - kolekcje bez prefiksu `pre/post` oznaczają finalny stan detekcji, który jest
-  dziś równoważny stanowi po connection.
+  dziś późniejszy niż sam stan po connection.
 
 ## Najważniejsze aktualizacje względem starszego opisu
 
@@ -163,10 +164,9 @@ W aktualnym kodzie:
   ale `cross_axis` używa BFS tylko do walidacji kontaktu i buduje finalne
   dociągnięcia tak, żeby minimalizować skręt,
 - aktywne intersections są dziś liczone po `pixel connection`,
-- model przecięcia przechowuje niezależne `kind`, `horizontal_order` i
-  `vertical_order`,
-- `horizontal_order` i `vertical_order` startują od `NONE` i są przygotowane
-  pod kolejny etap klasyfikacji / naprawy,
+- po pierwszym przypisaniu intersections działa aktywny trim linii do przecięć,
+- model przecięcia przechowuje niezależne `kind` oraz `order`,
+- finalne intersections są przeliczane ponownie po trimie,
 - nie wrócił dawny etap `intersection analysis` ani wybór ramki,
 - `intersection_analysis_and_frame_selection.md` pozostał jako notatka
   historyczna o usuniętym etapie.
@@ -202,12 +202,14 @@ W aktualnym kodzie:
   - grupowanie linii po ciągłości osi poprzecznej
 - `logical_line_connections.py`
   - pixel-validated connection
-- `intersection_models.py`
+- `intersection_model.py`
   - model `LogicalLineIntersection`, `LogicalLineIntersectionKind` i
     `IntersectionOrder`
 - `logical_line_intersections.py`
   - aktywne zbieranie intersections po connection i wybór referencyjnej pary
     segmentów
+- `logical_line_intersection_trimming.py`
+  - trim linii do przecięć i ponowne przypisanie intersections
 - `logical_line_search.py`
   - cienka publiczna fasada dla helperów search-related
 - `logical_line_search_area.py`
@@ -231,12 +233,10 @@ W aktualnym kodzie:
   - overlaye `post_merge`, `post_connection` i finalnych `LogicalLine`
 - `visualization/visualization_intersections.py`
   - overlaye aktywnych intersections
+- `visualization/visualization_trimmed_logical_lines.py`
+  - porównanie stanu `post_connection` z finalnymi liniami po trimie
 - `visualization/visualization_raw_segment_groups.py`
   - boardy i overlaye grup segmentów `RAW`
-- `visualization/visualization_tolerance_rectangles.py`
-  - overlaye prostokątów tolerancji
-- `visualization/visualization_long_segments.py`
-  - debug kandydatów długich segmentów
 
 ## Notatka o importach notebooka
 

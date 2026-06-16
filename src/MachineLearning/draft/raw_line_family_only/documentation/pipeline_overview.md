@@ -154,8 +154,8 @@ Cel:
 - wykonać full containment prune,
 - wykonać vertex containment merge,
 - wykonać pixel connection,
-- zebrać przecięcia między finalnymi rodzinami linii,
-- zbudować finalne prostokąty tolerancji,
+- przypisać przecięcia między rodzinami linii,
+- przyciąć linie do przecięć i ponownie przeliczyć intersections,
 - zwrócić wynik do raportu i renderów notebooka.
 
 Ważne rozdzielenie odpowiedzialności:
@@ -188,8 +188,6 @@ Najważniejsze pola:
 - `horizontal_logical_lines`
 - `vertical_logical_lines`
 - `logical_line_intersections`
-- `horizontal_tolerance_rectangles`
-- `vertical_tolerance_rectangles`
 
 Interpretacja stanów:
 
@@ -199,14 +197,13 @@ Interpretacja stanów:
 - `horizontal_vertex_containment_merge_result` i
   `vertical_vertex_containment_merge_result` opisują diagnostykę merge'u,
 - `post_merge` oznacza stan po merge'u vertex i przed pixel connection,
-- `post_connection` oznacza snapshot po pixel connection,
+- `post_connection` oznacza snapshot po pixel connection, ale jeszcze przed
+  trimem do przecięć,
 - kolekcje finalne `horizontal_logical_lines` i `vertical_logical_lines`
-  oznaczają dziś stan końcowy eksperymentu i są semantycznie zgodne ze stanem po
-  connection,
+  oznaczają dziś stan końcowy eksperymentu po trimie do przecięć,
 - `logical_line_intersections` oznacza aktywny etap zbierania przecięć po
-  connection i przed ewentualną późniejszą korektą geometrii,
-- `horizontal_order` i `vertical_order` w modelu przecięcia są dziś polami pod
-  kolejny etap klasyfikacji i startują od `NONE`.
+  connection oraz po odświeżeniu ich po trimie,
+- `order` w modelu przecięcia opisuje pozycję przecięcia na linii osiowej.
 
 ## Budowa `RawLineFamilyArtifacts`
 
@@ -237,27 +234,14 @@ Artefakty można podzielić na cztery grupy.
 - `binary_family_overlay`
 - `source_family_overlay`
 - `raw_segment_group_board`
-- `binary_raw_segment_group_overlay`
-- `source_raw_segment_group_overlay`
 - `containment_prune_board`
-- `binary_containment_prune_overlay`
-- `source_containment_prune_overlay`
 - `vertex_containment_merge_board`
-- `binary_vertex_containment_merge_overlay`
-- `source_vertex_containment_merge_overlay`
-- `binary_post_merge_logical_line_overlay`
-- `source_post_merge_logical_line_overlay`
 - `binary_post_connection_logical_line_overlay`
 - `source_post_connection_logical_line_overlay`
 - `binary_logical_line_overlay`
 - `source_logical_line_overlay`
-- `binary_logical_line_intersection_overlay`
+- `source_trimmed_logical_line_overlay`
 - `source_logical_line_intersection_overlay`
-- `binary_long_segment_candidate_overlay`
-- `source_long_segment_candidate_overlay`
-- `long_segment_candidate_board`
-- `binary_tolerance_rectangle_overlay`
-- `source_tolerance_rectangle_overlay`
 
 ### 4. Nazwy etapów
 
@@ -281,14 +265,12 @@ Raport obejmuje między innymi:
 - liczbę segmentów `same_axis_connection`,
 - liczbę segmentów `cross_axis_connection`,
 - liczbę przecięć `cross` i `touch`,
-- liczbę prostokątów tolerancji,
 - statystyki RAW segment grouping,
 - statystyki full containment prune,
 - statystyki vertex containment merge,
 - stan kolekcji `post_merge`,
 - stan kolekcji `post_connection`,
-- finalny stan kolekcji logicznych linii,
-- kandydatów długich segmentów,
+- finalny stan kolekcji logicznych linii po trimie,
 - listę plotów generowanych dla notebooka.
 
 To ważne, bo raport jest dzisiaj źródłem debug contextu, a nie tylko krótkim
@@ -313,30 +295,17 @@ Stała część listy:
 Opcjonalnie, jeśli artefakty istnieją:
 
 - `raw segment groups board`
-- `raw segment groups before pixel merge on repair binary`
-- `raw segment groups before pixel merge on source`
 - `containment prune board`
-- `containment prune on repair binary`
-- `containment prune on source`
 - `logical lines post vertex merge board`
-- `vertex containment merge on repair binary`
-- `vertex containment merge on source`
-- `logical lines post vertex merge on repair binary`
-- `logical lines post vertex merge on source`
 - `logical lines post connection on repair binary`
 - `logical lines post connection on source`
-- `logical line intersections on repair binary`
 - `logical line intersections on source`
-- `long segment candidates on repair binary`
-- `long segment candidates on source`
-- `logical lines board: blue=all, red=longest`
-- `tolerance rectangles on repair binary`
-- `tolerance rectangles on source`
+- `logical lines trimmed vs post connection on source`
 
 Zawsze obecne po pełnym przebiegu:
 
-- `logical lines final after connection on repair binary`
-- `logical lines final after connection on source`
+- `logical lines final on repair binary`
+- `logical lines final on source`
 
 ## Aktualny przepływ pipeline
 
@@ -351,9 +320,11 @@ flowchart TD
     grouping --> fullContainment[full containment prune]
     fullContainment --> vertexMerge[vertex containment merge]
     vertexMerge --> connection[pixel connection]
-    connection --> intersections[build logical line intersections]
-    intersections --> tolerance[build tolerance rectangles]
-    tolerance --> buildArtifacts[Build RawLineFamilyArtifacts]
+    connection --> savePost[Clone post_connection state]
+    savePost --> intersections[assign logical line intersections]
+    intersections --> trim[trim logical lines to intersections]
+    trim --> finalIntersections[reassign logical line intersections]
+    finalIntersections --> buildArtifacts[Build RawLineFamilyArtifacts]
     buildArtifacts --> buildPlots[Build notebook plot items]
     buildArtifacts --> buildReport[Describe artifacts]
 ```
@@ -364,7 +335,7 @@ flowchart TD
 2. `clean_binary` i `repaired_binary` pełnią różne role i nie należy ich
    traktować jako zamienników.
 3. Pipeline przechowuje osobno stan po grouping, po merge'u vertex, po
-   connection oraz aktywne przecięcia po connection.
+   connection oraz finalny stan po trimie do przecięć.
 4. Notebook może budować artefakty ręcznie, ale powinien zachowywać tę samą
    listę pól co `RawLineFamilyArtifacts`.
 5. Raport i overlaye są częścią eksperymentu, a nie dodatkiem pobocznym.

@@ -14,8 +14,7 @@ przez notebook `experiment.ipynb` i przez `pipeline/pipeline.py`.
 - `visualization/visualization_containment.py`
 - `visualization/visualization_vertex_containment_merge.py`
 - `visualization/visualization_intersections.py`
-- `visualization/visualization_tolerance_rectangles.py`
-- `visualization/visualization_long_segments.py`
+- `visualization/visualization_trimmed_logical_lines.py`
 - `pipeline/pipeline_artifacts.py`
 - `pipeline/pipeline_plots.py`
 - `pipeline/pipeline_report.py`
@@ -42,9 +41,8 @@ Pokazuje:
 
 ### 2. Grouping segmentów `RAW`
 
-Funkcje:
+Funkcja:
 
-- `build_raw_segment_group_overlays(...)`
 - `build_raw_segment_group_board(...)`
 
 Pokazują:
@@ -55,9 +53,8 @@ Pokazują:
 
 ### 3. Full containment prune
 
-Funkcje:
+Funkcja:
 
-- `build_containment_prune_overlays(...)`
 - `build_containment_prune_board(...)`
 
 Pokazują:
@@ -69,9 +66,8 @@ Pokazują:
 
 ### 4. Vertex containment merge
 
-Funkcje:
+Funkcja:
 
-- `build_vertex_containment_merge_overlays(...)`
 - `build_vertex_containment_merge_board(...)`
 
 Pokazują:
@@ -82,15 +78,13 @@ Pokazują:
 
 ### 5. Logical lines po merge'u vertex
 
-Funkcja:
+W aktualnym pipeline nie ma osobnego retained overlayu dla stanu `post_merge`.
 
-- `build_post_merge_logical_line_overlays(...)`
+Stan ten jest pokazywany pośrednio przez:
 
-Pokazuje:
+- `build_vertex_containment_merge_board(...)`
 
-- stan `post_merge`,
-- wynikowe linie logiczne po etapie merge'u,
-- brak segmentów dodanych jeszcze przez pixel connection.
+oraz raportowany tekstowo w `pipeline/pipeline_report.py`.
 
 ### 6. Logical lines po connection
 
@@ -101,7 +95,8 @@ Funkcja:
 Pokazuje:
 
 - stan `post_connection`,
-- segmenty dodane przez connection.
+- segmenty dodane przez connection,
+- geometrię jeszcze nieobciętą do przecięć.
 
 ### 7. Finalne logical lines
 
@@ -112,20 +107,21 @@ Funkcje:
 
 Pokazują:
 
-- finalne linie po connection,
+- finalne linie po trimie do przecięć,
 - wszystkie segmenty linii,
 - wierzchołki start i end,
 - segmenty o różnych originach.
 
-### 8. Long segment candidates
+### 8. Trimmed logical lines
 
-Funkcje:
+Funkcja:
 
-- `build_long_segment_candidate_overlays(...)`
-- `build_long_segment_candidate_board(...)`
+- `build_trimmed_logical_line_overlays(...)`
 
-To osobny widok diagnostyczny dla segmentów o długości co najmniej `80%`
-najdłuższego segmentu w danej linii.
+To widok diagnostyczny pokazujący:
+
+- przygaszony stan `post_connection`,
+- finalne linie po trimie do przecięć nałożone na ten sam obraz.
 
 ### 9. Intersections
 
@@ -135,23 +131,11 @@ Funkcja:
 
 Pokazuje:
 
-- aktywne `logical_line_intersections` zbudowane po connection,
+- aktywne `logical_line_intersections` po trimie i po ponownym ich
+  przeliczeniu,
 - rozróżnienie `cross` i `touch`,
 - punkt przecięcia wraz z etykietą pary linii,
-- dodatkowy marker boundary, jeśli przecięcie ma już ustawione
-  `horizontal_order` albo `vertical_order` na granicy linii.
-
-### 10. Tolerance rectangles
-
-Funkcja:
-
-- `build_tolerance_rectangle_overlays(...)`
-
-Pokazuje:
-
-- prostokąty tolerancji dla finalnych logical lines,
-- punkt referencyjny,
-- wektor rozpoznawania.
+- dodatkowy marker boundary wynikający z `order`.
 
 ## `RawLineFamilyArtifacts`
 
@@ -169,8 +153,7 @@ Najważniejsze grupy pól:
    `repaired_binary`
 2. wynik domenowy `line_family_result`
 3. overlaye i boardy dla rodzin, grouping, containment, vertex merge,
-   post-merge, post-connection, finalnych linii, intersections i tolerance
-   rectangles
+   post-connection, finalnych linii, intersections oraz widoku trimmed
 4. nazwy etapów, takie jak `denoise_name`, `threshold_name`, `cleanup_name`,
    `repair_name`
 
@@ -182,9 +165,9 @@ Najważniejsze grupy pól:
 - wynik vertex containment merge,
 - rozkład segmentów w stanie `post_merge`,
 - rozkład segmentów w stanie `post_connection`,
-- rozkład segmentów w finalnym stanie linii,
+- rozkład segmentów w finalnym stanie linii po trimie,
 - liczność przecięć `cross` i `touch`,
-- opis long segment candidates.
+- obecność retained artifactów overlayowych.
 
 To oznacza, że wizualizacje i raport opisują ten sam pipeline z dwóch
 perspektyw:
@@ -214,16 +197,11 @@ Opcjonalnie, jeśli odpowiednie artefakty istnieją:
 - `containment prune board`
 - `logical lines post vertex merge board`
 - `logical lines post connection on repair binary`
-- `logical line intersections on repair binary`
-- `long segment candidates on repair binary`
-- `tolerance rectangles on repair binary`
+- `logical lines post connection on source`
+- `logical line intersections on source`
+- `logical lines trimmed vs post connection on source`
 
 Zawsze obecne po pełnym przebiegu:
 
-- `logical lines final after connection on repair binary`
-- `logical lines final after connection on source`
-
-Jeśli overlay intersections został zbudowany, notebook pokazuje też:
-
-- `logical line intersections on repair binary`
-- `logical line intersections on source`
+- `logical lines final on repair binary`
+- `logical lines final on source`

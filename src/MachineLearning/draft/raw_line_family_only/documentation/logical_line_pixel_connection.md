@@ -4,7 +4,7 @@
 
 Ten dokument opisuje etap pixel-validated connection wykonywany po
 `post_merge`, który domyka geometrię aktywnego lifecycle linii przed etapem
-zbierania intersections.
+zbierania intersections i ich późniejszego trimu.
 
 ## Główne pliki
 
@@ -173,37 +173,46 @@ Po connection kod klonuje stan linii i zapisuje:
 To jest snapshot:
 
 - po connection,
-- przed budową aktywnych intersections i finalnych prostokątów tolerancji,
-- zgodny z finalną geometrią linii w `horizontal_logical_lines` i
-  `vertical_logical_lines`.
+- przed budową aktywnych intersections i przed trimem do przecięć,
+- pokazujący geometrię jeszcze nieobciętą do granic wynikających z
+  przecięć.
 
 W aktualnej wersji eksperymentu:
 
 - `horizontal_post_connection_logical_lines` i
   `vertical_post_connection_logical_lines` to jawny snapshot diagnostyczny,
-- `horizontal_logical_lines` i `vertical_logical_lines` oznaczają już finalny
-  wynik etapu detekcji,
+- `horizontal_logical_lines` i `vertical_logical_lines` nie są już po prostu
+  kopią stanu `post_connection`,
 - po connection działa aktywne zbieranie `logical_line_intersections`,
-- nie ma dalszego aktywnego etapu `intersection/frame`, który zmieniałby te
-  linie po connection albo wybierał ramkę planszy.
+- potem działa aktywny trim linii do przecięć,
+- po trimie intersections są liczone ponownie na finalnej geometrii,
+- nie ma dalszego aktywnego etapu `intersection/frame`, który wybierałby ramkę
+  planszy.
 
 ## Co dzieje się po connection
 
 Po zapisaniu snapshotu `post_connection` kod:
 
-- traktuje `horizontal_logical_lines` i `vertical_logical_lines` jako finalną
-  geometrię linii,
-- buduje `logical_line_intersections` na parach finalnych linii poziomych i
-  pionowych,
-- dopiero potem buduje `horizontal_tolerance_rectangles` i
-  `vertical_tolerance_rectangles`.
+- wyznacza `logical_line_intersections` dla linii poziomych i pionowych,
+- trimuje każdą linię do zakresu wyznaczonego przez skrajne przecięcia,
+- ponownie wyznacza `logical_line_intersections` już dla obciętej geometrii,
+- traktuje tak zaktualizowane `horizontal_logical_lines` i
+  `vertical_logical_lines` jako finalny wynik etapu detekcji.
 
 To rozdzielenie jest ważne:
 
 - connection nadal odpowiada za geometrię linii,
-- intersections nie modyfikują jeszcze linii, tylko opisują wykryte punkty,
-- przyszły etap naprawy granic może używać `kind`, `horizontal_order` i
-  `vertical_order`, ale nie jest jeszcze częścią aktywnego kodu.
+- pierwszy przebieg intersections służy jako wejście do trimu,
+- trim aktywnie modyfikuje geometrię linii po connection,
+- drugi przebieg intersections odświeża finalny opis przecięć po trimie,
+- przyszły etap dalszej analizy ramki nadal nie jest częścią aktywnego kodu.
+
+## Co nie jest wynikiem końcowym tego etapu
+
+`ToleranceRectangle` pozostaje ważnym narzędziem samego connection, ale
+aktualny kod nie przechowuje już finalnych kolekcji typu
+`horizontal_tolerance_rectangles` ani `vertical_tolerance_rectangles` w
+`RawLineFamilyResult`.
 
 ## Ważna konwencja pikselowa
 

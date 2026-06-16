@@ -2,40 +2,42 @@
 
 ## Status
 
-Ten dokument opisuje aktualny, aktywny etap zbierania intersections po
-`pixel connection`.
+Ten dokument opisuje aktualny, aktywny etap intersections wykonywany po
+`pixel connection`, razem z trimem linii do przecięć.
 
 W aktualnej wersji eksperymentu:
 
-- finalna geometria linii kończy się na `pixel connection`,
+- `pixel connection` nie jest już ostatnią modyfikacją geometrii linii,
 - po connection kod buduje aktywne `logical_line_intersections`,
+- potem trimuje linie do przecięć i ponownie przelicza intersections,
 - nie ma aktywnego etapu wyboru ramki ani przypisania `frame_side`,
 - intersections mają już własny overlay w notebooku i pipeline.
 
 ## Główne pliki
 
-- `intersection_models.py`
+- `intersection_model.py`
 - `logical_line_intersections.py`
+- `logical_line_intersection_trimming.py`
 - `visualization/visualization_intersections.py`
+- `visualization/visualization_trimmed_logical_lines.py`
 - `detection.py`
 - `pipeline/pipeline.py`
 - `pipeline/pipeline_report.py`
 
 ## Wejście do etapu
 
-Intersections są dziś budowane na:
+Intersections są dziś budowane w dwóch krokach:
 
-- `horizontal_logical_lines`
-- `vertical_logical_lines`
-
-czyli na finalnych rodzinach linii po `pixel connection`.
+- najpierw na stanie `post_connection`,
+- potem ponownie na finalnych `horizontal_logical_lines` i
+  `vertical_logical_lines` po trimie.
 
 To znaczy:
 
-- connection odpowiada za finalną geometrię linii,
-- intersections już nie zmieniają jeszcze linii,
-- przecięcia są aktywnym opisem relacji między rodzinami po domknięciu
-  geometrii.
+- connection najpierw domyka geometrię lokalnie,
+- pierwszy przebieg intersections dostarcza granic do trimu,
+- trim obcina finalne linie do skrajnych przecięć,
+- drugi przebieg intersections opisuje relacje na finalnej geometrii.
 
 ## Model domenowy
 
@@ -50,37 +52,55 @@ Przechowuje on:
 - jawne `kind`:
   - `cross`
   - `touch`
-- pola:
-  - `horizontal_order`
-  - `vertical_order`
+- pole:
+  - `order`
 
 Ważne rozróżnienie:
 
 - `kind` jest dziś liczone niezależnie od `IntersectionOrder`,
-- `horizontal_order` i `vertical_order` pozostają przygotowane pod kolejny etap
-  klasyfikacji i naprawy geometrii,
-- pola orderów startują jako `NONE`.
+- `order` opisuje pozycję przecięcia na danej linii osiowej,
+- `order` jest wyliczane z kolejności przecięć po osi danej linii.
 
-## Aktualna heurystyka budowy intersections
+## Aktualna heurystyka intersections i trimu
 
-Publiczny entrypoint:
+Publiczne entrypointy:
 
-- `build_logical_line_intersections(...)`
+- `assign_logical_line_intersections(...)`
+- `trim_logical_lines_to_intersections(...)`
 
 Aktualny przebieg:
 
-1. kod iteruje po parach finalnych linii `horizontal` / `vertical`,
+1. kod iteruje po parach linii `horizontal` / `vertical`,
 2. dla każdej pary sprawdza pary segmentów należących do tych linii,
 3. liczy punkt przecięcia linii wspierających segmenty,
 4. odrzuca kandydatów, których punkt nie leży na obu skończonych segmentach,
 5. klasyfikuje lokalny `kind` na podstawie pozycji punktu na segmentach
    referencyjnych,
-6. wybiera najlepszy kandydat dla danej pary linii.
+6. wybiera najlepszy kandydat dla danej pary linii,
+7. wylicza `order` na podstawie pozycji przecięcia na osi linii,
+8. wykorzystuje skrajne przecięcia jako granice trimu,
+9. po trimie liczy intersections ponownie.
 
 Dzisiejsza reguła `kind` jest lokalna i segmentowa:
 
 - `cross` tylko wtedy, gdy punkt leży w `MIDDLE` obu segmentów referencyjnych,
 - w przeciwnym razie `touch`.
+
+## Aktywny trim do przecięć
+
+Po pierwszym przypisaniu intersections kod uruchamia
+`trim_logical_lines_to_intersections(...)`.
+
+Semantyka:
+
+- każda linia jest przycinana do zakresu osi pomiędzy skrajnym przecięciem
+  `START/BOTH` i skrajnym przecięciem `END/BOTH`,
+- jeśli linia ma tylko jedno przecięcie (`BOTH`), trim nie daje dwóch granic,
+  więc geometria pozostaje bez zmian,
+- gdy to samo przecięcie pełniłoby obie granice, jego `kind` jest degradowane
+  do `touch`,
+- po potencjalnym trimie intersections są przeliczane jeszcze raz, żeby finalny
+  stan był zgodny z nową geometrią.
 
 ## Wizualizacja
 
@@ -93,8 +113,16 @@ Overlay pokazuje:
 - punkt przecięcia,
 - inny marker dla `cross` i `touch`,
 - etykietę pary linii, np. `H3xV7`,
-- dodatkowe obramowanie boundary, jeśli w przyszłości order dla którejś linii
-  zostanie ustawiony na granicę.
+- dodatkowe wyróżnienie dla przecięć boundary wynikające z `order`.
+
+Powiązany overlay:
+
+- `build_trimmed_logical_line_overlays(...)`
+
+Ten widok pokazuje różnicę między:
+
+- przygaszonym stanem `post_connection`,
+- finalnymi liniami po trimie do przecięć.
 
 ## Gdzie patrzeć teraz
 
