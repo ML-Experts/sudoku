@@ -22,11 +22,11 @@ from logical_line_search_pathfinding import (
     try_find_path,
     try_find_straight_path,
 )
-from logical_line_segment_geometry import (
-    supporting_line_intersection_point,
-)
 from logical_line_search_window_points import (
     build_start_points,
+)
+from logical_line_segment_geometry import (
+    supporting_line_intersection_point,
 )
 from models import LineFamilyName, SegmentOrigin
 from logical_line_connection_types import ConnectionCandidate
@@ -344,10 +344,7 @@ def try_connect_cross_axis_candidate(
         source_start_points,
         source_goal_sets,
     )
-    if source_path_points is None:
-        return False
 
-    reciprocal_vertex = source_line.get_vertex(source_vertex_kind)
     reciprocal_rectangle = candidate.target_line.build_tolerance_rectangle(
         reference_vertex=candidate.target_line.get_vertex(
             candidate.target_vertex_kind
@@ -359,9 +356,6 @@ def try_connect_cross_axis_candidate(
         binary_image.shape,
         reciprocal_rectangle,
     )
-    if not is_point_in_search_area(reciprocal_vertex, reciprocal_search_area):
-        return False
-
     reciprocal_goal_sets = build_cross_axis_goal_sets(
         binary_image,
         reciprocal_search_area,
@@ -382,33 +376,66 @@ def try_connect_cross_axis_candidate(
         reciprocal_start_points,
         reciprocal_goal_sets,
     )
-    if reciprocal_path_points is None:
-        return False
 
-    meeting_point = _choose_cross_axis_meeting_point(
-        source_line,
-        source_vertex_kind,
-        search_area,
-        _flatten_goal_sets(source_goal_sets),
-        candidate.target_line,
-        candidate.target_vertex_kind,
-        reciprocal_search_area,
-        _flatten_goal_sets(reciprocal_goal_sets),
-    )
-    if meeting_point is None:
-        return False
+    if source_path_points is not None and reciprocal_path_points is not None:
+        meeting_point = _choose_cross_axis_meeting_point(
+            source_line,
+            source_vertex_kind,
+            search_area,
+            _flatten_goal_sets(source_goal_sets),
+            candidate.target_line,
+            candidate.target_vertex_kind,
+            reciprocal_search_area,
+            _flatten_goal_sets(reciprocal_goal_sets),
+        )
+        if meeting_point is not None:
+            source_added_segment_count = _add_direct_connection_segment(
+                source_line,
+                source_vertex_kind,
+                meeting_point,
+            )
+            target_added_segment_count = _add_direct_connection_segment(
+                candidate.target_line,
+                candidate.target_vertex_kind,
+                meeting_point,
+            )
+            if source_added_segment_count + target_added_segment_count > 0:
+                return True
 
-    source_added_segment_count = _add_direct_connection_segment(
-        source_line,
-        source_vertex_kind,
-        meeting_point,
-    )
-    target_added_segment_count = _add_direct_connection_segment(
-        candidate.target_line,
-        candidate.target_vertex_kind,
-        meeting_point,
-    )
-    return (source_added_segment_count + target_added_segment_count) > 0
+        source_added_segment_count = _add_direct_connection_segment(
+            source_line,
+            source_vertex_kind,
+            source_path_points[-1],
+        )
+        target_added_segment_count = _add_direct_connection_segment(
+            candidate.target_line,
+            candidate.target_vertex_kind,
+            reciprocal_path_points[-1],
+        )
+        if source_added_segment_count + target_added_segment_count > 0:
+            return True
+
+    if source_path_points is not None:
+        return (
+            _add_direct_connection_segment(
+                source_line,
+                source_vertex_kind,
+                source_path_points[-1],
+            )
+            > 0
+        )
+
+    if reciprocal_path_points is not None:
+        return (
+            _add_direct_connection_segment(
+                candidate.target_line,
+                candidate.target_vertex_kind,
+                reciprocal_path_points[-1],
+            )
+            > 0
+        )
+
+    return False
 
 
 def try_connect_cross_axis_span_candidate(

@@ -6,6 +6,11 @@ from logical_line_debug import (
     logical_line_debug_sort_key,
 )
 from logical_line_core import LogicalLine
+from logical_line_frame_ranking import (
+    MIN_FRAME_AXIS_COVERAGE_RATIO,
+    build_frame_axis_spans_px,
+    passes_min_frame_axis_coverage,
+)
 from models import SegmentOrigin
 from pipeline_artifacts import RawLineFamilyArtifacts
 from pipeline_plots import build_raw_line_family_plot_items
@@ -107,14 +112,19 @@ def _describe_logical_line_intersections(
     ]
 
 
-def _describe_logical_line_frames(line_family_result) -> list[str]:
+def _describe_logical_line_frames(
+    line_family_result,
+    image_height: int,
+    image_width: int,
+) -> list[str]:
     frame_candidates = line_family_result.logical_line_frame_candidates
     description_lines = [
         (
             "logicalLineFrames: "
             f"count={len(frame_candidates)} "
             f"horizontalGroups={len(line_family_result.horizontal_boundary_groups)} "
-            f"verticalGroups={len(line_family_result.vertical_boundary_groups)}"
+            f"verticalGroups={len(line_family_result.vertical_boundary_groups)} "
+            f"minAxisCoverageRatio={MIN_FRAME_AXIS_COVERAGE_RATIO:.2f}"
         )
     ]
     selected_frame_candidate = line_family_result.selected_logical_line_frame_candidate
@@ -127,11 +137,21 @@ def _describe_logical_line_frames(line_family_result) -> list[str]:
         selection_marker = ""
         if frame_candidate is selected_frame_candidate:
             selection_marker = " [selected]"
+        passes_axis_coverage = passes_min_frame_axis_coverage(
+            frame_candidate,
+            image_height=image_height,
+            image_width=image_width,
+        )
+        frame_width_px, frame_height_px = build_frame_axis_spans_px(
+            frame_candidate
+        )
         description_lines.append(
             (
                 f"  {frame_index:02d}. "
                 f"{left_line}->{right_line}->{top_line}->{bottom_line}"
-                f"{selection_marker}"
+                f"{selection_marker} "
+                f"coverage={'pass' if passes_axis_coverage else 'reject'} "
+                f"frameSpan={frame_width_px}x{frame_height_px}"
             )
         )
         if ranking_debug is not None:
@@ -144,7 +164,12 @@ def _describe_logical_line_frames(line_family_result) -> list[str]:
                     f"vertexCorners={ranking_debug.matched_vertex_corner_count}/4 "
                     f"orderCorners={ranking_debug.matched_order_corner_count}/4 "
                     f"orderChecks={ranking_debug.matched_order_expectation_count}/8 "
-                    f"perimeter={ranking_debug.perimeter_px}"
+                    f"perimeter={ranking_debug.perimeter_px} "
+                    "axisLengths="
+                    f"{frame_candidate.top_line.axis_length}/"
+                    f"{frame_candidate.bottom_line.axis_length}/"
+                    f"{frame_candidate.left_line.axis_length}/"
+                    f"{frame_candidate.right_line.axis_length}"
                 )
             )
 
@@ -463,7 +488,11 @@ def describe_raw_line_family_artifacts(
         *_describe_logical_line_intersections(
             line_family_result.logical_line_intersections,
         ),
-        *_describe_logical_line_frames(line_family_result),
+        *_describe_logical_line_frames(
+            line_family_result,
+            image_height=artifacts.display_bgr.shape[0],
+            image_width=artifacts.display_bgr.shape[1],
+        ),
     ]
     render_artifact_debug_lines = [
         "",
@@ -492,6 +521,13 @@ def describe_raw_line_family_artifacts(
             f"visiblePixels={_has_visible_pixels(artifacts.source_connection_input_overlay)} "
             "shape="
             f"{None if artifacts.source_connection_input_overlay is None else artifacts.source_connection_input_overlay.shape}"
+        ),
+        (
+            "cleanBinaryAxisOverlay: "
+            f"present={_has_image(artifacts.clean_binary_axis_overlay)} "
+            f"visiblePixels={_has_visible_pixels(artifacts.clean_binary_axis_overlay)} "
+            "shape="
+            f"{None if artifacts.clean_binary_axis_overlay is None else artifacts.clean_binary_axis_overlay.shape}"
         ),
         (
             "sourcePostConnectionLogicalLineOverlay: "

@@ -161,13 +161,13 @@ def check_if_logical_line_is_contained_in_cross_axis(
     max_cross_axis_delta_px: int = 1
 ) -> bool:
 
-        if section_min <= max_cross_axis_delta_px:
-            return True
-        elif cross_axis_group_start_min <= candidate_line.cross_axis_start and cross_axis_group_end_max >= candidate_line.cross_axis_start:
-            return True
-        elif cross_axis_group_start_min <= candidate_line.cross_axis_end and cross_axis_group_end_max >= candidate_line.cross_axis_end:
-            return True
-        elif(try_find_white_path_from_point_to_logical_line(
+        # if section_min <= max_cross_axis_delta_px:
+        #     return True
+        # elif cross_axis_group_start_min <= candidate_line.cross_axis_start and cross_axis_group_end_max >= candidate_line.cross_axis_start:
+        #     return True
+        # elif cross_axis_group_start_min <= candidate_line.cross_axis_end and cross_axis_group_end_max >= candidate_line.cross_axis_end:
+        #     return True
+        if(try_find_white_path_from_point_to_logical_line(
             binary_image,
             candidate_line.start_vertex,
             container_line

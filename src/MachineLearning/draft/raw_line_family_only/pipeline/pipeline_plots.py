@@ -50,6 +50,14 @@ def build_raw_line_family_plot_items(
                 True,
             )
         )
+    if _has_image(artifacts.clean_binary_axis_overlay):
+        plot_items.append(
+            (
+                "cleanup binary with x/y axis grid",
+                artifacts.clean_binary_axis_overlay,
+                True,
+            )
+        )
     if _has_image(artifacts.containment_prune_board):
         plot_items.append(
             (

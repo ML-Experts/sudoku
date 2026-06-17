@@ -59,6 +59,10 @@ def run_raw_line_family_pipeline(
         binary_image,
         config,
     )
+    clean_binary_axis_overlay = notebook_api.build_clean_binary_axis_overlay(
+        clean_binary,
+        config,
+    )
 
     repair_name = "directional_close"
     repaired_binary = notebook_api.apply_directional_close_repair(
@@ -173,6 +177,7 @@ def run_raw_line_family_pipeline(
         min_component_area_px=min_component_area_px,
         cleanup_name=cleanup_name,
         clean_binary=clean_binary,
+        clean_binary_axis_overlay=clean_binary_axis_overlay,
         repair_name=repair_name,
         repaired_binary=repaired_binary,
         line_family_result=line_family_result,

@@ -94,8 +94,15 @@ W ramach tego samego typu pierwszeństwo ma mniejszy `distance_px`.
 `CROSS_AXIS`
 
 - próbuje połączyć koniec linii z wierzchołkiem linii prostopadłej,
-- wymaga walidacji po obu stronach połączenia,
-- po sukcesie dodaje po jednym connectorze do wspólnego punktu spotkania,
+- preferuje najbardziej restrykcyjny wariant, w którym obie linie mają
+  potwierdzoną ścieżkę po białych pikselach i można wskazać wspólny punkt
+  spotkania w obu prostokątach tolerancji,
+- jeśli wspólny punkt nie przechodzi, może zaakceptować obustronnie
+  potwierdzony kontakt bez jednego punktu spotkania,
+- dopiero na końcu akceptuje jednostronny kontakt znaleziony w jednym
+  prostokącie tolerancji,
+- po sukcesie dodaje connector-y odpowiadające najbardziej restrykcyjnemu
+  wariantowi, który przeszedł walidację,
 - nie scala obu linii w jedną.
 
 `CROSS_AXIS_SPAN`
@@ -132,11 +139,11 @@ Najważniejsze założenia:
 - wyszukiwanie odbywa się w ograniczonym `SearchArea`,
 - dla części kandydatów kod próbuje najpierw prostego łącznika,
 - `SAME_AXIS` może materializować ścieżkę BFS jako segmenty connection,
-- `CROSS_AXIS` i `CROSS_AXIS_SPAN` używają BFS tylko do potwierdzenia, że
-  kontakt jest lokalnie możliwy,
-- po walidacji `cross_axis` finalna geometria connection jest wybierana tak,
-  żeby robić możliwie mało skrętów i maksymalnie zachować kierunek końcowego
-  segmentu.
+- `CROSS_AXIS` sprawdza strategie od najbardziej do najmniej restrykcyjnej:
+  wspólny `meeting_point`, obustronny kontakt, jednostronny kontakt,
+- `CROSS_AXIS_SPAN` używa BFS do potwierdzenia, że kontakt jest lokalnie możliwy,
+- po walidacji `cross_axis` finalna geometria connection zależy od strategii,
+  która jako pierwsza przeszła walidację.
 
 Helper point-to-line używany poza samym connection, między innymi przez
 continuity dla containment i merge po wierzchołku, jest teraz wydzielony do

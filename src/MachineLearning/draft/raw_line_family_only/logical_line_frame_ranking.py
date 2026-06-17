@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 from frame_model import (
     LogicalLineFrameCandidate,
     LogicalLineFrameCandidateRanking,
@@ -8,6 +10,7 @@ from intersection_model import IntersectionOrder, LogicalLineIntersection
 from logical_line_debug import get_logical_line_debug_name
 
 TARGET_INNER_LINE_COUNT = 8
+MIN_FRAME_AXIS_COVERAGE_RATIO = 0.35
 
 
 def rank_logical_line_frame_candidates(
@@ -30,7 +33,7 @@ def rank_logical_line_frame_candidates(
     ):
         frame_candidate.ranking_debug = ranking_debug
         frame_candidate.ranking_position = ranking_position
-        frame_candidate.is_selected = ranking_position == 1
+        frame_candidate.is_selected = False
 
     return [
         frame_candidate
@@ -38,14 +41,77 @@ def rank_logical_line_frame_candidates(
     ]
 
 
-def select_best_logical_line_frame_candidate(
-    frame_candidates: list[LogicalLineFrameCandidate],
+def passes_min_frame_axis_coverage(
+    frame_candidate: LogicalLineFrameCandidate,
+    image_height: int,
+    image_width: int,
+    min_axis_coverage_ratio: float = MIN_FRAME_AXIS_COVERAGE_RATIO,
+) -> bool:
+    frame_width_px, frame_height_px = build_frame_axis_spans_px(frame_candidate)
+    minimum_horizontal_axis_length_px = _build_minimum_axis_length_threshold(
+        image_width,
+        min_axis_coverage_ratio,
+    )
+    minimum_vertical_axis_length_px = _build_minimum_axis_length_threshold(
+        image_height,
+        min_axis_coverage_ratio,
+    )
+    return (
+        frame_width_px > minimum_horizontal_axis_length_px
+        and frame_height_px > minimum_vertical_axis_length_px
+    )
+
+
+def select_best_ranked_logical_line_frame_candidate(
+    ranked_frame_candidates: list[LogicalLineFrameCandidate],
+    image_height: int,
+    image_width: int,
+    min_axis_coverage_ratio: float = MIN_FRAME_AXIS_COVERAGE_RATIO,
 ) -> LogicalLineFrameCandidate | None:
-    if not frame_candidates:
+    if not ranked_frame_candidates:
         return None
 
-    ranked_candidates = rank_logical_line_frame_candidates(frame_candidates)
-    return ranked_candidates[0]
+    selected_frame_candidate: LogicalLineFrameCandidate | None = None
+    for frame_candidate in ranked_frame_candidates:
+        frame_candidate.is_selected = False
+        if selected_frame_candidate is not None:
+            continue
+        if not passes_min_frame_axis_coverage(
+            frame_candidate,
+            image_height=image_height,
+            image_width=image_width,
+            min_axis_coverage_ratio=min_axis_coverage_ratio,
+        ):
+            continue
+        frame_candidate.is_selected = True
+        selected_frame_candidate = frame_candidate
+
+    return selected_frame_candidate
+
+
+def _build_minimum_axis_length_threshold(
+    axis_dimension_px: int,
+    min_axis_coverage_ratio: float,
+) -> int:
+    return math.floor(axis_dimension_px * min_axis_coverage_ratio)
+
+
+def build_frame_axis_spans_px(
+    frame_candidate: LogicalLineFrameCandidate,
+) -> tuple[int, int]:
+    left_axis_px = _build_cross_axis_center_px(frame_candidate.left_line)
+    right_axis_px = _build_cross_axis_center_px(frame_candidate.right_line)
+    top_axis_px = _build_cross_axis_center_px(frame_candidate.top_line)
+    bottom_axis_px = _build_cross_axis_center_px(frame_candidate.bottom_line)
+    frame_width_px = abs(right_axis_px - left_axis_px) + 1
+    frame_height_px = abs(bottom_axis_px - top_axis_px) + 1
+    return frame_width_px, frame_height_px
+
+
+def _build_cross_axis_center_px(logical_line) -> int:
+    return int(
+        round((logical_line.cross_axis_start + logical_line.cross_axis_end) / 2.0)
+    )
 
 
 def _build_frame_candidate_sort_key(
@@ -271,7 +337,10 @@ def _find_intersection(
 
 
 __all__ = [
+    "build_frame_axis_spans_px",
+    "MIN_FRAME_AXIS_COVERAGE_RATIO",
     "TARGET_INNER_LINE_COUNT",
+    "passes_min_frame_axis_coverage",
     "rank_logical_line_frame_candidates",
-    "select_best_logical_line_frame_candidate",
+    "select_best_ranked_logical_line_frame_candidate",
 ]

@@ -9,6 +9,9 @@ from visualization_vertex_containment_merge import (
 from visualization_line_families import (
     build_line_family_overlays,
 )
+from visualization_axes import (
+    build_clean_binary_axis_overlay,
+)
 from visualization_intersections import (
     build_logical_line_intersection_overlays,
 )
@@ -31,6 +34,7 @@ from visualization_raw_segment_groups import (
 
 
 __all__ = [
+    "build_clean_binary_axis_overlay",
     "build_line_family_overlays",
     "build_logical_line_intersection_overlays",
     "build_logical_line_frame_overlay",

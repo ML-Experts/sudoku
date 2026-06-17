@@ -38,6 +38,7 @@ class ExperimentConfig:
     cross_axis_connection_segment_color_bgr: tuple[int, int, int] = (0, 0, 255)
     tolerance_rectangle_vector_length_px: int = 350
     tolerance_rectangle_padding_px: int = 18
+    pixel_connection_cross_axis_step_limit_px: int = 4
     tolerance_rectangle_thickness: int = 2
     tolerance_rectangle_reference_radius: int = 4
     logical_line_intersection_radius: int = 7
@@ -52,6 +53,14 @@ class ExperimentConfig:
     frame_bottom_color_bgr: tuple[int, int, int] = (0, 128, 255)
     frame_left_color_bgr: tuple[int, int, int] = (255, 0, 255)
     frame_right_color_bgr: tuple[int, int, int] = (0, 255, 128)
+    axis_grid_step_px: int = 25
+    axis_grid_dot_radius: int = 2
+    axis_grid_label_font_scale: float = 0.4
+    axis_grid_label_thickness: int = 1
+    axis_grid_margin_left_px: int = 44
+    axis_grid_margin_top_px: int = 24
+    axis_grid_margin_right_px: int = 8
+    axis_grid_margin_bottom_px: int = 8
 
 
 class LineFamilyName(Enum):

@@ -63,6 +63,7 @@ class Api:
     build_logical_line_intersection_overlays: object
     build_logical_line_frame_overlay: object
     build_selected_logical_line_frame_overlay: object
+    build_clean_binary_axis_overlay: object
     build_containment_prune_board: object
     build_vertex_containment_merge_board: object
     build_connection_input_logical_line_overlays: object
@@ -139,6 +140,7 @@ def load_api() -> Api:
         build_selected_logical_line_frame_overlay=(
             visualization.build_selected_logical_line_frame_overlay
         ),
+        build_clean_binary_axis_overlay=visualization.build_clean_binary_axis_overlay,
         build_containment_prune_board=visualization.build_containment_prune_board,
         build_vertex_containment_merge_board=(
             visualization.build_vertex_containment_merge_board

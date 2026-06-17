@@ -67,6 +67,7 @@ def connect_logical_lines_by_pixels(
                         same_axis_lines,
                         cross_axis_lines,
                     )
+
                     for candidate in connection_candidates:
                         if candidate.connection_kind == ConnectionKind.SAME_AXIS:
                             was_connected = try_connect_same_axis_candidate(

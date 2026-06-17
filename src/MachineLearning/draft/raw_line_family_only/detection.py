@@ -40,6 +40,7 @@ from logical_line_frames import (
 )
 from logical_line_frame_ranking import (
     rank_logical_line_frame_candidates,
+    select_best_ranked_logical_line_frame_candidate,
 )
 from logical_line_cross_axis_continuity import LogicalLineCrossAxisGroup
 from models import (
@@ -304,6 +305,7 @@ def detect_line_families(
     pixel_connection_binary_image: np.ndarray | None = None,
     include_logical_lines: bool = True,
 ) -> RawLineFamilyResult:
+    image_height, image_width = family_detection_binary_image.shape[:2]
     pixel_connection_binary = pixel_connection_binary_image
     if pixel_connection_binary is None:
         pixel_connection_binary = family_detection_binary_image
@@ -418,8 +420,8 @@ def detect_line_families(
     merge_vertex_contained_vertical_logical_lines_result: MergeVertexContainedLogicalLinesResult = merge_logical_lines_by_vertex_axis_containment(family_detection_binary_image, vertical_logical_lines, vertical_angle_degrees, config)
     horizontal_logical_lines = merge_vertex_contained_horizontal_logical_lines_result.merged_logical_lines
     vertical_logical_lines = merge_vertex_contained_vertical_logical_lines_result.merged_logical_lines
-    assign_logical_line_debug_names(horizontal_logical_lines, "H")
-    assign_logical_line_debug_names(vertical_logical_lines, "V")
+    # assign_logical_line_debug_names(horizontal_logical_lines, "H")
+    # assign_logical_line_debug_names(vertical_logical_lines, "V")
     horizontal_post_merge_logical_lines = _clone_logical_lines(horizontal_logical_lines)
     vertical_post_merge_logical_lines = _clone_logical_lines(vertical_logical_lines)
     merge_vertex_contained_horizontal_logical_lines_result = (
@@ -440,7 +442,7 @@ def detect_line_families(
         axis_gap_tolerance_px=config.logical_line_axis_gap_tolerance_px,
         cross_axis_thickness_px=config.logical_line_cross_axis_thickness_px,
         rectangle_vector_length_px=config.tolerance_rectangle_vector_length_px,
-        rectangle_padding_px=config.tolerance_rectangle_padding_px,
+        rectangle_padding_px=config.tolerance_rectangle_padding_px
     )
     horizontal_post_connection_logical_lines = _clone_logical_lines(
         horizontal_logical_lines
@@ -479,9 +481,13 @@ def detect_line_families(
     logical_line_frame_candidates = rank_logical_line_frame_candidates(
         logical_line_frame_candidates
     )
-    selected_logical_line_frame_candidate = None
-    if logical_line_frame_candidates:
-        selected_logical_line_frame_candidate = logical_line_frame_candidates[0]
+    selected_logical_line_frame_candidate = (
+        select_best_ranked_logical_line_frame_candidate(
+            logical_line_frame_candidates,
+            image_height=image_height,
+            image_width=image_width,
+        )
+    )
 
     return RawLineFamilyResult(
         raw_segment_count=len(family_detection_segments),
