@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
 import numpy as np
 
 from geometry import (
     angle_difference_degrees,
-    build_line_segment_from_points,
 )
 from logical_line_segment_geometry import (
     point_axis_value,
@@ -24,6 +23,13 @@ from models import LineFamilyName, LineSegment, SegmentOrigin
 
 if TYPE_CHECKING:
     from logical_line_core import LogicalLine
+
+
+@dataclass(frozen=True, slots=True)
+class ResolvedRawSegment:
+    source_segment: LineSegment
+    output_segment: LineSegment
+    status: RawSegmentGroupStatus
 
 
 def group_raw_segments_in_line(
@@ -52,22 +58,17 @@ def group_raw_segments_in_line(
         candidate_window, trailing_segments = collect_raw_candidate_window(
             remaining_segments
         )
-        raw_segment_group_result = build_raw_segment_group_result(
-            candidate_segments=candidate_window,
-            family_name=logical_line.family_name,
-            binary_image=binary_image,
-            reference_angle_degrees=reference_angle_degrees,
-            angle_tolerance_degrees=angle_tolerance_degrees,
-            black_gap_tolerance_px=black_gap_tolerance_px,
+        raw_segment_group_results.extend(
+            build_raw_segment_group_results(
+                candidate_segments=candidate_window,
+                family_name=logical_line.family_name,
+                binary_image=binary_image,
+                reference_angle_degrees=reference_angle_degrees,
+                angle_tolerance_degrees=angle_tolerance_degrees,
+                black_gap_tolerance_px=black_gap_tolerance_px,
+            )
         )
-        raw_segment_group_results.append(raw_segment_group_result)
-        remaining_segments = sorted(
-            [
-                *raw_segment_group_result.deferred_segments,
-                *trailing_segments,
-            ],
-            key=segment_sort_key,
-        )
+        remaining_segments = sorted(trailing_segments, key=segment_sort_key)
 
     raw_segment_group_results = repair_adjacent_raw_group_boundaries(
         raw_segment_group_results=raw_segment_group_results,
@@ -102,6 +103,42 @@ def collect_raw_candidate_window(
     return candidate_window, line_segments[segment_index:]
 
 
+def build_raw_segment_group_results(
+    candidate_segments: list[LineSegment],
+    family_name: LineFamilyName,
+    binary_image: np.ndarray,
+    reference_angle_degrees: float,
+    angle_tolerance_degrees: float,
+    black_gap_tolerance_px: int,
+) -> list[RawSegmentGroupResult]:
+    if not candidate_segments:
+        raise ValueError("candidate_segments cannot be empty.")
+
+    del binary_image
+    del black_gap_tolerance_px
+
+    resolved_segments = resolve_overlapping_raw_segments(
+        candidate_segments=candidate_segments,
+        family_name=family_name,
+        reference_angle_degrees=reference_angle_degrees,
+        angle_tolerance_degrees=angle_tolerance_degrees,
+    )
+    return [
+        RawSegmentGroupResult(
+            seed_segment=resolved_segment.source_segment,
+            consumed_segments=(resolved_segment.source_segment,),
+            used_segments=(resolved_segment.source_segment,),
+            deferred_segments=(),
+            trial_segment=resolved_segment.source_segment,
+            output_segment=resolved_segment.output_segment,
+            accepted_boundary_segment=resolved_segment.source_segment,
+            first_invalid_gap_point=None,
+            status=resolved_segment.status,
+        )
+        for resolved_segment in resolved_segments
+    ]
+
+
 def build_raw_segment_group_result(
     candidate_segments: list[LineSegment],
     family_name: LineFamilyName,
@@ -110,8 +147,27 @@ def build_raw_segment_group_result(
     angle_tolerance_degrees: float,
     black_gap_tolerance_px: int,
 ) -> RawSegmentGroupResult:
+    group_results = build_raw_segment_group_results(
+        candidate_segments=candidate_segments,
+        family_name=family_name,
+        binary_image=binary_image,
+        reference_angle_degrees=reference_angle_degrees,
+        angle_tolerance_degrees=angle_tolerance_degrees,
+        black_gap_tolerance_px=black_gap_tolerance_px,
+    )
+    if not group_results:
+        raise ValueError("candidate_segments did not produce any group result.")
+    return group_results[0]
+
+
+def resolve_overlapping_raw_segments(
+    candidate_segments: list[LineSegment],
+    family_name: LineFamilyName,
+    reference_angle_degrees: float,
+    angle_tolerance_degrees: float,
+) -> list[ResolvedRawSegment]:
     if not candidate_segments:
-        raise ValueError("candidate_segments cannot be empty.")
+        return []
 
     seed_segment = candidate_segments[0]
     valid_boundary_segments = [
@@ -126,81 +182,212 @@ def build_raw_segment_group_result(
     if seed_segment not in valid_boundary_segments:
         valid_boundary_segments.insert(0, seed_segment)
 
-    trial_boundary_segment = max(
+    valid_boundary_segments = sorted(valid_boundary_segments, key=segment_sort_key)
+    intersection_axis_values = collect_raw_segment_intersection_axis_values(
         valid_boundary_segments,
-        key=lambda line_segment: (
-            line_segment.axis_end,
-            line_segment.axis_start,
-        ),
+        family_name,
     )
-    trial_segment = build_line_segment_from_points(
-        start=seed_segment.start,
-        end=trial_boundary_segment.end,
-        family_name=family_name,
-        origin=SegmentOrigin.RAW,
-    )
-    first_invalid_gap_point = find_first_invalid_black_gap_point(
-        binary_image=binary_image,
-        line_segment=trial_segment,
-        black_gap_tolerance_px=black_gap_tolerance_px,
-    )
-    accepted_boundary_segment = trial_boundary_segment
-    status = RawSegmentGroupStatus.SINGLE_SEGMENT
 
-    if first_invalid_gap_point is not None:
-        gap_axis_value = point_axis_value(family_name, first_invalid_gap_point)
-        accepted_boundary_candidates = [
+    min_axis = min(line_segment.axis_start for line_segment in valid_boundary_segments)
+    max_axis = max(line_segment.axis_end for line_segment in valid_boundary_segments)
+    current_axis = min_axis
+    retired_segments: set[LineSegment] = set()
+    resolved_segments: list[ResolvedRawSegment] = []
+
+    while current_axis <= max_axis:
+        active_segments = [
             line_segment
             for line_segment in valid_boundary_segments
-            if line_segment.axis_end < gap_axis_value
-        ]
-        if accepted_boundary_candidates:
-            accepted_boundary_segment = max(
-                accepted_boundary_candidates,
-                key=lambda line_segment: (
-                    line_segment.axis_end,
-                    line_segment.axis_start,
-                ),
+            if (
+                line_segment not in retired_segments
+                and line_segment.axis_start <= current_axis <= line_segment.axis_end
             )
-        else:
-            accepted_boundary_segment = seed_segment
-        status = RawSegmentGroupStatus.TRIMMED_BY_BLACK_GAP
-    elif len(candidate_segments) > 1:
-        status = RawSegmentGroupStatus.MERGED
+        ]
+        if not active_segments:
+            future_segments = [
+                line_segment
+                for line_segment in valid_boundary_segments
+                if (
+                    line_segment not in retired_segments
+                    and line_segment.axis_start > current_axis
+                )
+            ]
+            if not future_segments:
+                break
+            current_axis = min(
+                future_segments,
+                key=lambda line_segment: (
+                    line_segment.axis_start,
+                    line_segment.axis_end,
+                ),
+            ).axis_start
+            continue
 
-    output_segment = build_line_segment_from_points(
-        start=seed_segment.start,
-        end=accepted_boundary_segment.end,
-        family_name=family_name,
-        origin=SegmentOrigin.RAW,
-    )
-    valid_boundary_segment_set = set(valid_boundary_segments)
-    used_segments = tuple(
-        line_segment
-        for line_segment in candidate_segments
-        if line_segment == seed_segment
-        or (
-            line_segment in valid_boundary_segment_set
-            and line_segment.axis_end <= accepted_boundary_segment.axis_end
+        source_segment = choose_raw_continuation_segment(
+            active_segments,
+            reference_angle_degrees,
         )
+        output_axis_end = choose_raw_continuation_end_axis(
+            source_segment=source_segment,
+            current_axis=current_axis,
+            candidate_segments=valid_boundary_segments,
+            retired_segments=retired_segments,
+            intersection_axis_values=intersection_axis_values,
+        )
+        if output_axis_end < current_axis:
+            retired_segments.add(source_segment)
+            current_axis += 1
+            continue
+
+        output_segment = rebuild_segment_axis_range(
+            source_segment,
+            axis_start=current_axis,
+            axis_end=output_axis_end,
+        )
+        if output_segment is None:
+            if output_axis_end < source_segment.axis_end:
+                retired_segments.add(source_segment)
+            current_axis = output_axis_end + 1
+            continue
+
+        was_trimmed = (
+            output_segment.axis_start != source_segment.axis_start
+            or output_segment.axis_end != source_segment.axis_end
+        )
+        if was_trimmed:
+            status = RawSegmentGroupStatus.TRIMMED_BY_OVERLAP
+        elif len(valid_boundary_segments) > 1:
+            status = RawSegmentGroupStatus.MERGED
+        else:
+            status = RawSegmentGroupStatus.SINGLE_SEGMENT
+
+        resolved_segments.append(
+            ResolvedRawSegment(
+                source_segment=source_segment,
+                output_segment=output_segment,
+                status=status,
+            )
+        )
+        if output_axis_end < source_segment.axis_end:
+            retired_segments.add(source_segment)
+        current_axis = output_axis_end + 1
+
+    return resolved_segments
+
+
+def collect_raw_segment_intersection_axis_values(
+    line_segments: list[LineSegment],
+    family_name: LineFamilyName,
+) -> tuple[int, ...]:
+    intersection_axis_values: set[int] = set()
+    for first_index, first_segment in enumerate(line_segments):
+        for second_segment in line_segments[first_index + 1 :]:
+            intersection_axis_value = find_raw_segment_intersection_axis_value(
+                first_segment,
+                second_segment,
+                family_name,
+            )
+            if intersection_axis_value is None:
+                continue
+            intersection_axis_values.add(intersection_axis_value)
+    return tuple(sorted(intersection_axis_values))
+
+
+def find_raw_segment_intersection_axis_value(
+    first_segment: LineSegment,
+    second_segment: LineSegment,
+    family_name: LineFamilyName,
+) -> int | None:
+    overlap_axis_start = max(first_segment.axis_start, second_segment.axis_start)
+    overlap_axis_end = min(first_segment.axis_end, second_segment.axis_end)
+    if overlap_axis_start > overlap_axis_end:
+        return None
+
+    intersection_point = supporting_line_intersection_point(
+        first_segment,
+        second_segment,
     )
-    used_segment_set = set(used_segments)
-    deferred_segments = tuple(
-        line_segment
-        for line_segment in candidate_segments
-        if line_segment not in used_segment_set
+    if intersection_point is None:
+        return None
+
+    intersection_axis_value = floating_axis_value(family_name, intersection_point)
+    rounded_axis_value = int(round(intersection_axis_value))
+    if overlap_axis_start <= rounded_axis_value <= overlap_axis_end:
+        return rounded_axis_value
+    return None
+
+
+def floating_axis_value(
+    family_name: LineFamilyName,
+    point: tuple[float, float],
+) -> float:
+    if family_name == LineFamilyName.HORIZONTAL:
+        return float(point[0])
+    if family_name == LineFamilyName.VERTICAL:
+        return float(point[1])
+    raise NotImplementedError("Axis value is available only for classified lines.")
+
+
+def choose_raw_continuation_segment(
+    active_segments: list[LineSegment],
+    reference_angle_degrees: float,
+) -> LineSegment:
+    return min(
+        active_segments,
+        key=lambda line_segment: (
+            line_segment.axis_end,
+            angle_difference_degrees(
+                line_segment.angle_degrees,
+                reference_angle_degrees,
+            ),
+            line_segment.axis_start,
+            line_segment.cross_axis_start,
+            line_segment.cross_axis_end,
+        ),
     )
 
-    return RawSegmentGroupResult(
-        seed_segment=seed_segment,
-        consumed_segments=tuple(candidate_segments),
-        used_segments=used_segments,
-        deferred_segments=deferred_segments,
-        trial_segment=trial_segment,
-        output_segment=output_segment,
-        accepted_boundary_segment=accepted_boundary_segment,
-        first_invalid_gap_point=first_invalid_gap_point,
-        status=status,
+
+def choose_raw_continuation_end_axis(
+    source_segment: LineSegment,
+    current_axis: int,
+    candidate_segments: list[LineSegment],
+    retired_segments: set[LineSegment],
+    intersection_axis_values: tuple[int, ...],
+) -> int:
+    switch_axis_values = [
+        intersection_axis_value
+        for intersection_axis_value in intersection_axis_values
+        if (
+            current_axis < intersection_axis_value < source_segment.axis_end
+            and has_raw_continuation_after_axis(
+                source_segment=source_segment,
+                switch_axis=intersection_axis_value,
+                candidate_segments=candidate_segments,
+                retired_segments=retired_segments,
+            )
+        )
+    ]
+    if switch_axis_values:
+        return min(switch_axis_values)
+    return source_segment.axis_end
+
+
+def has_raw_continuation_after_axis(
+    source_segment: LineSegment,
+    switch_axis: int,
+    candidate_segments: list[LineSegment],
+    retired_segments: set[LineSegment],
+) -> bool:
+    next_axis = switch_axis + 1
+    return any(
+        line_segment
+        for line_segment in candidate_segments
+        if (
+            line_segment is not source_segment
+            and line_segment not in retired_segments
+            and line_segment.axis_start <= next_axis <= line_segment.axis_end
+            and line_segment.axis_end > switch_axis
+        )
     )
 
 
@@ -359,10 +546,14 @@ def build_repaired_group_pair(
 
 __all__ = [
     "build_raw_segment_group_result",
+    "build_raw_segment_group_results",
     "build_repaired_group_pair",
+    "collect_raw_segment_intersection_axis_values",
     "collect_raw_candidate_window",
     "find_first_invalid_black_gap_point",
+    "find_raw_segment_intersection_axis_value",
     "group_raw_segments_in_line",
     "repair_adjacent_raw_group_boundaries",
     "repair_raw_group_pair",
+    "resolve_overlapping_raw_segments",
 ]

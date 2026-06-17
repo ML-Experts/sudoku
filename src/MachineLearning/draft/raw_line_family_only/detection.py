@@ -381,20 +381,20 @@ def detect_line_families(
         cross_axis_thickness_px=config.logical_line_cross_axis_thickness_px,
         axis_gap_tolerance_px=config.logical_line_axis_gap_tolerance_px,
     )
+    assign_logical_line_debug_names(horizontal_logical_lines, "H")
+    assign_logical_line_debug_names(vertical_logical_lines, "V")
     _group_raw_segments_in_logical_lines(
         horizontal_logical_lines,
-        binary_image=pixel_connection_binary,
+        binary_image=family_detection_binary_image,
         reference_angle_degrees=horizontal_angle_degrees,
         config=config,
     )
     _group_raw_segments_in_logical_lines(
         vertical_logical_lines,
-        binary_image=pixel_connection_binary,
+        binary_image=family_detection_binary_image,
         reference_angle_degrees=vertical_angle_degrees,
         config=config,
     )
-    assign_logical_line_debug_names(horizontal_logical_lines, "H")
-    assign_logical_line_debug_names(vertical_logical_lines, "V")
     horizontal_pre_connection_logical_lines = [
         logical_line.clone() for logical_line in horizontal_logical_lines
     ]
@@ -403,8 +403,8 @@ def detect_line_families(
     ]
 
 
-    prune_contained_horizontal_logical_lines_result: PruneContainedLogicalLinesResult = prune_logical_lines_by_full_axis_containment(pixel_connection_binary, horizontal_logical_lines)
-    prune_contained_vertical_logical_lines_result: PruneContainedLogicalLinesResult = prune_logical_lines_by_full_axis_containment(pixel_connection_binary, vertical_logical_lines)
+    prune_contained_horizontal_logical_lines_result: PruneContainedLogicalLinesResult = prune_logical_lines_by_full_axis_containment(family_detection_binary_image, horizontal_logical_lines)
+    prune_contained_vertical_logical_lines_result: PruneContainedLogicalLinesResult = prune_logical_lines_by_full_axis_containment(family_detection_binary_image, vertical_logical_lines)
     horizontal_logical_lines = prune_contained_horizontal_logical_lines_result.pruned_logical_lines
     vertical_logical_lines = prune_contained_vertical_logical_lines_result.pruned_logical_lines
     prune_contained_horizontal_logical_lines_result = _clone_containment_prune_result(
@@ -414,8 +414,8 @@ def detect_line_families(
         prune_contained_vertical_logical_lines_result
     )
 
-    merge_vertex_contained_horizontal_logical_lines_result: MergeVertexContainedLogicalLinesResult = merge_logical_lines_by_vertex_axis_containment(pixel_connection_binary, horizontal_logical_lines, horizontal_angle_degrees, config)
-    merge_vertex_contained_vertical_logical_lines_result: MergeVertexContainedLogicalLinesResult = merge_logical_lines_by_vertex_axis_containment(pixel_connection_binary, vertical_logical_lines, vertical_angle_degrees, config)
+    merge_vertex_contained_horizontal_logical_lines_result: MergeVertexContainedLogicalLinesResult = merge_logical_lines_by_vertex_axis_containment(family_detection_binary_image, horizontal_logical_lines, horizontal_angle_degrees, config)
+    merge_vertex_contained_vertical_logical_lines_result: MergeVertexContainedLogicalLinesResult = merge_logical_lines_by_vertex_axis_containment(family_detection_binary_image, vertical_logical_lines, vertical_angle_degrees, config)
     horizontal_logical_lines = merge_vertex_contained_horizontal_logical_lines_result.merged_logical_lines
     vertical_logical_lines = merge_vertex_contained_vertical_logical_lines_result.merged_logical_lines
     assign_logical_line_debug_names(horizontal_logical_lines, "H")

@@ -34,6 +34,7 @@ class RawSegmentGroupStatus(Enum):
     SINGLE_SEGMENT = "single_segment"
     MERGED = "merged"
     TRIMMED_BY_BLACK_GAP = "trimmed_by_black_gap"
+    TRIMMED_BY_OVERLAP = "trimmed_by_overlap"
 
 
 @dataclass(frozen=True, slots=True)
