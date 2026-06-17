@@ -53,6 +53,11 @@ class ExperimentConfig:
     frame_bottom_color_bgr: tuple[int, int, int] = (0, 128, 255)
     frame_left_color_bgr: tuple[int, int, int] = (255, 0, 255)
     frame_right_color_bgr: tuple[int, int, int] = (0, 255, 128)
+    warp_output_size_px: int = 720
+    warp_output_padding_px: int = 0
+    warp_cell_divisions: int = 9
+    warp_cells_output_mime_type: str = "image/png"
+    warp_cells_preview_gap_px: int = 2
     axis_grid_step_px: int = 25
     axis_grid_dot_radius: int = 2
     axis_grid_label_font_scale: float = 0.4

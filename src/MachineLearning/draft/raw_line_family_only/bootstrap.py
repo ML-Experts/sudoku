@@ -31,6 +31,10 @@ MODULE_RELOAD_ORDER = (
     "logical_line_intersection_trimming",
     "logical_lines",
     "frame_model",
+    "logical_line_frame_cell_preprocessing",
+    "logical_line_frame_cells",
+    "logical_line_frame_warp_model",
+    "logical_line_frame_warp",
     "logical_line_frames",
     "logical_line_frame_ranking",
     "detection",
@@ -63,6 +67,7 @@ class Api:
     build_logical_line_intersection_overlays: object
     build_logical_line_frame_overlay: object
     build_selected_logical_line_frame_overlay: object
+    build_selected_frame_warp_overlay: object
     build_clean_binary_axis_overlay: object
     build_containment_prune_board: object
     build_vertex_containment_merge_board: object
@@ -139,6 +144,9 @@ def load_api() -> Api:
         ),
         build_selected_logical_line_frame_overlay=(
             visualization.build_selected_logical_line_frame_overlay
+        ),
+        build_selected_frame_warp_overlay=(
+            visualization.build_selected_frame_warp_overlay
         ),
         build_clean_binary_axis_overlay=visualization.build_clean_binary_axis_overlay,
         build_containment_prune_board=visualization.build_containment_prune_board,

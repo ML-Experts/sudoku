@@ -152,6 +152,47 @@ def build_raw_line_family_plot_items(
                 True,
             )
         )
+    if _has_image(artifacts.source_selected_frame_warp_overlay):
+        plot_items.append(
+            (
+                "warp corners on selected logical line frame",
+                artifacts.source_selected_frame_warp_overlay,
+                True,
+            )
+        )
+    if _has_image(artifacts.selected_frame_square_warp):
+        plot_items.append(
+            (
+                "selected logical line frame warped to square",
+                artifacts.selected_frame_square_warp,
+                True,
+            )
+        )
+    warp_result = artifacts.line_family_result.selected_logical_line_frame_warp_result
+    if (
+        warp_result is not None
+        and warp_result.cells_grid_result is not None
+        and _has_image(warp_result.cells_grid_result.preview_image)
+    ):
+        plot_items.append(
+            (
+                "warped frame equal 9x9 cells grid",
+                warp_result.cells_grid_result.preview_image,
+                True,
+            )
+        )
+    if (
+        warp_result is not None
+        and warp_result.cells_grid_result is not None
+        and _has_image(warp_result.cells_grid_result.ml_ready_preview_image)
+    ):
+        plot_items.append(
+            (
+                "warped frame ML-ready 28x28 inverted cells grid",
+                warp_result.cells_grid_result.ml_ready_preview_image,
+                True,
+            )
+        )
     return plot_items
 
 

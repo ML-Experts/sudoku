@@ -176,6 +176,45 @@ def _describe_logical_line_frames(
     return description_lines
 
 
+def _describe_selected_frame_warp(line_family_result) -> list[str]:
+    warp_result = line_family_result.selected_logical_line_frame_warp_result
+    if warp_result is None:
+        return ["selectedFrameWarp: unavailable"]
+
+    source_corners = warp_result.source_corners
+    cells_grid_result = warp_result.cells_grid_result
+    cells_grid_summary = "cellsGrid=unavailable"
+    if cells_grid_result is not None:
+        cells_grid_summary = (
+            "cellsGrid="
+            f"{cells_grid_result.grid_rows}x{cells_grid_result.grid_cols} "
+            f"cellMin={cells_grid_result.min_cell_width_px}x"
+            f"{cells_grid_result.min_cell_height_px} "
+            "apiReady="
+            f"{cells_grid_result.ml_ready_cell_size_px}x"
+            f"{cells_grid_result.ml_ready_cell_size_px} "
+            "binaryInverted=True"
+        )
+    return [
+        (
+            "selectedFrameWarp: "
+            f"rectangle={warp_result.rectangle_width_px:.1f}x"
+            f"{warp_result.rectangle_height_px:.1f} "
+            f"inferredSquareSide={warp_result.inferred_square_side_px:.1f} "
+            f"output={warp_result.output_size_px}x{warp_result.output_size_px} "
+            f"padding={warp_result.padding_px} "
+            f"{cells_grid_summary}"
+        ),
+        (
+            "  corners: "
+            f"TL=({source_corners.top_left[0]:.1f}, {source_corners.top_left[1]:.1f}) "
+            f"TR=({source_corners.top_right[0]:.1f}, {source_corners.top_right[1]:.1f}) "
+            f"BR=({source_corners.bottom_right[0]:.1f}, {source_corners.bottom_right[1]:.1f}) "
+            f"BL=({source_corners.bottom_left[0]:.1f}, {source_corners.bottom_left[1]:.1f})"
+        ),
+    ]
+
+
 def _describe_raw_segment_groups(
     line_prefix: str,
     logical_lines: list[LogicalLine],
@@ -493,7 +532,23 @@ def describe_raw_line_family_artifacts(
             image_height=artifacts.display_bgr.shape[0],
             image_width=artifacts.display_bgr.shape[1],
         ),
+        *_describe_selected_frame_warp(line_family_result),
     ]
+    selected_frame_warp_result = (
+        line_family_result.selected_logical_line_frame_warp_result
+    )
+    selected_frame_cells_preview = None
+    selected_frame_cells_ml_ready_preview = None
+    if (
+        selected_frame_warp_result is not None
+        and selected_frame_warp_result.cells_grid_result is not None
+    ):
+        selected_frame_cells_preview = (
+            selected_frame_warp_result.cells_grid_result.preview_image
+        )
+        selected_frame_cells_ml_ready_preview = (
+            selected_frame_warp_result.cells_grid_result.ml_ready_preview_image
+        )
     render_artifact_debug_lines = [
         "",
         "Retained render artifacts:",
@@ -581,6 +636,33 @@ def describe_raw_line_family_artifacts(
             "shape="
             f"{None if artifacts.source_selected_logical_line_frame_overlay is None else artifacts.source_selected_logical_line_frame_overlay.shape}"
         ),
+        (
+            "sourceSelectedFrameWarpOverlay: "
+            f"present={_has_image(artifacts.source_selected_frame_warp_overlay)} "
+            "visiblePixels="
+            f"{_has_visible_pixels(artifacts.source_selected_frame_warp_overlay)} "
+            "shape="
+            f"{None if artifacts.source_selected_frame_warp_overlay is None else artifacts.source_selected_frame_warp_overlay.shape}"
+        ),
+        (
+            "selectedFrameSquareWarp: "
+            f"present={_has_image(artifacts.selected_frame_square_warp)} "
+            f"visiblePixels={_has_visible_pixels(artifacts.selected_frame_square_warp)} "
+            "shape="
+            f"{None if artifacts.selected_frame_square_warp is None else artifacts.selected_frame_square_warp.shape}"
+        ),
+        (
+            "selectedFrameCellsGridPreview: "
+            f"present={_has_image(selected_frame_cells_preview)} "
+            "shape="
+            f"{None if selected_frame_cells_preview is None else selected_frame_cells_preview.shape}"
+        ),
+        (
+            "selectedFrameCellsGridMlReadyPreview: "
+            f"present={_has_image(selected_frame_cells_ml_ready_preview)} "
+            "shape="
+            f"{None if selected_frame_cells_ml_ready_preview is None else selected_frame_cells_ml_ready_preview.shape}"
+        ),
     ]
     plot_items = build_raw_line_family_plot_items(artifacts)
     plot_item_description_lines = [
@@ -629,6 +711,10 @@ def describe_raw_line_family_artifacts(
         f"End intersections: {end_intersection_count}",
         f"Both intersections: {both_intersection_count}",
         f"Logical line frames: {len(line_family_result.logical_line_frame_candidates)}",
+        (
+            "Selected frame warp: "
+            f"{line_family_result.selected_logical_line_frame_warp_result is not None}"
+        ),
         (
             "Horizontal family angle: "
             f"{line_family_result.horizontal_angle_degrees}"

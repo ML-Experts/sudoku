@@ -79,6 +79,7 @@ def run_raw_line_family_pipeline(
         clean_binary,
         config,
         pixel_connection_binary_image=repaired_binary,
+        warp_source_image=display_bgr,
     )
     binary_family_overlay, source_family_overlay = (
         notebook_api.build_line_family_overlays(
@@ -165,6 +166,19 @@ def run_raw_line_family_pipeline(
             config,
         )
     )
+    source_selected_frame_warp_overlay = (
+        notebook_api.build_selected_frame_warp_overlay(
+            display_bgr,
+            repaired_binary,
+            line_family_result,
+            config,
+        )
+    )
+    selected_frame_square_warp = None
+    if line_family_result.selected_logical_line_frame_warp_result is not None:
+        selected_frame_square_warp = (
+            line_family_result.selected_logical_line_frame_warp_result.warped_image
+        )
 
     return RawLineFamilyArtifacts(
         source_bgr=source_bgr,
@@ -204,6 +218,8 @@ def run_raw_line_family_pipeline(
         source_selected_logical_line_frame_overlay=(
             source_selected_logical_line_frame_overlay
         ),
+        source_selected_frame_warp_overlay=source_selected_frame_warp_overlay,
+        selected_frame_square_warp=selected_frame_square_warp,
     )
 
 

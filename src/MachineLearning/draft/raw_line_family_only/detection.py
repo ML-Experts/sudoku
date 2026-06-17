@@ -25,6 +25,12 @@ from frame_model import (
     LogicalLineBoundaryGroup,
     LogicalLineFrameCandidate,
 )
+from logical_line_frame_warp import (
+    warp_selected_frame_to_square,
+)
+from logical_line_frame_warp_model import (
+    LogicalLineFrameWarpResult,
+)
 from logical_lines import (
     LogicalLine,
     build_logical_lines,
@@ -89,6 +95,7 @@ class RawLineFamilyResult:
     vertical_boundary_groups: list[LogicalLineBoundaryGroup]
     logical_line_frame_candidates: list[LogicalLineFrameCandidate]
     selected_logical_line_frame_candidate: LogicalLineFrameCandidate | None
+    selected_logical_line_frame_warp_result: LogicalLineFrameWarpResult | None
 
 
 def _build_empty_line_family_result(
@@ -117,6 +124,7 @@ def _build_empty_line_family_result(
         vertical_boundary_groups=[],
         logical_line_frame_candidates=[],
         selected_logical_line_frame_candidate=None,
+        selected_logical_line_frame_warp_result=None,
     )
 
 
@@ -303,6 +311,7 @@ def detect_line_families(
     family_detection_binary_image: np.ndarray,
     config: ExperimentConfig,
     pixel_connection_binary_image: np.ndarray | None = None,
+    warp_source_image: np.ndarray | None = None,
     include_logical_lines: bool = True,
 ) -> RawLineFamilyResult:
     image_height, image_width = family_detection_binary_image.shape[:2]
@@ -369,6 +378,7 @@ def detect_line_families(
             vertical_boundary_groups=[],
             logical_line_frame_candidates=[],
             selected_logical_line_frame_candidate=None,
+            selected_logical_line_frame_warp_result=None,
         )
 
     horizontal_segments = family_horizontal_segments
@@ -488,6 +498,22 @@ def detect_line_families(
             image_width=image_width,
         )
     )
+    selected_logical_line_frame_warp_result = None
+    if (
+        selected_logical_line_frame_candidate is not None
+        and warp_source_image is not None
+    ):
+        selected_logical_line_frame_warp_result = warp_selected_frame_to_square(
+            image=warp_source_image,
+            frame_candidate=selected_logical_line_frame_candidate,
+            output_size_px=config.warp_output_size_px,
+            padding_px=config.warp_output_padding_px,
+            grid_division_count=config.warp_cell_divisions,
+            cells_output_mime_type=config.warp_cells_output_mime_type,
+            cells_preview_gap_px=config.warp_cells_preview_gap_px,
+            ml_ready_adaptive_block_size=config.adaptive_threshold_block_size,
+            ml_ready_adaptive_c=config.adaptive_threshold_c_value,
+        )
 
     return RawLineFamilyResult(
         raw_segment_count=len(family_detection_segments),
@@ -525,6 +551,9 @@ def detect_line_families(
         vertical_boundary_groups=vertical_boundary_groups,
         logical_line_frame_candidates=logical_line_frame_candidates,
         selected_logical_line_frame_candidate=selected_logical_line_frame_candidate,
+        selected_logical_line_frame_warp_result=(
+            selected_logical_line_frame_warp_result
+        ),
     )
 
 

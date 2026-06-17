@@ -45,6 +45,8 @@ class RawLineFamilyArtifacts:
     source_trimmed_logical_line_overlay: np.ndarray | None = None
     source_logical_line_frame_overlay: np.ndarray | None = None
     source_selected_logical_line_frame_overlay: np.ndarray | None = None
+    source_selected_frame_warp_overlay: np.ndarray | None = None
+    selected_frame_square_warp: np.ndarray | None = None
 
 
 __all__ = [

@@ -5,6 +5,7 @@ import numpy as np
 
 from detection import RawLineFamilyResult
 from frame_model import LogicalLineFrameCandidate
+from logical_line_frame_warp import resolve_frame_candidate_corners
 from logical_line_debug import get_logical_line_debug_name
 from models import ExperimentConfig
 
@@ -152,39 +153,17 @@ def _draw_frame_candidate(
 def _resolve_frame_vertices(
     frame_candidate: LogicalLineFrameCandidate,
 ) -> tuple[tuple[int, int], tuple[int, int], tuple[int, int], tuple[int, int]] | None:
-    top_left = _resolve_intersection_point(
-        frame_candidate.top_line,
-        frame_candidate.left_line,
-    )
-    top_right = _resolve_intersection_point(
-        frame_candidate.top_line,
-        frame_candidate.right_line,
-    )
-    bottom_right = _resolve_intersection_point(
-        frame_candidate.bottom_line,
-        frame_candidate.right_line,
-    )
-    bottom_left = _resolve_intersection_point(
-        frame_candidate.bottom_line,
-        frame_candidate.left_line,
-    )
-    if any(
-        vertex is None for vertex in (top_left, top_right, bottom_right, bottom_left)
-    ):
+    frame_corners = resolve_frame_candidate_corners(frame_candidate)
+    if frame_corners is None:
         return None
 
-    return top_left, top_right, bottom_right, bottom_left
-
-
-def _resolve_intersection_point(
-    logical_line,
-    cross_axis_line,
-) -> tuple[int, int] | None:
-    cross_axis_line_name = get_logical_line_debug_name(cross_axis_line)
-    for intersection in logical_line.intersections:
-        if intersection.intersected_line_cross_axis_debug_name == cross_axis_line_name:
-            return intersection.point
-    return None
+    return tuple(
+        (
+            int(round(point[0])),
+            int(round(point[1])),
+        )
+        for point in frame_corners.ordered_points
+    )  # type: ignore[return-value]
 
 
 def _build_frame_label(
