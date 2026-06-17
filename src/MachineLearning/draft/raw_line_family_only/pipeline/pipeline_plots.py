@@ -66,6 +66,22 @@ def build_raw_line_family_plot_items(
                 True,
             )
         )
+    if _has_image(artifacts.binary_connection_input_overlay):
+        plot_items.append(
+            (
+                "pixel connection tolerance rectangles on repair binary",
+                artifacts.binary_connection_input_overlay,
+                True,
+            )
+        )
+    if _has_image(artifacts.source_connection_input_overlay):
+        plot_items.append(
+            (
+                "pixel connection tolerance rectangles on source",
+                artifacts.source_connection_input_overlay,
+                True,
+            )
+        )
     if _has_image(artifacts.binary_post_connection_logical_line_overlay):
         plot_items.append(
             (

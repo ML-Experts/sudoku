@@ -487,6 +487,13 @@ def describe_raw_line_family_artifacts(
             f"shape={None if artifacts.vertex_containment_merge_board is None else artifacts.vertex_containment_merge_board.shape}"
         ),
         (
+            "sourceConnectionInputOverlay: "
+            f"present={_has_image(artifacts.source_connection_input_overlay)} "
+            f"visiblePixels={_has_visible_pixels(artifacts.source_connection_input_overlay)} "
+            "shape="
+            f"{None if artifacts.source_connection_input_overlay is None else artifacts.source_connection_input_overlay.shape}"
+        ),
+        (
             "sourcePostConnectionLogicalLineOverlay: "
             f"present={_has_image(artifacts.source_post_connection_logical_line_overlay)} "
             f"visiblePixels={_has_visible_pixels(artifacts.source_post_connection_logical_line_overlay)} "

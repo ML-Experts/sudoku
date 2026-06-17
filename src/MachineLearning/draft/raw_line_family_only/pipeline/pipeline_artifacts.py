@@ -36,6 +36,8 @@ class RawLineFamilyArtifacts:
     raw_segment_group_board: np.ndarray | None = None
     containment_prune_board: np.ndarray | None = None
     vertex_containment_merge_board: np.ndarray | None = None
+    binary_connection_input_overlay: np.ndarray | None = None
+    source_connection_input_overlay: np.ndarray | None = None
     binary_post_connection_logical_line_overlay: np.ndarray | None = None
     source_post_connection_logical_line_overlay: np.ndarray | None = None
     source_logical_line_intersection_overlay: np.ndarray | None = None

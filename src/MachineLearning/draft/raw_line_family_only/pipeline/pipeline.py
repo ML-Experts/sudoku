@@ -106,6 +106,15 @@ def run_raw_line_family_pipeline(
         ),
     )
     (
+        binary_connection_input_overlay,
+        source_connection_input_overlay,
+    ) = notebook_api.build_connection_input_logical_line_overlays(
+        display_bgr,
+        repaired_binary,
+        line_family_result,
+        config,
+    )
+    (
         binary_post_connection_logical_line_overlay,
         source_post_connection_logical_line_overlay,
     ) = notebook_api.build_post_connection_logical_line_overlays(
@@ -172,6 +181,8 @@ def run_raw_line_family_pipeline(
         raw_segment_group_board=raw_segment_group_board,
         containment_prune_board=containment_prune_board,
         vertex_containment_merge_board=vertex_containment_merge_board,
+        binary_connection_input_overlay=binary_connection_input_overlay,
+        source_connection_input_overlay=source_connection_input_overlay,
         binary_post_connection_logical_line_overlay=(
             binary_post_connection_logical_line_overlay
         ),

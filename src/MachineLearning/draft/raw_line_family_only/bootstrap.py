@@ -65,6 +65,7 @@ class Api:
     build_selected_logical_line_frame_overlay: object
     build_containment_prune_board: object
     build_vertex_containment_merge_board: object
+    build_connection_input_logical_line_overlays: object
     build_logical_line_overlays: object
     build_post_connection_logical_line_overlays: object
     build_trimmed_logical_line_overlays: object
@@ -141,6 +142,9 @@ def load_api() -> Api:
         build_containment_prune_board=visualization.build_containment_prune_board,
         build_vertex_containment_merge_board=(
             visualization.build_vertex_containment_merge_board
+        ),
+        build_connection_input_logical_line_overlays=(
+            visualization.build_connection_input_logical_line_overlays
         ),
         build_logical_line_overlays=visualization.build_logical_line_overlays,
         build_post_connection_logical_line_overlays=(

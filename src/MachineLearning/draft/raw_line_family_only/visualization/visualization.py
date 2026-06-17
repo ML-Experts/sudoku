@@ -17,6 +17,7 @@ from visualization_frames import (
     build_selected_logical_line_frame_overlay,
 )
 from visualization_logical_lines import (
+    build_connection_input_logical_line_overlays,
     build_logical_line_overlays,
     build_logical_line_overlays_for_lines,
     build_post_connection_logical_line_overlays,
@@ -36,6 +37,7 @@ __all__ = [
     "build_selected_logical_line_frame_overlay",
     "build_containment_prune_board",
     "build_vertex_containment_merge_board",
+    "build_connection_input_logical_line_overlays",
     "build_logical_line_overlays",
     "build_logical_line_overlays_for_lines",
     "build_post_connection_logical_line_overlays",
