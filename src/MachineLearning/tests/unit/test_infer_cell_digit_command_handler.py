@@ -79,8 +79,13 @@ class _CellOccupancyDetector:
 
 
 class _RuntimeModelLoader:
-    def __init__(self, predicted_digit: int) -> None:
-        self.predicted_digit = predicted_digit
+    def __init__(
+        self,
+        predicted_class_index: int,
+        output_classes: int = 9,
+    ) -> None:
+        self.predicted_class_index = predicted_class_index
+        self.output_classes = output_classes
         self.was_called = False
 
     def load(
@@ -92,26 +97,34 @@ class _RuntimeModelLoader:
     ) -> object:
         self.was_called = True
         return SimpleNamespace(
-            model=_PredictingModel(self.predicted_digit),
+            model=_PredictingModel(
+                self.predicted_class_index,
+                output_classes=self.output_classes,
+            ),
             input_transform=lambda image: torch.as_tensor(image, dtype=torch.float32),
             device=torch.device("cpu"),
         )
 
 
 class _PredictingModel(torch.nn.Module):
-    def __init__(self, predicted_digit: int) -> None:
+    def __init__(
+        self,
+        predicted_class_index: int,
+        output_classes: int = 9,
+    ) -> None:
         super().__init__()
-        self._predicted_digit = predicted_digit
+        self._predicted_class_index = predicted_class_index
+        self._output_classes = output_classes
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        output = torch.zeros((x.shape[0], 10), dtype=torch.float32)
-        output[:, self._predicted_digit] = 1.0
+        output = torch.zeros((x.shape[0], self._output_classes), dtype=torch.float32)
+        output[:, self._predicted_class_index] = 1.0
         return output
 
 
 class InferCellDigitCommandHandlerTests(unittest.TestCase):
     def test_handle_should_return_digit_when_cell_is_not_empty(self) -> None:
-        runtime_model_loader = _RuntimeModelLoader(predicted_digit=7)
+        runtime_model_loader = _RuntimeModelLoader(predicted_class_index=6)
         occupancy_detector = _CellOccupancyDetector(is_empty=False)
         handler = self._create_handler(
             occupancy_detector=occupancy_detector,
@@ -137,7 +150,7 @@ class InferCellDigitCommandHandlerTests(unittest.TestCase):
     def test_handle_should_return_null_without_loading_model_for_empty_cell(
         self,
     ) -> None:
-        runtime_model_loader = _RuntimeModelLoader(predicted_digit=7)
+        runtime_model_loader = _RuntimeModelLoader(predicted_class_index=6)
         handler = self._create_handler(
             occupancy_detector=_CellOccupancyDetector(is_empty=True),
             runtime_model_loader=runtime_model_loader,
@@ -151,7 +164,7 @@ class InferCellDigitCommandHandlerTests(unittest.TestCase):
     def test_handle_should_reject_input_profile_mismatch(self) -> None:
         handler = self._create_handler(
             occupancy_detector=_CellOccupancyDetector(is_empty=False),
-            runtime_model_loader=_RuntimeModelLoader(predicted_digit=7),
+            runtime_model_loader=_RuntimeModelLoader(predicted_class_index=6),
         )
         command = self._command(input_profile="other-profile")
 
@@ -163,7 +176,7 @@ class InferCellDigitCommandHandlerTests(unittest.TestCase):
     def test_handle_should_map_preprocessing_failure_to_422(self) -> None:
         handler = self._create_handler(
             occupancy_detector=_CellOccupancyDetector(is_empty=False),
-            runtime_model_loader=_RuntimeModelLoader(predicted_digit=7),
+            runtime_model_loader=_RuntimeModelLoader(predicted_class_index=6),
             preprocessing_pipeline=_CellPreprocessingPipeline(should_fail=True),
         )
 
@@ -175,10 +188,23 @@ class InferCellDigitCommandHandlerTests(unittest.TestCase):
             "cell_image_not_processable",
         )
 
-    def test_handle_should_reject_digit_zero_from_model(self) -> None:
+    def test_handle_should_map_first_sudoku_class_to_digit_one(self) -> None:
         handler = self._create_handler(
             occupancy_detector=_CellOccupancyDetector(is_empty=False),
-            runtime_model_loader=_RuntimeModelLoader(predicted_digit=0),
+            runtime_model_loader=_RuntimeModelLoader(predicted_class_index=0),
+        )
+
+        result = handler.handle(self._command())
+
+        self.assertEqual(result.digit, 1)
+
+    def test_handle_should_reject_out_of_contract_class_index(self) -> None:
+        handler = self._create_handler(
+            occupancy_detector=_CellOccupancyDetector(is_empty=False),
+            runtime_model_loader=_RuntimeModelLoader(
+                predicted_class_index=9,
+                output_classes=10,
+            ),
         )
 
         with self.assertRaises(CellDigitInferenceValidationError) as context:

@@ -71,7 +71,14 @@ def _can_use_for_inference(manifest: dict[str, Any]) -> bool:
     capabilities = manifest.get("capabilities")
     if not isinstance(capabilities, dict):
         return False
-    return capabilities.get("canUseForInference") is True
+    if capabilities.get("canUseForInference") is not True:
+        return False
+
+    architecture = manifest.get("architecture")
+    if not isinstance(architecture, dict):
+        return False
+
+    return architecture.get("numClasses") == 9
 
 
 def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:

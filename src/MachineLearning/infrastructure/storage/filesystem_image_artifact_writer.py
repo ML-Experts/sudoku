@@ -1,15 +1,22 @@
 from pathlib import Path
+from typing import Protocol
 
 import numpy as np
 from numpy.typing import NDArray
 
-from infrastructure.vision.opencv_image_codec import OpenCvImageCodec
+from models.preprocessing_image import PreprocessingImage
+
+
+class ImageCodec(Protocol):
+    def encode_image(
+        self, image: NDArray[np.uint8], mime_type: str
+    ) -> PreprocessingImage: ...
 
 
 class FilesystemImageArtifactWriter:
     def __init__(
         self,
-        image_codec: OpenCvImageCodec,
+        image_codec: ImageCodec,
         output_mime_type: str = "image/png",
     ) -> None:
         self._image_codec = image_codec

@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 
@@ -27,6 +29,7 @@ from application.features.datasets.errors.dataset_preparation_errors import (
 )
 
 datasets_controller = APIRouter(prefix="/ml/datasets", tags=["datasets"])
+LOGGER = logging.getLogger(__name__)
 
 
 def _unprocessable_content_response(
@@ -64,6 +67,11 @@ async def prepare_dataset_artifact(
         get_prepare_dataset_artifact_command_handler
     ),
 ) -> PreparedDatasetArtifactApiResponse | JSONResponse:
+    LOGGER.info(
+        "Received dataset prepare request: dataset=%s source_count=%s",
+        entry.dataset_name,
+        len(entry.sources),
+    )
     command = PrepareDatasetArtifactCommand(
         dataset_name=entry.dataset_name,
         preprocessing_profile=entry.preprocessing_profile,
@@ -88,13 +96,30 @@ async def prepare_dataset_artifact(
     try:
         result = command_handler.handle(command)
     except PrepareDatasetArtifactCommandError as error:
+        LOGGER.warning(
+            "Dataset prepare request failed with domain error: dataset=%s error_type=%s message=%s",
+            entry.dataset_name,
+            error.error_type,
+            error.message,
+        )
         return _unprocessable_content_response(
             error_type=error.error_type,
             message=error.message,
         )
     except Exception:
+        LOGGER.exception(
+            "Dataset prepare request failed with unhandled error: dataset=%s",
+            entry.dataset_name,
+        )
         return _internal_server_error_response(
             message="Wystąpił nieobsłużony błąd przygotowania datasetu."
         )
 
+    LOGGER.info(
+        "Dataset prepare request succeeded: dataset=%s train=%s val=%s test=%s",
+        entry.dataset_name,
+        result.sample_counts.train,
+        result.sample_counts.val,
+        result.sample_counts.test,
+    )
     return PreparedDatasetArtifactApiResponse.from_dto(result)

@@ -11,7 +11,9 @@ W aktualnej wersji eksperymentu:
 - po connection kod buduje aktywne `logical_line_intersections`,
 - potem trimuje linie do przecięć i ponownie przelicza intersections,
 - po finalnych intersections buduje grupy boundary i kandydatów ramek,
-- nie ma aktywnego etapu rankingu ramek ani przypisania `frame_side`,
+- aktywny kod może następnie rankingować kandydatów ramek i wybrać zwycięzcę
+  dla ścieżki ekstrakcji planszy,
+- `frame_side` nadal nie jest używane jako aktywny etap sterujący pipeline'em,
 - intersections mają już własny overlay w notebooku i pipeline.
 
 ## Główne pliki
@@ -140,7 +142,8 @@ boundary i wzajemnych przecięć grup.
 
 Ważne:
 
-- ten etap nie wybiera jeszcze najlepszej ramki,
+- samo budowanie kandydatów ramek nie wybiera jeszcze zwycięzcy,
+- ranking i wybór zwycięzcy mogą nastąpić później w `detection.py`,
 - `frame_side` nie jest ustawiane,
 - overlay ramek jest osobnym retained artifactem notebooka i pipeline'u.
 

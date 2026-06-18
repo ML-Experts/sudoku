@@ -14,6 +14,7 @@ class NpzDatasetArtifactWriter:
         y_val: NDArray[np.int64],
         x_test: NDArray[np.float32],
         y_test: NDArray[np.int64],
+        class_names: tuple[str, ...],
     ) -> None:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         temporary_path = output_path.with_suffix(f"{output_path.suffix}.tmp")
@@ -29,9 +30,7 @@ class NpzDatasetArtifactWriter:
                 y_val=y_val,
                 x_test=x_test,
                 y_test=y_test,
-                class_names=np.array(
-                    ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
-                ),
+                class_names=np.array(class_names),
             )
             saved_temp_path.replace(output_path)
         except Exception:

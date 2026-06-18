@@ -32,12 +32,15 @@ MODULE_RELOAD_ORDER = (
     "logical_lines",
     "frame_model",
     "logical_line_frame_cell_preprocessing",
+    "preprocessing_api_models",
+    "preprocessing_api_codec",
     "logical_line_frame_cells",
     "logical_line_frame_warp_model",
     "logical_line_frame_warp",
     "logical_line_frames",
     "logical_line_frame_ranking",
     "detection",
+    "preprocessing_api",
     "visualization",
 )
 
@@ -52,6 +55,10 @@ MODULE_RELOAD_PREFIXES = (
 @dataclass(frozen=True)
 class Api:
     ExperimentConfig: object
+    ImageApiEntry: object
+    ImageApiResponse: object
+    CellsGridApiResponse: object
+    ErrorApiResponse: object
     REPO_ROOT: Path
     resolve_active_image_path: object
     path_for_display: object
@@ -76,6 +83,8 @@ class Api:
     build_post_connection_logical_line_overlays: object
     build_trimmed_logical_line_overlays: object
     build_raw_segment_group_board: object
+    preprocess_board_image_entry: object
+    extract_cells_from_board_image_entry: object
 
 
 def _ensure_variant_dir_on_sys_path() -> Path:
@@ -120,10 +129,16 @@ def load_api() -> Api:
     display_module = modules["display"]
     binary_module = modules["binary"]
     detection = modules["detection"]
+    preprocessing_api = modules["preprocessing_api"]
+    preprocessing_api_models = modules["preprocessing_api_models"]
     visualization = modules["visualization"]
 
     return Api(
         ExperimentConfig=models_module.ExperimentConfig,
+        ImageApiEntry=preprocessing_api_models.ImageApiEntry,
+        ImageApiResponse=preprocessing_api_models.ImageApiResponse,
+        CellsGridApiResponse=preprocessing_api_models.CellsGridApiResponse,
+        ErrorApiResponse=preprocessing_api_models.ErrorApiResponse,
         REPO_ROOT=paths_module.REPO_ROOT,
         resolve_active_image_path=paths_module.resolve_active_image_path,
         path_for_display=paths_module.path_for_display,
@@ -164,6 +179,12 @@ def load_api() -> Api:
             visualization.build_trimmed_logical_line_overlays
         ),
         build_raw_segment_group_board=visualization.build_raw_segment_group_board,
+        preprocess_board_image_entry=(
+            preprocessing_api.preprocess_board_image_entry
+        ),
+        extract_cells_from_board_image_entry=(
+            preprocessing_api.extract_cells_from_board_image_entry
+        ),
     )
 
 

@@ -100,6 +100,7 @@ class NpzDatasetArtifactWriter(Protocol):
         y_val: NDArray[np.int64],
         x_test: NDArray[np.float32],
         y_test: NDArray[np.int64],
+        class_names: tuple[str, ...],
     ) -> None: ...
 
 
@@ -170,26 +171,10 @@ class PreparationReportBuilder(Protocol):
     ) -> PreparedDatasetSourceReportDto: ...
 
 
-class GrayscaleBlurPreprocessor(Protocol):
-    def preprocess(self, image: NDArray[np.uint8]) -> NDArray[np.uint8]: ...
-
-
-class AdaptiveThresholdBinarizer(Protocol):
-    def binarize(self, image: NDArray[np.uint8]) -> NDArray[np.uint8]: ...
-
-
-class BoardQuadDetector(Protocol):
-    def detect(self, image: NDArray[np.uint8]) -> object: ...
-
-
-class PerspectiveTransformer(Protocol):
-    def transform(
-        self, image: NDArray[np.uint8], board_quad: object
-    ) -> NDArray[np.uint8]: ...
-
-
-class BoardCellsExtractor(Protocol):
-    def extract(self, board_image: NDArray[np.uint8]) -> CellsGrid: ...
+class BoardDatasetCellExtractor(Protocol):
+    def extract(
+        self, board_image: NDArray[np.uint8]
+    ) -> tuple[NDArray[np.uint8], CellsGrid]: ...
 
 
 @dataclass(frozen=True)
@@ -214,11 +199,7 @@ class PrepareDatasetArtifactCommandHandler:
         dataset_preview_index_writer: DatasetPreviewIndexWriter,
         dataset_preparation_artifact_cleanup: DatasetPreparationArtifactCleanup,
         preparation_report_builder: PreparationReportBuilder,
-        grayscale_blur_preprocessor: GrayscaleBlurPreprocessor,
-        adaptive_threshold_binarizer: AdaptiveThresholdBinarizer,
-        board_quad_detector: BoardQuadDetector,
-        perspective_transformer: PerspectiveTransformer,
-        board_cells_extractor: BoardCellsExtractor,
+        board_dataset_cell_extractor: BoardDatasetCellExtractor,
     ) -> None:
         self._dataset_source_resolver = dataset_source_resolver
         self._board_dataset_scanner = board_dataset_scanner
@@ -235,11 +216,7 @@ class PrepareDatasetArtifactCommandHandler:
             dataset_preparation_artifact_cleanup
         )
         self._preparation_report_builder = preparation_report_builder
-        self._grayscale_blur_preprocessor = grayscale_blur_preprocessor
-        self._adaptive_threshold_binarizer = adaptive_threshold_binarizer
-        self._board_quad_detector = board_quad_detector
-        self._perspective_transformer = perspective_transformer
-        self._board_cells_extractor = board_cells_extractor
+        self._board_dataset_cell_extractor = board_dataset_cell_extractor
 
     def handle(
         self, command: PrepareDatasetArtifactCommand
@@ -255,9 +232,22 @@ class PrepareDatasetArtifactCommandHandler:
         preview_stage_dir = self._dataset_preview_path_provider.create_stage_dir(
             command.dataset_name
         )
+        LOGGER.info(
+            "Dataset preparation started: dataset=%s source_count=%s target_path=%s preview_stage_dir=%s",
+            command.dataset_name,
+            len(command.sources),
+            target_path,
+            preview_stage_dir,
+        )
 
         try:
             for source in command.sources:
+                LOGGER.info(
+                    "Resolving dataset source: dataset=%s source=%s requested_type=%s",
+                    command.dataset_name,
+                    source.name,
+                    source.type,
+                )
                 resolved_source = self._resolve_source(
                     source_name=source.name,
                     requested_type=source.type,
@@ -301,6 +291,15 @@ class PrepareDatasetArtifactCommandHandler:
                 all_samples.extend(prepared)
                 source_reports.append(source_report)
                 global_warnings.extend(source_report.warnings)
+                LOGGER.info(
+                    "Dataset source prepared: dataset=%s source=%s detected_type=%s "
+                    "prepared_samples=%s warnings_count=%s",
+                    command.dataset_name,
+                    source.name,
+                    resolved_source.detected_type,
+                    len(prepared),
+                    len(source_report.warnings),
+                )
 
             supervised_samples = [
                 sample for sample in all_samples if sample.label is not None
@@ -322,6 +321,11 @@ class PrepareDatasetArtifactCommandHandler:
                 preview_stage_dir=preview_stage_dir,
                 preview_index=preview_index,
             )
+            LOGGER.info(
+                "Dataset preview index written: dataset=%s preview_stage_dir=%s",
+                command.dataset_name,
+                preview_stage_dir,
+            )
 
             try:
                 self._npz_dataset_artifact_writer.write(
@@ -332,12 +336,18 @@ class PrepareDatasetArtifactCommandHandler:
                     y_val=split_arrays["y_val"],
                     x_test=split_arrays["x_test"],
                     y_test=split_arrays["y_test"],
+                    class_names=self._build_class_names(supervised_samples),
                 )
             except OSError as error:
                 raise PrepareDatasetArtifactCommandError(
                     error_type="dataset_artifact_write_failed",
                     message="Nie udało się zapisać artefaktu datasetu.",
                 ) from error
+            LOGGER.info(
+                "Dataset artifact written: dataset=%s target_path=%s",
+                command.dataset_name,
+                target_path,
+            )
 
             try:
                 self._dataset_preview_path_provider.promote_stage_dir(
@@ -349,7 +359,20 @@ class PrepareDatasetArtifactCommandHandler:
                     error_type="dataset_preview_write_failed",
                     message="Nie udało się sfinalizować artefaktów preview.",
                 ) from error
-        except Exception:
+            LOGGER.info(
+                "Dataset preview promoted: dataset=%s preview_stage_dir=%s",
+                command.dataset_name,
+                preview_stage_dir,
+            )
+        except Exception as error:
+            LOGGER.exception(
+                "Dataset preparation failed: dataset=%s preview_stage_dir=%s "
+                "target_path=%s error_type=%s",
+                command.dataset_name,
+                preview_stage_dir,
+                target_path,
+                getattr(error, "error_type", type(error).__name__),
+            )
             self._cleanup_partial_artifacts(
                 dataset_name=command.dataset_name,
                 preview_stage_dir=preview_stage_dir,
@@ -426,6 +449,12 @@ class PrepareDatasetArtifactCommandHandler:
                 error_type="dataset_source_invalid",
                 message=str(error),
             ) from error
+        LOGGER.info(
+            "Board source scan completed: source=%s source_path=%s board_pairs_count=%s",
+            source_name,
+            source_path,
+            len(board_pairs),
+        )
 
         prepared_samples: list[CanonicalPreparedSampleDto] = []
         rejected_sample_count = 0
@@ -438,6 +467,14 @@ class PrepareDatasetArtifactCommandHandler:
                 split_policy=split_policy,
                 stable_key=board_pair.group_key,
             )
+            LOGGER.info(
+                "Preparing board pair: source=%s board=%s image_path=%s label_path=%s split=%s",
+                source_name,
+                board_pair.board_name,
+                board_pair.image_path,
+                board_pair.label_path,
+                split.value,
+            )
             try:
                 board_grid_label = self._board_dat_parser.parse(
                     board_pair.label_path
@@ -448,6 +485,13 @@ class PrepareDatasetArtifactCommandHandler:
                 rejected_sample_count += 81
                 source_warnings.append(
                     f"Pominięto planszę {board_pair.board_name}: {error}."
+                )
+                LOGGER.warning(
+                    "Board pair skipped during dataset preparation: source=%s board=%s split=%s message=%s",
+                    source_name,
+                    board_pair.board_name,
+                    split.value,
+                    error,
                 )
                 continue
 
@@ -467,7 +511,10 @@ class PrepareDatasetArtifactCommandHandler:
             board_cell_previews: list[BoardCellPreviewEntry] = []
             for cell_index, cell_image in enumerate(extracted_board.cells):
                 raw_label = flattened_labels[cell_index]
-                normalized_label = None if raw_label == 0 else raw_label
+                preview_label = None if raw_label == 0 else raw_label
+                normalized_label = self._normalize_board_label_for_training(
+                    raw_label
+                )
 
                 try:
                     preview_image, processed_image = (
@@ -480,7 +527,7 @@ class PrepareDatasetArtifactCommandHandler:
                     continue
 
                 included_in_dataset = normalized_label is not None
-                if normalized_label is None:
+                if preview_label is None:
                     empty_cell_count += 1
 
                 cell_preview_path = (
@@ -498,7 +545,7 @@ class PrepareDatasetArtifactCommandHandler:
                 board_cell_previews.append(
                     BoardCellPreviewEntry(
                         cell_index=cell_index,
-                        label=normalized_label,
+                        label=preview_label,
                         preview_image_relative_path=(
                             self._dataset_preview_path_provider.to_relative_path(
                                 preview_stage_dir,
@@ -534,6 +581,12 @@ class PrepareDatasetArtifactCommandHandler:
                     ),
                     cells=tuple(board_cell_previews),
                 )
+            )
+            LOGGER.info(
+                "Board pair prepared: source=%s board=%s cells_count=%s",
+                source_name,
+                board_pair.board_name,
+                len(board_cell_previews),
             )
 
         if not board_previews:
@@ -588,14 +641,26 @@ class PrepareDatasetArtifactCommandHandler:
                 error_type="dataset_source_invalid",
                 message=str(error),
             ) from error
+        LOGGER.info(
+            "Digit source loaded: source=%s images_path=%s labels_path=%s records_count=%s",
+            source_name,
+            images_path,
+            labels_path,
+            len(records),
+        )
 
         prepared_samples: list[CanonicalPreparedSampleDto] = []
         digit_previews: list[DigitSamplePreviewEntry] = []
         rejected_sample_count = 0
+        empty_cell_count = 0
         for record in records:
             split = self._sample_split_assigner.assign_split(
                 split_policy=split_policy,
                 stable_key=record.sample_key,
+            )
+            preview_label = record.label
+            normalized_label = self._normalize_digit_label_for_training(
+                record.label
             )
             try:
                 preview_image, processed_image = (
@@ -620,21 +685,25 @@ class PrepareDatasetArtifactCommandHandler:
                 DigitSamplePreviewEntry(
                     sample_index=record.sample_key,
                     split=split.value,
-                    label=record.label,
+                    label=preview_label,
                     preview_image_relative_path=(
                         self._dataset_preview_path_provider.to_relative_path(
                             preview_stage_dir,
                             sample_preview_path,
                         )
                     ),
-                    included_in_dataset=True,
+                    included_in_dataset=normalized_label is not None,
                 )
             )
+
+            if normalized_label is None:
+                empty_cell_count += 1
+                continue
 
             prepared_samples.append(
                 CanonicalPreparedSampleDto(
                     split=split.value,
-                    label=record.label,
+                    label=normalized_label,
                     source_type=DatasetSourceType.DIGIT.value,
                     source_dataset_name=source_name,
                     source_board_name=None,
@@ -643,6 +712,12 @@ class PrepareDatasetArtifactCommandHandler:
                     image_28x28=processed_image,
                 )
             )
+        LOGGER.info(
+            "Digit source prepared: source=%s prepared_samples=%s rejected_samples=%s",
+            source_name,
+            len(prepared_samples),
+            rejected_sample_count,
+        )
 
         source_report = self._preparation_report_builder.build_source_report(
             name=source_name,
@@ -650,7 +725,7 @@ class PrepareDatasetArtifactCommandHandler:
             detected_type="digit",
             processed_sample_count=len(prepared_samples) + rejected_sample_count,
             included_sample_count=len(prepared_samples),
-            empty_cell_count=0,
+            empty_cell_count=empty_cell_count,
             rejected_sample_count=rejected_sample_count,
             warnings=[],
         )
@@ -668,6 +743,11 @@ class PrepareDatasetArtifactCommandHandler:
         image_path: Path,
         image: NDArray[np.uint8],
     ) -> None:
+        LOGGER.info(
+            "Writing dataset preview image: image_path=%s image_shape=%s",
+            image_path,
+            tuple(image.shape),
+        )
         try:
             self._preview_image_artifact_writer.write(image_path, image)
         except (OSError, ValueError) as error:
@@ -708,6 +788,12 @@ class PrepareDatasetArtifactCommandHandler:
         preview_stage_dir: Path | None,
         dataset_artifact_path: Path | None,
     ) -> None:
+        LOGGER.info(
+            "Cleaning partial dataset artifacts: dataset=%s preview_stage_dir=%s dataset_artifact_path=%s",
+            dataset_name,
+            preview_stage_dir,
+            dataset_artifact_path,
+        )
         try:
             self._dataset_preparation_artifact_cleanup.cleanup(
                 dataset_name=dataset_name,
@@ -729,18 +815,33 @@ class PrepareDatasetArtifactCommandHandler:
     def _extract_board_cells(
         self, board_image: NDArray[np.uint8]
     ) -> ExtractedBoardCellsResult:
-        preprocessed = self._grayscale_blur_preprocessor.preprocess(board_image)
-        binary = self._adaptive_threshold_binarizer.binarize(preprocessed)
-        board_quad = self._board_quad_detector.detect(binary)
-        corrected_board = self._perspective_transformer.transform(
-            board_image, board_quad
+        LOGGER.info(
+            "Extracting board cells for dataset preparation: board_image_shape=%s",
+            tuple(board_image.shape),
         )
-        cells_grid = self._board_cells_extractor.extract(corrected_board)
+        try:
+            corrected_board, cells_grid = (
+                self._board_dataset_cell_extractor.extract(board_image)
+            )
+        except Exception as error:
+            if getattr(error, "error_type", None) in {
+                "board_not_found",
+                "perspective_correction_failed",
+                "invalid_board_image_shape",
+                "cells_extraction_failed",
+            }:
+                raise ValueError(str(error)) from error
+            raise
         cells_grid.validate_dimensions(expected_rows=9, expected_cols=9)
 
         flattened_cells: list[NDArray[np.uint8]] = []
         for row in cells_grid.cells:
             flattened_cells.extend(row)
+        LOGGER.info(
+            "Board cells extracted for dataset preparation: corrected_board_shape=%s cells_count=%s",
+            tuple(corrected_board.shape),
+            len(flattened_cells),
+        )
         return ExtractedBoardCellsResult(
             corrected_board=corrected_board,
             cells=tuple(flattened_cells),
@@ -784,3 +885,29 @@ class PrepareDatasetArtifactCommandHandler:
             return np.empty((0,), dtype=np.int64)
         labels = [int(sample.label) for sample in samples if sample.label is not None]
         return np.array(labels, dtype=np.int64)
+
+    def _build_class_names(
+        self, supervised_samples: list[CanonicalPreparedSampleDto]
+    ) -> tuple[str, ...]:
+        return tuple(str(digit) for digit in range(1, 10))
+
+    def _normalize_board_label_for_training(self, raw_label: int) -> int | None:
+        if raw_label == 0:
+            return None
+        if raw_label < 1 or raw_label > 9:
+            raise ValueError(
+                "Etykieta planszy Sudoku musi należeć do zakresu 0..9."
+            )
+        return raw_label - 1
+
+    def _normalize_digit_label_for_training(self, raw_label: int) -> int | None:
+        if raw_label == 0:
+            return None
+        if raw_label < 0 or raw_label > 9:
+            raise PrepareDatasetArtifactCommandError(
+                error_type="dataset_source_invalid",
+                message=(
+                    "Źródło digit zawiera etykietę spoza zakresu 0..9."
+                ),
+            )
+        return raw_label - 1

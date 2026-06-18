@@ -53,11 +53,19 @@ class FakeImageCodec:
 
 
 class FakeBoardCellsExtractor:
-    def __init__(self, rows: int = 9, cols: int = 9) -> None:
+    def __init__(
+        self,
+        rows: int = 9,
+        cols: int = 9,
+        error: Exception | None = None,
+    ) -> None:
         self._rows = rows
         self._cols = cols
+        self._error = error
 
     def extract(self, board_image: NDArray[np.uint8]) -> CellsGrid:
+        if self._error is not None:
+            raise self._error
         return CellsGrid.from_rows(
             [
                 [
@@ -69,6 +77,12 @@ class FakeBoardCellsExtractor:
         )
 
 
+class FakeEngineError(Exception):
+    def __init__(self, error_type: str) -> None:
+        super().__init__(error_type)
+        self.error_type = error_type
+
+
 class ExtractCellsCommandHandlerTests(unittest.TestCase):
     def test_handle_should_return_cells_grid_result(self) -> None:
         handler = ExtractCellsCommandHandler(
@@ -78,7 +92,6 @@ class ExtractCellsCommandHandlerTests(unittest.TestCase):
             output_mime_type="image/png",
             expected_grid_rows=9,
             expected_grid_cols=9,
-            minimum_cell_size_px=8,
         )
         command = ExtractCellsCommand(
             mime_type="image/png",
@@ -101,7 +114,6 @@ class ExtractCellsCommandHandlerTests(unittest.TestCase):
             output_mime_type="image/png",
             expected_grid_rows=9,
             expected_grid_cols=9,
-            minimum_cell_size_px=8,
         )
         command = ExtractCellsCommand(
             mime_type="image/png",
@@ -117,15 +129,14 @@ class ExtractCellsCommandHandlerTests(unittest.TestCase):
 
     def test_handle_should_raise_error_for_small_board_image(self) -> None:
         handler = ExtractCellsCommandHandler(
-            image_codec=FakeImageCodec(
-                decoded_image=np.zeros((60, 60, 3), dtype=np.uint8)
+            image_codec=FakeImageCodec(),
+            board_cells_extractor=FakeBoardCellsExtractor(
+                error=FakeEngineError("invalid_board_image_shape")
             ),
-            board_cells_extractor=FakeBoardCellsExtractor(rows=9, cols=9),
             allowed_input_mime_types=("image/jpeg", "image/png"),
             output_mime_type="image/png",
             expected_grid_rows=9,
             expected_grid_cols=9,
-            minimum_cell_size_px=8,
         )
         command = ExtractCellsCommand(
             mime_type="image/png",
@@ -149,7 +160,6 @@ class ExtractCellsCommandHandlerTests(unittest.TestCase):
             output_mime_type="image/png",
             expected_grid_rows=9,
             expected_grid_cols=9,
-            minimum_cell_size_px=8,
         )
         command = ExtractCellsCommand(
             mime_type="image/png",

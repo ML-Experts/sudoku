@@ -89,6 +89,16 @@ Zakres:
 - trim do przecięć,
 - overlay intersections i widok trimmed vs post-connection.
 
+### 5. Migracja do `Infrastructure`
+
+Plik: `infrastructure_migration_plan.md`
+
+Zakres:
+
+- jak wykorzystać lifecycle linii w ścieżce planszy do `warp`,
+- jak rozdzielić pełny preprocessing planszy od samego cięcia 9x9,
+- jak zachować stabilne porty `Application`.
+
 ## Najważniejsze założenia
 
 1. Grouping `RAW`, containment, vertex merge i pixel connection to osobne etapy.
@@ -96,5 +106,6 @@ Zakres:
 3. Po connection działa aktywne przypisanie intersections, trim i ponowne
    przeliczenie intersections.
 4. Po trimie działa aktywna budowa grup boundary i kandydatów ramek.
-5. Dawny etap analizy ramki z rankingiem i `frame_side` nie wrócił do aktywnego
-   pipeline'u.
+5. Ścieżka ekstrakcji planszy może po tym etapie przejść dalej do wyboru
+   zwycięskiej ramki i `warp`, ale nie jest to już osobny etap lifecycle'u
+   `LogicalLine`.

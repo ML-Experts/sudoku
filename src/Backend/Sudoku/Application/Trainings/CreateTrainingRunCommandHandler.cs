@@ -32,6 +32,7 @@ public sealed class CreateTrainingRunCommandHandler
     private readonly IMlTrainingsGateway _mlTrainingsGateway;
     private readonly ITrainingRunCancellationRecovery _trainingRunCancellationRecovery;
     private readonly ITrainingEventsPathProvider _trainingEventsPathProvider;
+    private readonly ITrainingRunEventLockProvider _trainingRunEventLockProvider;
     private readonly ITrainingRunNameGenerator _trainingRunNameGenerator;
     private readonly TrainingDefaultsOptions _trainingDefaultsOptions;
     private readonly TrainingsStorageOptions _trainingsStorageOptions;
@@ -46,6 +47,7 @@ public sealed class CreateTrainingRunCommandHandler
         IMlTrainingsGateway mlTrainingsGateway,
         ITrainingRunCancellationRecovery trainingRunCancellationRecovery,
         ITrainingEventsPathProvider trainingEventsPathProvider,
+        ITrainingRunEventLockProvider trainingRunEventLockProvider,
         ITrainingRunNameGenerator trainingRunNameGenerator,
         IOptions<TrainingDefaultsOptions> trainingDefaultsOptions,
         IOptions<TrainingsStorageOptions> trainingsStorageOptions,
@@ -59,6 +61,7 @@ public sealed class CreateTrainingRunCommandHandler
         _mlTrainingsGateway = mlTrainingsGateway;
         _trainingRunCancellationRecovery = trainingRunCancellationRecovery;
         _trainingEventsPathProvider = trainingEventsPathProvider;
+        _trainingRunEventLockProvider = trainingRunEventLockProvider;
         _trainingRunNameGenerator = trainingRunNameGenerator;
         _trainingDefaultsOptions = trainingDefaultsOptions.Value;
         _trainingsStorageOptions = trainingsStorageOptions.Value;
@@ -107,15 +110,11 @@ public sealed class CreateTrainingRunCommandHandler
                 BuildMlTrainingRequest(metadata, baseModel, processedDataset),
                 cancellationToken);
 
-            var queuedMetadata = metadata with
-            {
-                Status = QueuedStatus,
-                UpdatedAtUtc = _timeProvider.GetUtcNow(),
-                MlJobId = startResult.MlJobId
-            };
-
-            await _trainingRunsGateway.UpdateAsync(queuedMetadata, cancellationToken);
-            return ToResult(queuedMetadata);
+            var persistedMetadata = await PersistQueuedMetadataIfRunIsStillStartingAsync(
+                metadata.RunName,
+                startResult.MlJobId,
+                cancellationToken);
+            return ToResult(persistedMetadata);
         }
         catch (Exception exception) when (exception is MlOperationFailedException
                                          or MlServiceUnavailableException
@@ -124,6 +123,32 @@ public sealed class CreateTrainingRunCommandHandler
             await RollbackReservationAsync(metadata, exception, cancellationToken);
             throw;
         }
+    }
+
+    private async Task<TrainingRunMetadataDto> PersistQueuedMetadataIfRunIsStillStartingAsync(
+        string runName,
+        string? mlJobId,
+        CancellationToken cancellationToken)
+    {
+        await using var runLock = await _trainingRunEventLockProvider.AcquireAsync(runName, cancellationToken);
+        var currentMetadata = await _trainingRunsGateway.GetByRunNameAsync(runName, cancellationToken)
+                              ?? throw new InvalidOperationException(
+                                  $"Nie znaleziono zarezerwowanego runu {runName} po akceptacji startu ML.");
+
+        if (!string.Equals(currentMetadata.Status, StartingStatus, StringComparison.Ordinal))
+        {
+            return currentMetadata;
+        }
+
+        var queuedMetadata = currentMetadata with
+        {
+            Status = QueuedStatus,
+            UpdatedAtUtc = _timeProvider.GetUtcNow(),
+            MlJobId = mlJobId
+        };
+
+        await _trainingRunsGateway.UpdateAsync(queuedMetadata, cancellationToken);
+        return queuedMetadata;
     }
 
     private async Task EnsureNoActiveRunAsync(CancellationToken cancellationToken)

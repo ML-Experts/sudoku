@@ -73,6 +73,12 @@ class RuntimeModelLoader:
                 "inference_model_not_allowed",
                 "Wskazany model nie może zostać użyty do inferencji.",
             )
+        if manifest.architecture.num_classes != 9:
+            raise CellDigitInferenceValidationError(
+                "inference_model_not_allowed",
+                "Aktywny model nie obsługuje kontraktu Sudoku. "
+                "Inferencja komórki wymaga dokładnie 9 klas cyfr 1..9.",
+            )
 
         device = self._resolve_device()
 

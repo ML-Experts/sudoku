@@ -68,6 +68,17 @@ Zakres:
 To już nie jest opis aktywnego końca pipeline'u. Plik został zachowany tylko
 jako kontekst po usuniętym etapie analizy ramki.
 
+### 5. Plan migracji do `Infrastructure`
+
+Plik: `infrastructure_migration_plan.md`
+
+Zakres:
+
+- docelowy podział odpowiedzialności między `preprocess/board` i
+  `preprocess/cells`,
+- kontrakt wewnętrzny potrzebny dla `UC-04` i pełnego wejścia do `UC-06`,
+- lista adapterów i kolejność migracji plików do `Infrastructure`.
+
 ## Skrócony przepływ
 
 1. `experiment.ipynb` ładuje API przez `bootstrap.load_api()`.
@@ -87,6 +98,15 @@ jako kontekst po usuniętym etapie analizy ramki.
    - trim do przecięć,
    - ponowne przeliczenie intersections.
 5. Pipeline albo notebook buduje `RawLineFamilyArtifacts`.
+
+Ważne rozróżnienie dla migracji:
+
+- lifecycle linii i snapshoty opisują stan domenowy potrzebny do analizy
+  families i geometrii,
+- ścieżka ekstrakcji planszy do `UC-04` idzie dalej: po intersections wybiera
+  ramkę i wykonuje `warp`,
+- ścieżka cięcia komórek do `UC-04` nie startuje od surowego zdjęcia, tylko od
+  planszy już po `warp`.
 
 ## Jak czytać dokumentację
 

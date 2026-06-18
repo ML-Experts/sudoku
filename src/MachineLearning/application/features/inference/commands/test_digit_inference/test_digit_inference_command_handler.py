@@ -93,9 +93,28 @@ class TestDigitInferenceCommandHandler:
         model.eval()
         with torch.inference_mode():
             output = model(input_tensor)
-            digit = int(torch.argmax(output, dim=1).item())
+            class_index = int(torch.argmax(output, dim=1).item())
+            digit = self._map_class_index_to_digit(
+                class_index,
+                manifest.architecture.num_classes,
+            )
 
         return TestDigitInferenceResultDto(digit=digit)
+
+    def _map_class_index_to_digit(
+        self,
+        class_index: int,
+        num_classes: int,
+    ) -> int:
+        if num_classes == 9:
+            return class_index + 1
+        if num_classes == 10:
+            return class_index
+        raise TestDigitInferenceCommandError(
+            status_code=422,
+            error_type="unsupported_model_architecture",
+            message="Aktywny model ma nieobsługiwany kontrakt liczby klas.",
+        )
 
     def _resolve_device(self) -> torch.device:
         device_setting = self._device_setting.strip().lower()

@@ -48,7 +48,7 @@ class TestInferenceControllerTests(unittest.TestCase):
                 str(examples_path / "sample.png"),
                 np.full((32, 32, 3), 255, dtype=np.uint8),
             )
-            self._write_model(model_path, expected_digit=7)
+            self._write_model(model_path, predicted_class_index=7)
             (active_path / "inference.json").write_text(
                 json.dumps({"modelName": "digit-model"}),
                 encoding="utf-8",
@@ -65,14 +65,56 @@ class TestInferenceControllerTests(unittest.TestCase):
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response.json(), {"digit": 7})
 
-    def _write_model(self, model_path: Path, expected_digit: int) -> None:
+    def test_get_test_inteference_should_map_sudoku_class_index_to_digit(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_directory:
+            root_path = Path(temp_directory)
+            examples_path = root_path / "examples"
+            active_path = root_path / "models" / "active"
+            registry_path = root_path / "models" / "registry"
+            model_path = registry_path / "digit-model"
+            artifacts_path = model_path / "artifacts"
+            examples_path.mkdir(parents=True)
+            active_path.mkdir(parents=True)
+            artifacts_path.mkdir(parents=True)
+
+            cv2.imwrite(
+                str(examples_path / "sample.png"),
+                np.full((32, 32, 3), 255, dtype=np.uint8),
+            )
+            self._write_model(
+                model_path,
+                predicted_class_index=6,
+                num_classes=9,
+            )
+            (active_path / "inference.json").write_text(
+                json.dumps({"modelName": "digit-model"}),
+                encoding="utf-8",
+            )
+
+            os.environ["ML_EXAMPLES_UPLOADS_DIR"] = str(examples_path)
+            os.environ["ML_MODELS_ACTIVE_DIR"] = str(active_path)
+            os.environ["ML_MODELS_REGISTRY_DIR"] = str(registry_path)
+            os.environ["ML_TRAINING_DEVICE"] = "cpu"
+            client = TestClient(create_app())
+
+            response = client.get("/ml/test/inteference/sample")
+
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json(), {"digit": 7})
+
+    def _write_model(
+        self,
+        model_path: Path,
+        predicted_class_index: int,
+        num_classes: int = 10,
+    ) -> None:
         manifest_path = model_path / "model.json"
         artifact_path = model_path / "artifacts" / "model.pt"
-        model = CustomDigitCnnV1(num_classes=10)
+        model = CustomDigitCnnV1(num_classes=num_classes)
         state_dict = model.state_dict()
         for key, value in state_dict.items():
             state_dict[key] = torch.zeros_like(value)
-        state_dict["classifier.4.bias"][expected_digit] = 1.0
+        state_dict["classifier.4.bias"][predicted_class_index] = 1.0
 
         torch.save(state_dict, artifact_path)
         manifest_path.write_text(
@@ -82,7 +124,7 @@ class TestInferenceControllerTests(unittest.TestCase):
                     "architecture": {
                         "type": "custom-cnn-v1",
                         "family": "cnn",
-                        "numClasses": 10,
+                        "numClasses": num_classes,
                         "inputChannels": 1,
                         "inputHeight": 28,
                         "inputWidth": 28,

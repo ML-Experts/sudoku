@@ -112,7 +112,7 @@ def get_preprocessing_settings() -> PreprocessingSettings:
         board_output_mime_type=get_env_value(
             "ML_PREPROCESS_BOARD_OUTPUT_MIME_TYPE", "image/png"
         ),
-        board_output_size=get_env_int("ML_PREPROCESS_BOARD_OUTPUT_SIZE", 600),
+        board_output_size=get_env_int("ML_PREPROCESS_BOARD_OUTPUT_SIZE", 720),
         board_output_padding_pixels=get_env_int(
             "ML_PREPROCESS_BOARD_OUTPUT_PADDING_PIXELS", 0
         ),
@@ -151,13 +151,13 @@ def get_preprocessing_settings() -> PreprocessingSettings:
             "ML_PREPROCESS_BOARD_EDGE_CANNY_THRESHOLD_2", 150
         ),
         board_edge_hough_threshold=get_env_int(
-            "ML_PREPROCESS_BOARD_EDGE_HOUGH_THRESHOLD", 32
+            "ML_PREPROCESS_BOARD_EDGE_HOUGH_THRESHOLD", 35
         ),
         board_edge_min_line_length_ratio=get_env_float(
-            "ML_PREPROCESS_BOARD_EDGE_MIN_LINE_LENGTH_RATIO", 0.07
+            "ML_PREPROCESS_BOARD_EDGE_MIN_LINE_LENGTH_RATIO", 0.08
         ),
         board_edge_max_line_gap_ratio=get_env_float(
-            "ML_PREPROCESS_BOARD_EDGE_MAX_LINE_GAP_RATIO", 0.024
+            "ML_PREPROCESS_BOARD_EDGE_MAX_LINE_GAP_RATIO", 0.005
         ),
         board_edge_angle_tolerance_degrees=get_env_float(
             "ML_PREPROCESS_BOARD_EDGE_ANGLE_TOLERANCE_DEGREES", 20.0

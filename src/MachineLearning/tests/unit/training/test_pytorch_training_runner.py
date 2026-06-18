@@ -119,6 +119,16 @@ class _DatasetLoader:
         return _Arrays()
 
 
+class _DatasetLoaderWithClassNames:
+    def __init__(self, class_names: tuple[str, ...]) -> None:
+        self._class_names = class_names
+
+    def load(self, dataset_path: str) -> _Arrays:
+        arrays = _Arrays()
+        arrays.class_names = self._class_names
+        return arrays
+
+
 class _DataloaderFactory:
     def build(self, arrays, transform, batch_size: int) -> dict[str, DataLoader]:
         images = torch.zeros((2, 1, 28, 28), dtype=torch.float32)
@@ -541,6 +551,46 @@ class PytorchTrainingRunnerTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(is_terminal)
             self.assertEqual(last_event.event_type, "cancelled")
             self.assertEqual(last_event.status, "cancelled")
+
+    async def test_start_should_fail_before_training_when_dataset_declares_too_many_classes(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_directory:
+            root_path = Path(temp_directory)
+            publisher = _Publisher()
+            runner = _DeterministicPytorchTrainingRunner(
+                event_publisher=publisher,
+                cancellation_registry=CancellationRegistry(),
+                utc_clock=_Clock(),
+                device_setting="cpu",
+                model_factory=_ModelFactory(),
+                artifact_loader=_ArtifactLoader(),
+                artifact_writer=_RecordingArtifactWriter(),
+                dataset_loader=_DatasetLoaderWithClassNames(
+                    tuple(str(index) for index in range(10))
+                ),
+                dataloader_factory=_DataloaderFactory(),
+                input_transform_factory=_InputTransformFactory(),
+                profile_catalog=_ProfileCatalog(),
+                fine_tuning_policy_factory=_FineTuningPolicyFactory(),
+                optimizer_factory=_RecordingOptimizerFactory(),
+                metrics_calculator=_MetricsCalculator(),
+                report_writer=_RecordingReportWriter(),
+            )
+
+            await runner.start(_context(root_path), CancellationToken())
+
+            self.assertEqual(len(publisher.events), 2)
+            started_event, is_started_terminal = publisher.events[0]
+            failed_event, is_failed_terminal = publisher.events[1]
+            self.assertFalse(is_started_terminal)
+            self.assertEqual(started_event.event_type, "statusChanged")
+            self.assertTrue(is_failed_terminal)
+            self.assertEqual(failed_event.event_type, "failed")
+            self.assertIn(
+                "Plik .npz deklaruje więcej klas niż obsługuje wybrany model.",
+                failed_event.message,
+            )
 
 
 if __name__ == "__main__":

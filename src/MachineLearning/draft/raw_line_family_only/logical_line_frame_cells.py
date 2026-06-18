@@ -1,60 +1,15 @@
 from __future__ import annotations
 
-import base64
 from dataclasses import dataclass
 
-import cv2
 import numpy as np
 
 from logical_line_frame_cell_preprocessing import (
     DEFAULT_OUTPUT_SIZE_PX,
     preprocess_cells_grid_for_ml,
 )
-
-
-@dataclass(frozen=True, slots=True)
-class ImageApiResponse:
-    mime_type: str
-    base64: str
-
-    def __post_init__(self) -> None:
-        if not self.mime_type.strip():
-            raise ValueError("mime_type cannot be empty.")
-        if not self.base64.strip():
-            raise ValueError("base64 cannot be empty.")
-
-    def model_dump(self, by_alias: bool = False) -> dict[str, str]:
-        if by_alias:
-            return {
-                "mimeType": self.mime_type,
-                "base64": self.base64,
-            }
-        return {
-            "mime_type": self.mime_type,
-            "base64": self.base64,
-        }
-
-
-@dataclass(frozen=True, slots=True)
-class CellsGridApiResponse:
-    cells: list[list[ImageApiResponse]]
-
-    def __post_init__(self) -> None:
-        if not self.cells:
-            raise ValueError("cells cannot be empty.")
-        if any(not row for row in self.cells):
-            raise ValueError("cells rows cannot be empty.")
-
-    def model_dump(
-        self,
-        by_alias: bool = False,
-    ) -> dict[str, list[list[dict[str, str]]]]:
-        return {
-            "cells": [
-                [cell.model_dump(by_alias=by_alias) for cell in row]
-                for row in self.cells
-            ]
-        }
+from preprocessing_api_codec import encode_image_api_response
+from preprocessing_api_models import CellsGridApiResponse, ImageApiResponse
 
 
 @dataclass(frozen=True, slots=True)
@@ -213,17 +168,6 @@ def _resolve_bounds(
     return start, end
 
 
-def _encode_image_to_base64(
-    image: np.ndarray,
-    mime_type: str,
-) -> str:
-    extension = _resolve_image_extension(mime_type)
-    success, encoded_buffer = cv2.imencode(extension, image)
-    if not success:
-        raise ValueError("Could not encode extracted cell image.")
-    return base64.b64encode(encoded_buffer.tobytes()).decode("ascii")
-
-
 def _build_encoded_rows(
     cells: tuple[tuple[np.ndarray, ...], ...],
     output_mime_type: str,
@@ -231,28 +175,14 @@ def _build_encoded_rows(
     encoded_rows: list[list[ImageApiResponse]] = []
     for row in cells:
         encoded_row = [
-            ImageApiResponse(
+            encode_image_api_response(
+                image=cell_image,
                 mime_type=output_mime_type,
-                base64=_encode_image_to_base64(
-                    image=cell_image,
-                    mime_type=output_mime_type,
-                ),
             )
             for cell_image in row
         ]
         encoded_rows.append(encoded_row)
     return encoded_rows
-
-
-def _resolve_image_extension(mime_type: str) -> str:
-    normalized_mime_type = mime_type.strip().lower()
-    if normalized_mime_type == "image/png":
-        return ".png"
-    if normalized_mime_type in {"image/jpeg", "image/jpg"}:
-        return ".jpg"
-    if normalized_mime_type == "image/webp":
-        return ".webp"
-    raise ValueError(f"Unsupported output mime type: {mime_type}")
 
 
 __all__ = [

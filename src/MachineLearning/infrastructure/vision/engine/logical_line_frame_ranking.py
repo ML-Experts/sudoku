@@ -1,0 +1,346 @@
+from __future__ import annotations
+
+import math
+
+from .frame_model import (
+    LogicalLineFrameCandidate,
+    LogicalLineFrameCandidateRanking,
+)
+from .intersection_model import IntersectionOrder, LogicalLineIntersection
+from .logical_line_debug import get_logical_line_debug_name
+
+TARGET_INNER_LINE_COUNT = 8
+MIN_FRAME_AXIS_COVERAGE_RATIO = 0.35
+
+
+def rank_logical_line_frame_candidates(
+    frame_candidates: list[LogicalLineFrameCandidate],
+) -> list[LogicalLineFrameCandidate]:
+    ranked_entries = [
+        (frame_candidate, _build_frame_candidate_ranking(frame_candidate))
+        for frame_candidate in frame_candidates
+    ]
+    ranked_entries.sort(
+        key=lambda ranked_entry: _build_frame_candidate_sort_key(
+            ranked_entry[0],
+            ranked_entry[1],
+        )
+    )
+
+    for ranking_position, (frame_candidate, ranking_debug) in enumerate(
+        ranked_entries,
+        start=1,
+    ):
+        frame_candidate.ranking_debug = ranking_debug
+        frame_candidate.ranking_position = ranking_position
+        frame_candidate.is_selected = False
+
+    return [
+        frame_candidate
+        for frame_candidate, _ranking_debug in ranked_entries
+    ]
+
+
+def passes_min_frame_axis_coverage(
+    frame_candidate: LogicalLineFrameCandidate,
+    image_height: int,
+    image_width: int,
+    min_axis_coverage_ratio: float = MIN_FRAME_AXIS_COVERAGE_RATIO,
+) -> bool:
+    frame_width_px, frame_height_px = build_frame_axis_spans_px(frame_candidate)
+    minimum_horizontal_axis_length_px = _build_minimum_axis_length_threshold(
+        image_width,
+        min_axis_coverage_ratio,
+    )
+    minimum_vertical_axis_length_px = _build_minimum_axis_length_threshold(
+        image_height,
+        min_axis_coverage_ratio,
+    )
+    return (
+        frame_width_px > minimum_horizontal_axis_length_px
+        and frame_height_px > minimum_vertical_axis_length_px
+    )
+
+
+def select_best_ranked_logical_line_frame_candidate(
+    ranked_frame_candidates: list[LogicalLineFrameCandidate],
+    image_height: int,
+    image_width: int,
+    min_axis_coverage_ratio: float = MIN_FRAME_AXIS_COVERAGE_RATIO,
+) -> LogicalLineFrameCandidate | None:
+    if not ranked_frame_candidates:
+        return None
+
+    selected_frame_candidate: LogicalLineFrameCandidate | None = None
+    for frame_candidate in ranked_frame_candidates:
+        frame_candidate.is_selected = False
+        if selected_frame_candidate is not None:
+            continue
+        if not passes_min_frame_axis_coverage(
+            frame_candidate,
+            image_height=image_height,
+            image_width=image_width,
+            min_axis_coverage_ratio=min_axis_coverage_ratio,
+        ):
+            continue
+        frame_candidate.is_selected = True
+        selected_frame_candidate = frame_candidate
+
+    return selected_frame_candidate
+
+
+def _build_minimum_axis_length_threshold(
+    axis_dimension_px: int,
+    min_axis_coverage_ratio: float,
+) -> int:
+    return math.floor(axis_dimension_px * min_axis_coverage_ratio)
+
+
+def build_frame_axis_spans_px(
+    frame_candidate: LogicalLineFrameCandidate,
+) -> tuple[int, int]:
+    left_axis_px = _build_cross_axis_center_px(frame_candidate.left_line)
+    right_axis_px = _build_cross_axis_center_px(frame_candidate.right_line)
+    top_axis_px = _build_cross_axis_center_px(frame_candidate.top_line)
+    bottom_axis_px = _build_cross_axis_center_px(frame_candidate.bottom_line)
+    frame_width_px = abs(right_axis_px - left_axis_px) + 1
+    frame_height_px = abs(bottom_axis_px - top_axis_px) + 1
+    return frame_width_px, frame_height_px
+
+
+def _build_cross_axis_center_px(logical_line) -> int:
+    return int(
+        round((logical_line.cross_axis_start + logical_line.cross_axis_end) / 2.0)
+    )
+
+
+def _build_frame_candidate_sort_key(
+    frame_candidate: LogicalLineFrameCandidate,
+    ranking_debug: LogicalLineFrameCandidateRanking,
+) -> tuple[
+    int,
+    int,
+    int,
+    int,
+    int,
+    int,
+    int,
+    int,
+    tuple[str, str, str, str],
+]:
+    return (
+        0 if ranking_debug.has_exact_inner_line_counts else 1,
+        ranking_debug.inner_line_count_deviation,
+        0 if ranking_debug.matched_vertex_corner_count == 4 else 1,
+        4 - ranking_debug.matched_vertex_corner_count,
+        0 if ranking_debug.matched_order_corner_count == 4 else 1,
+        4 - ranking_debug.matched_order_corner_count,
+        8 - ranking_debug.matched_order_expectation_count,
+        -ranking_debug.perimeter_px,
+        _build_frame_candidate_debug_tie_break(frame_candidate),
+    )
+
+
+def _build_frame_candidate_debug_tie_break(
+    frame_candidate: LogicalLineFrameCandidate,
+) -> tuple[str, str, str, str]:
+    return (
+        get_logical_line_debug_name(frame_candidate.top_line),
+        get_logical_line_debug_name(frame_candidate.right_line),
+        get_logical_line_debug_name(frame_candidate.bottom_line),
+        get_logical_line_debug_name(frame_candidate.left_line),
+    )
+
+
+def _build_frame_candidate_ranking(
+    frame_candidate: LogicalLineFrameCandidate,
+) -> LogicalLineFrameCandidateRanking:
+    inner_horizontal_count = len(frame_candidate.horizontal_lines)
+    inner_vertical_count = len(frame_candidate.vertical_lines)
+
+    top_left_vertex_matches = (
+        frame_candidate.top_line.start_vertex
+        == frame_candidate.left_line.start_vertex
+    )
+    top_right_vertex_matches = (
+        frame_candidate.top_line.end_vertex
+        == frame_candidate.right_line.start_vertex
+    )
+    bottom_right_vertex_matches = (
+        frame_candidate.bottom_line.end_vertex
+        == frame_candidate.right_line.end_vertex
+    )
+    bottom_left_vertex_matches = (
+        frame_candidate.bottom_line.start_vertex
+        == frame_candidate.left_line.end_vertex
+    )
+
+    top_left_order_matches = _corner_orders_match(
+        axis_line=frame_candidate.top_line,
+        cross_axis_line=frame_candidate.left_line,
+        axis_expected_order=IntersectionOrder.START,
+        cross_axis_expected_order=IntersectionOrder.START,
+    )
+    top_right_order_matches = _corner_orders_match(
+        axis_line=frame_candidate.top_line,
+        cross_axis_line=frame_candidate.right_line,
+        axis_expected_order=IntersectionOrder.END,
+        cross_axis_expected_order=IntersectionOrder.START,
+    )
+    bottom_right_order_matches = _corner_orders_match(
+        axis_line=frame_candidate.bottom_line,
+        cross_axis_line=frame_candidate.right_line,
+        axis_expected_order=IntersectionOrder.END,
+        cross_axis_expected_order=IntersectionOrder.END,
+    )
+    bottom_left_order_matches = _corner_orders_match(
+        axis_line=frame_candidate.bottom_line,
+        cross_axis_line=frame_candidate.left_line,
+        axis_expected_order=IntersectionOrder.START,
+        cross_axis_expected_order=IntersectionOrder.END,
+    )
+
+    matched_order_expectation_count = sum(
+        (
+            _line_order_matches(
+                frame_candidate.top_line,
+                frame_candidate.left_line,
+                IntersectionOrder.START,
+            ),
+            _line_order_matches(
+                frame_candidate.left_line,
+                frame_candidate.top_line,
+                IntersectionOrder.START,
+            ),
+            _line_order_matches(
+                frame_candidate.top_line,
+                frame_candidate.right_line,
+                IntersectionOrder.END,
+            ),
+            _line_order_matches(
+                frame_candidate.right_line,
+                frame_candidate.top_line,
+                IntersectionOrder.START,
+            ),
+            _line_order_matches(
+                frame_candidate.bottom_line,
+                frame_candidate.right_line,
+                IntersectionOrder.END,
+            ),
+            _line_order_matches(
+                frame_candidate.right_line,
+                frame_candidate.bottom_line,
+                IntersectionOrder.END,
+            ),
+            _line_order_matches(
+                frame_candidate.bottom_line,
+                frame_candidate.left_line,
+                IntersectionOrder.START,
+            ),
+            _line_order_matches(
+                frame_candidate.left_line,
+                frame_candidate.bottom_line,
+                IntersectionOrder.END,
+            ),
+        )
+    )
+
+    perimeter_px = (
+        frame_candidate.top_line.axis_length
+        + frame_candidate.bottom_line.axis_length
+        + frame_candidate.left_line.axis_length
+        + frame_candidate.right_line.axis_length
+    )
+
+    return LogicalLineFrameCandidateRanking(
+        has_exact_inner_line_counts=(
+            inner_horizontal_count == TARGET_INNER_LINE_COUNT
+            and inner_vertical_count == TARGET_INNER_LINE_COUNT
+        ),
+        inner_horizontal_count=inner_horizontal_count,
+        inner_vertical_count=inner_vertical_count,
+        inner_line_count_deviation=(
+            abs(inner_horizontal_count - TARGET_INNER_LINE_COUNT)
+            + abs(inner_vertical_count - TARGET_INNER_LINE_COUNT)
+        ),
+        matched_vertex_corner_count=sum(
+            (
+                top_left_vertex_matches,
+                top_right_vertex_matches,
+                bottom_right_vertex_matches,
+                bottom_left_vertex_matches,
+            )
+        ),
+        matched_order_corner_count=sum(
+            (
+                top_left_order_matches,
+                top_right_order_matches,
+                bottom_right_order_matches,
+                bottom_left_order_matches,
+            )
+        ),
+        matched_order_expectation_count=matched_order_expectation_count,
+        top_left_vertex_matches=top_left_vertex_matches,
+        top_right_vertex_matches=top_right_vertex_matches,
+        bottom_right_vertex_matches=bottom_right_vertex_matches,
+        bottom_left_vertex_matches=bottom_left_vertex_matches,
+        top_left_order_matches=top_left_order_matches,
+        top_right_order_matches=top_right_order_matches,
+        bottom_right_order_matches=bottom_right_order_matches,
+        bottom_left_order_matches=bottom_left_order_matches,
+        perimeter_px=perimeter_px,
+    )
+
+
+def _corner_orders_match(
+    axis_line,
+    cross_axis_line,
+    axis_expected_order: IntersectionOrder,
+    cross_axis_expected_order: IntersectionOrder,
+) -> bool:
+    return _line_order_matches(
+        axis_line,
+        cross_axis_line,
+        axis_expected_order,
+    ) and _line_order_matches(
+        cross_axis_line,
+        axis_line,
+        cross_axis_expected_order,
+    )
+
+
+def _line_order_matches(
+    axis_line,
+    cross_axis_line,
+    expected_order: IntersectionOrder,
+) -> bool:
+    logical_line_intersection = _find_intersection(
+        axis_line,
+        get_logical_line_debug_name(cross_axis_line),
+    )
+    if logical_line_intersection is None:
+        return False
+    return logical_line_intersection.order == expected_order
+
+
+def _find_intersection(
+    axis_line,
+    cross_axis_debug_name: str,
+) -> LogicalLineIntersection | None:
+    for logical_line_intersection in axis_line.intersections:
+        if (
+            logical_line_intersection.intersected_line_cross_axis_debug_name
+            == cross_axis_debug_name
+        ):
+            return logical_line_intersection
+    return None
+
+
+__all__ = [
+    "build_frame_axis_spans_px",
+    "MIN_FRAME_AXIS_COVERAGE_RATIO",
+    "TARGET_INNER_LINE_COUNT",
+    "passes_min_frame_axis_coverage",
+    "rank_logical_line_frame_candidates",
+    "select_best_ranked_logical_line_frame_candidate",
+]

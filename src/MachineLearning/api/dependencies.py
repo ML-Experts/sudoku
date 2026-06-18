@@ -26,24 +26,8 @@ from application.features.preprocessing.commands.preprocess_board.preprocess_boa
 from application.features.runtime_status.queries.get_runtime_status.get_runtime_status_query_handler import (
     GetRuntimeStatusQueryHandler,
 )
-from infrastructure.vision.opencv_adaptive_threshold_binarizer import (
-    OpenCvAdaptiveThresholdBinarizer,
-)
-from infrastructure.vision.opencv_board_cells_extractor import (
-    OpenCvBoardCellsExtractor,
-)
-from infrastructure.vision.opencv_largest_contour_detector import (
-    OpenCvBoardEdgeDetector,
-)
-from infrastructure.vision.opencv_grayscale_blur_preprocessor import (
-    OpenCvGrayscaleBlurPreprocessor,
-)
-from infrastructure.vision.opencv_image_codec import OpenCvImageCodec
 from infrastructure.vision.opencv_text_overlay_renderer import (
     OpenCvTextOverlayRenderer,
-)
-from infrastructure.vision.opencv_perspective_transformer import (
-    OpenCvPerspectiveTransformer,
 )
 from infrastructure.providers.package_version_provider import (
     ImportlibPackageVersionProvider,
@@ -98,6 +82,21 @@ from infrastructure.training.model.model_manifest_reader import (
 from infrastructure.vision.cell_preprocessing_pipeline import (
     CellPreprocessingPipeline,
 )
+from infrastructure.vision.engine_board_dataset_cell_extractor import (
+    EngineBoardDatasetCellExtractor,
+)
+from infrastructure.vision.engine_board_preprocessor import (
+    EngineBoardPreprocessor,
+)
+from infrastructure.vision.engine_vision_pipeline import (
+    DEFAULT_ML_READY_CELL_SIZE_PX,
+    EngineVisionPipeline,
+    build_engine_experiment_config_kwargs,
+)
+from infrastructure.vision.engine_warped_board_cells_extractor import (
+    EngineWarpedBoardCellsExtractor,
+)
+from infrastructure.vision.vision_image_codec import VisionImageCodec
 
 if TYPE_CHECKING:
     from application.features.inference.commands.infer_cell_digit.infer_cell_digit_command_handler import (
@@ -150,31 +149,19 @@ def get_cancellation_registry() -> CancellationRegistry:
     return CancellationRegistry()
 
 
-def get_preprocess_board_command_handler(
-    preprocessing_settings: PreprocessingSettings = Depends(
-        get_preprocessing_settings
-    ),
-) -> PreprocessBoardCommandHandler:
-    return PreprocessBoardCommandHandler(
-        image_codec=OpenCvImageCodec(),
-        grayscale_blur_preprocessor=OpenCvGrayscaleBlurPreprocessor(
-            grayscale_color_conversion_code=(
-                preprocessing_settings.grayscale_color_conversion_code
+def _build_warped_board_cells_pipeline(
+    preprocessing_settings: PreprocessingSettings,
+) -> EngineVisionPipeline:
+    return EngineVisionPipeline(
+        output_mime_type=preprocessing_settings.board_output_mime_type,
+        minimum_cell_size_px=preprocessing_settings.cells_minimum_cell_size_px,
+        ml_ready_cell_size_px=DEFAULT_ML_READY_CELL_SIZE_PX,
+        **build_engine_experiment_config_kwargs(
+            max_display_size=1600,
+            adaptive_threshold_block_size=(
+                preprocessing_settings.adaptive_threshold_block_size
             ),
-            gaussian_kernel_size=preprocessing_settings.gaussian_kernel_size,
-            gaussian_sigma_x=preprocessing_settings.gaussian_sigma_x,
-        ),
-        adaptive_threshold_binarizer=OpenCvAdaptiveThresholdBinarizer(
-            block_size=preprocessing_settings.adaptive_threshold_block_size,
-            c_value=preprocessing_settings.adaptive_threshold_c,
-        ),
-        board_quad_detector=OpenCvBoardEdgeDetector(
-            canny_threshold_1=(
-                preprocessing_settings.board_edge_canny_threshold_1
-            ),
-            canny_threshold_2=(
-                preprocessing_settings.board_edge_canny_threshold_2
-            ),
+            adaptive_threshold_c_value=preprocessing_settings.adaptive_threshold_c,
             hough_threshold=preprocessing_settings.board_edge_hough_threshold,
             min_line_length_ratio=(
                 preprocessing_settings.board_edge_min_line_length_ratio
@@ -185,35 +172,32 @@ def get_preprocess_board_command_handler(
             angle_tolerance_degrees=(
                 preprocessing_settings.board_edge_angle_tolerance_degrees
             ),
-            outer_line_window_ratio=(
-                preprocessing_settings.board_edge_outer_line_window_ratio
-            ),
-            minimum_board_area_ratio=(
-                preprocessing_settings.board_edge_minimum_board_area_ratio
-            ),
-            minimum_family_segments=(
-                preprocessing_settings.board_edge_minimum_family_segments
-            ),
-            line_position_merge_distance_ratio=(
-                preprocessing_settings.board_edge_line_position_merge_distance_ratio
-            ),
-            minimum_distinct_lines_per_family=(
-                preprocessing_settings.board_edge_minimum_distinct_lines_per_family
-            ),
-        ),
-        perspective_transformer=OpenCvPerspectiveTransformer(
-            output_board_size=preprocessing_settings.board_output_size,
-            output_padding_pixels=(
+            warp_output_size_px=preprocessing_settings.board_output_size,
+            warp_output_padding_px=(
                 preprocessing_settings.board_output_padding_pixels
             ),
+            warp_cell_divisions=preprocessing_settings.cells_grid_rows,
+            warp_cells_output_mime_type=(
+                preprocessing_settings.board_output_mime_type
+            ),
+            warp_cells_preview_gap_px=2,
         ),
+    )
+
+
+def get_preprocess_board_command_handler(
+    preprocessing_settings: PreprocessingSettings = Depends(
+        get_preprocessing_settings
+    ),
+) -> PreprocessBoardCommandHandler:
+    board_pipeline = _build_warped_board_cells_pipeline(preprocessing_settings)
+    return PreprocessBoardCommandHandler(
+        image_codec=VisionImageCodec(),
+        board_preprocessor=EngineBoardPreprocessor(board_pipeline),
         allowed_input_mime_types=(
             preprocessing_settings.allowed_input_mime_types
         ),
         output_mime_type=preprocessing_settings.board_output_mime_type,
-        board_refinement_passes=(
-            preprocessing_settings.board_refinement_passes
-        ),
     )
 
 
@@ -266,18 +250,13 @@ def get_extract_cells_command_handler(
         get_preprocessing_settings
     ),
 ) -> ExtractCellsCommandHandler:
+    cells_pipeline = _build_warped_board_cells_pipeline(preprocessing_settings)
     return ExtractCellsCommandHandler(
-        image_codec=OpenCvImageCodec(),
-        board_cells_extractor=OpenCvBoardCellsExtractor(
+        image_codec=VisionImageCodec(),
+        board_cells_extractor=EngineWarpedBoardCellsExtractor(
+            pipeline=cells_pipeline,
             grid_rows=preprocessing_settings.cells_grid_rows,
             grid_cols=preprocessing_settings.cells_grid_cols,
-            cell_inner_margin_ratio=(
-                preprocessing_settings.cells_inner_margin_ratio
-            ),
-            minimum_cell_size_px=(
-                preprocessing_settings.cells_minimum_cell_size_px
-            ),
-            output_cell_size_px=preprocessing_settings.cells_output_cell_size,
         ),
         allowed_input_mime_types=(
             preprocessing_settings.allowed_input_mime_types
@@ -285,9 +264,6 @@ def get_extract_cells_command_handler(
         output_mime_type=preprocessing_settings.board_output_mime_type,
         expected_grid_rows=preprocessing_settings.cells_grid_rows,
         expected_grid_cols=preprocessing_settings.cells_grid_cols,
-        minimum_cell_size_px=(
-            preprocessing_settings.cells_minimum_cell_size_px
-        ),
     )
 
 
@@ -297,7 +273,7 @@ def get_render_overlay_cell_command_handler(
     ),
 ) -> RenderOverlayCellCommandHandler:
     return RenderOverlayCellCommandHandler(
-        image_codec=OpenCvImageCodec(),
+        image_codec=VisionImageCodec(),
         text_overlay_renderer=OpenCvTextOverlayRenderer(),
         allowed_input_mime_types=(
             preprocessing_settings.allowed_input_mime_types
@@ -311,6 +287,9 @@ def get_prepare_dataset_artifact_command_handler(
         get_preprocessing_settings
     ),
 ) -> PrepareDatasetArtifactCommandHandler:
+    cells_pipeline = _build_warped_board_cells_pipeline(
+        preprocessing_settings
+    )
     dataset_preview_path_provider = DatasetPreviewPathProvider(
         previews_directory_path=runtime_settings.dataset_previews_directory_path
     )
@@ -336,7 +315,7 @@ def get_prepare_dataset_artifact_command_handler(
         ),
         dataset_preview_path_provider=dataset_preview_path_provider,
         preview_image_artifact_writer=FilesystemImageArtifactWriter(
-            image_codec=OpenCvImageCodec(),
+            image_codec=VisionImageCodec(),
             output_mime_type="image/png",
         ),
         dataset_preview_index_writer=DatasetPreviewIndexWriter(
@@ -346,66 +325,8 @@ def get_prepare_dataset_artifact_command_handler(
             dataset_preview_path_provider=dataset_preview_path_provider
         ),
         preparation_report_builder=PreparationReportBuilder(),
-        grayscale_blur_preprocessor=OpenCvGrayscaleBlurPreprocessor(
-            grayscale_color_conversion_code=(
-                preprocessing_settings.grayscale_color_conversion_code
-            ),
-            gaussian_kernel_size=preprocessing_settings.gaussian_kernel_size,
-            gaussian_sigma_x=preprocessing_settings.gaussian_sigma_x,
-        ),
-        adaptive_threshold_binarizer=OpenCvAdaptiveThresholdBinarizer(
-            block_size=preprocessing_settings.adaptive_threshold_block_size,
-            c_value=preprocessing_settings.adaptive_threshold_c,
-        ),
-        board_quad_detector=OpenCvBoardEdgeDetector(
-            canny_threshold_1=(
-                preprocessing_settings.board_edge_canny_threshold_1
-            ),
-            canny_threshold_2=(
-                preprocessing_settings.board_edge_canny_threshold_2
-            ),
-            hough_threshold=preprocessing_settings.board_edge_hough_threshold,
-            min_line_length_ratio=(
-                preprocessing_settings.board_edge_min_line_length_ratio
-            ),
-            max_line_gap_ratio=(
-                preprocessing_settings.board_edge_max_line_gap_ratio
-            ),
-            angle_tolerance_degrees=(
-                preprocessing_settings.board_edge_angle_tolerance_degrees
-            ),
-            outer_line_window_ratio=(
-                preprocessing_settings.board_edge_outer_line_window_ratio
-            ),
-            minimum_board_area_ratio=(
-                preprocessing_settings.board_edge_minimum_board_area_ratio
-            ),
-            minimum_family_segments=(
-                preprocessing_settings.board_edge_minimum_family_segments
-            ),
-            line_position_merge_distance_ratio=(
-                preprocessing_settings.board_edge_line_position_merge_distance_ratio
-            ),
-            minimum_distinct_lines_per_family=(
-                preprocessing_settings.board_edge_minimum_distinct_lines_per_family
-            ),
-        ),
-        perspective_transformer=OpenCvPerspectiveTransformer(
-            output_board_size=preprocessing_settings.board_output_size,
-            output_padding_pixels=(
-                preprocessing_settings.board_output_padding_pixels
-            ),
-        ),
-        board_cells_extractor=OpenCvBoardCellsExtractor(
-            grid_rows=preprocessing_settings.cells_grid_rows,
-            grid_cols=preprocessing_settings.cells_grid_cols,
-            cell_inner_margin_ratio=(
-                preprocessing_settings.cells_inner_margin_ratio
-            ),
-            minimum_cell_size_px=(
-                preprocessing_settings.cells_minimum_cell_size_px
-            ),
-            output_cell_size_px=preprocessing_settings.cells_output_cell_size,
+        board_dataset_cell_extractor=EngineBoardDatasetCellExtractor(
+            pipeline=cells_pipeline,
         ),
     )
 
@@ -471,7 +392,7 @@ def get_infer_cell_digit_command_handler(
     from infrastructure.training.model.model_factory import ModelFactory
 
     return InferCellDigitCommandHandler(
-        image_codec=OpenCvImageCodec(),
+        image_codec=VisionImageCodec(),
         cell_preprocessing_pipeline=CellPreprocessingPipeline(
             output_size=28,
             adaptive_block_size=preprocessing_settings.adaptive_threshold_block_size,

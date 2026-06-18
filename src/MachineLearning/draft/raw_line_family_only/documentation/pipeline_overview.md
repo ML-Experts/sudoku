@@ -79,6 +79,19 @@ Aktualna kolejność preprocessingu:
    - `repaired_binary`
    - `repair_name = directional_close`
 
+Ważne doprecyzowanie dla migracji do `Infrastructure`:
+
+- aktualna implementacja `build_board_preprocessing_artifacts(...)` skaluje
+  obraz wejściowy przez `resize_for_display(...)` i dalej pracuje już na
+  `display_bgr`,
+- obecny eksperymentalny `preprocess_board_image(...)` wykonuje więc detekcję
+  rodzin, wybór ramki i `warp` na obrazie przeskalowanym, a nie na pełnej
+  rozdzielczości oryginału,
+- wcześniejsza ścieżka `Infrastructure` wykonywała transformację perspektywy na
+  obrazie źródłowym przekazanym do handlera, więc przy migracji trzeba jawnie
+  zdecydować, czy utrzymujemy ten eksperymentalny skrót, czy przywracamy warp z
+  pełnej rozdzielczości.
+
 Znaczenie obrazów:
 
 - `clean_binary` służy do detekcji rodzin i wejściowych segmentów Hougha,
@@ -123,12 +136,18 @@ Pełny przebieg wykonuje:
 7. przypisanie intersections,
 8. trim linii do przecięć,
 9. ponowne przeliczenie intersections,
-10. budowę grup boundary i kandydatów ramek.
+10. budowę grup boundary i kandydatów ramek,
+11. ranking kandydatów ramek,
+12. wybór najlepszej ramki,
+13. opcjonalny `warp`, jeśli przekazano `warp_source_image`.
 
 Ważne:
 
 - rodziny i wejściowe segmenty pochodzą z `clean_binary`,
 - walidacja przejść po pikselach odbywa się na `repaired_binary`.
+- jeśli przekazano `warp_source_image`, to wynik
+  `selected_logical_line_frame_warp_result` jest już częścią aktywnego wyniku
+  `detect_line_families(...)`.
 
 ## `RawLineFamilyResult`
 
@@ -168,8 +187,10 @@ Interpretacja stanów:
 - `logical_line_intersections` - intersections policzone na finalnej geometrii.
 - `horizontal_boundary_groups` i `vertical_boundary_groups` - grupy linii zbudowane
   po finalnym `START/END`,
-- `logical_line_frame_candidates` - wszystkie znalezione kandydaty ramek bez
-  rankingu i bez wyboru najlepszego.
+- `logical_line_frame_candidates` - kandydaci ramek już po rankingu,
+- `selected_logical_line_frame_candidate` - wybrany zwycięzca,
+- `selected_logical_line_frame_warp_result` - wynik `warp` dla zwycięzcy, jeśli
+  przekazano `warp_source_image`.
 
 ## `RawLineFamilyArtifacts`
 
@@ -206,6 +227,34 @@ Interpretacja stanów:
 
 Notebook może budować artefakty ręcznie, ale powinien zachować tę samą
 semantykę pól i kolejność stanów co `pipeline/pipeline.py`.
+
+## Runtime preprocessing API i migracja
+
+Aktualny eksperyment ma dwa różne poziomy wejścia do części vision:
+
+1. pełna ścieżka od surowego zdjęcia planszy:
+   - `preprocess_board_image(...)`,
+   - wejście: surowy obraz,
+   - przebieg: preprocessing -> families -> `LogicalLine` -> intersections ->
+     kandydaci ramek -> `warp`,
+   - wyjście publiczne: `ImageApiResponse` z obrazem planszy po korekcji
+     perspektywy.
+2. ścieżka dla już skorygowanej planszy:
+   - `extract_cells_from_board_image(...)`,
+   - wejście: obraz planszy już po `warp`,
+   - przebieg: tylko podział na 9x9 i budowa artefaktów komórek,
+   - nie jest to entrypoint do wykrywania planszy na surowym zdjęciu.
+
+Decyzja migracyjna do `Infrastructure`:
+
+- `PUT /ml/preprocess/board` powinien iść pełną ścieżką od surowego zdjęcia do
+  `warp`,
+- `PUT /ml/preprocess/cells` powinien przyjmować już skorygowaną planszę i nie
+  powinien samodzielnie próbować wykrywać rodziny linii ani ramki,
+- publiczna odpowiedź `CellsGridApiResponse` dla `UC-04` powinna zwracać
+  widokowe komórki 9x9, a nie odwrócone komórki `ml_ready`,
+- artefakty `ml_ready` nadal są potrzebne wewnętrznie dla inferencji i
+  przygotowania datasetów.
 
 ## Raport tekstowy
 
@@ -264,4 +313,5 @@ Zawsze obecne po pełnym przebiegu:
    finalny stan po trimie.
 3. Raport i overlaye są częścią eksperymentu, a nie pobocznym dodatkiem.
 4. Po finalnych intersections pipeline buduje grupy boundary i kandydaty ramek.
-5. Ranking ramek i wybór najlepszej ramki nie są częścią aktywnego pipeline'u.
+5. W aktywnym kodzie `detect_line_families(...)` ranking ramek, wybór zwycięzcy
+   i opcjonalny `warp` nadal istnieją jako część ścieżki ekstrakcji planszy.

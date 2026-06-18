@@ -11,7 +11,7 @@ from paths import REPO_ROOT
 @dataclass(slots=True)
 class ExperimentConfig:
     dataset_root: Path = REPO_ROOT / "data" / "raw" / "boards"
-    image_path: Path | None = None
+    image_path: Path = Path("/home/wojtek/projects/sudoku/data/raw/boards/mixed/image25.jpg")
     selected_dataset_index: int = 0
     preview_limit: int = 20
     max_display_size: int = 1600
