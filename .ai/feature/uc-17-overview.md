@@ -253,6 +253,12 @@ Po co:
 - `GET /api/datasets/preparations` służy do pobrania listy istniejących przygotowań,
 - `GET /api/datasets/preparations/{preparationName}` służy do pobrania statusu i szczegółów konkretnego przygotowania; może być używany do pollingu, jeśli przygotowanie trwa długo.
 
+Status endpointów:
+- `GET /api/datasets/raw-candidates` — już istnieje; nie wymaga zmiany kontraktu dla `UC-17`,
+- `POST /api/datasets/preparations` — nowy endpoint do dodania,
+- `GET /api/datasets/preparations` — nowy endpoint do dodania,
+- `GET /api/datasets/preparations/{preparationName}` — nowy endpoint do dodania.
+
 Kontrakty wejściowe/wyjściowe:
 - `RawDatasetCandidateApiResponse`
   - `name`
@@ -309,6 +315,9 @@ Endpoint:
 
 Po co:
 - endpoint służy wyłącznie do wykonania ciężkiego preprocessingu i zapisania trwałej struktury przygotowania z danych `raw`.
+
+Status endpointów:
+- `POST /ml/datasets/preparations` — nowy endpoint do dodania.
 
 Kontrakty wejściowe/wyjściowe:
 - `CreateDatasetPreparationMlRequest`

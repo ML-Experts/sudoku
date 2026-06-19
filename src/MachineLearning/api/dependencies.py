@@ -11,6 +11,9 @@ from api.config.runtime_settings import (
     RuntimeSettings,
     TrainingSettings,
 )
+from application.features.datasets.commands.create_dataset_preparation.create_dataset_preparation_command_handler import (
+    CreateDatasetPreparationCommandHandler,
+)
 from application.features.datasets.commands.prepare_dataset_artifact.prepare_dataset_artifact_command_handler import (
     PrepareDatasetArtifactCommandHandler,
 )
@@ -34,6 +37,9 @@ from infrastructure.providers.package_version_provider import (
 )
 from infrastructure.datasets.board_dat_parser import BoardDatParser
 from infrastructure.datasets.board_dataset_scanner import BoardDatasetScanner
+from infrastructure.datasets.board_folder_name_resolver import (
+    BoardFolderNameResolver,
+)
 from infrastructure.datasets.idx_dataset_loader import IdxDatasetLoader
 from infrastructure.datasets.sample_split_assigner import SampleSplitAssigner
 from infrastructure.datasets.source_resolver import DatasetSourceResolver
@@ -49,11 +55,27 @@ from infrastructure.inference.filesystem_test_image_repository import (
 from infrastructure.reporting.preparation_report_builder import (
     PreparationReportBuilder,
 )
+from infrastructure.reporting.dataset_preparation_report_builder import (
+    DatasetPreparationReportBuilder,
+)
+from infrastructure.storage.dataset_preparation_artifact_writer import (
+    DatasetPreparationArtifactWriter,
+)
 from infrastructure.storage.npz_dataset_artifact_writer import (
     NpzDatasetArtifactWriter,
 )
 from infrastructure.storage.dataset_preparation_artifact_cleanup import (
     DatasetPreparationArtifactCleanup,
+    DatasetPreparationWorkspaceCleanup,
+)
+from infrastructure.storage.dataset_preparation_manifest_writer import (
+    DatasetPreparationManifestWriter,
+)
+from infrastructure.storage.dataset_preparation_workspace_manager import (
+    DatasetPreparationWorkspaceManager,
+)
+from infrastructure.storage.dataset_preparations_path_provider import (
+    DatasetPreparationsPathProvider,
 )
 from infrastructure.storage.dataset_preview_index_writer import (
     DatasetPreviewIndexWriter,
@@ -328,6 +350,56 @@ def get_prepare_dataset_artifact_command_handler(
         board_dataset_cell_extractor=EngineBoardDatasetCellExtractor(
             pipeline=cells_pipeline,
         ),
+    )
+
+
+def get_create_dataset_preparation_command_handler(
+    runtime_settings: RuntimeSettings = Depends(get_runtime_settings),
+    preprocessing_settings: PreprocessingSettings = Depends(
+        get_preprocessing_settings
+    ),
+) -> CreateDatasetPreparationCommandHandler:
+    cells_pipeline = _build_warped_board_cells_pipeline(
+        preprocessing_settings
+    )
+    path_provider = DatasetPreparationsPathProvider(
+        runtime_settings.dataset_preparations_directory_path
+    )
+    workspace_manager = DatasetPreparationWorkspaceManager(path_provider)
+    return CreateDatasetPreparationCommandHandler(
+        dataset_source_resolver=DatasetSourceResolver(
+            boards_subdirectory=runtime_settings.boards_subdirectory,
+            digits_subdirectory=runtime_settings.digits_subdirectory,
+        ),
+        board_dataset_scanner=BoardDatasetScanner(),
+        board_dat_parser=BoardDatParser(),
+        idx_dataset_loader=IdxDatasetLoader(),
+        board_dataset_cell_extractor=EngineBoardDatasetCellExtractor(
+            pipeline=cells_pipeline,
+        ),
+        cell_preprocessing_pipeline=CellPreprocessingPipeline(
+            output_size=28,
+            adaptive_block_size=preprocessing_settings.adaptive_threshold_block_size,
+            adaptive_c=preprocessing_settings.adaptive_threshold_c,
+        ),
+        artifact_writer=DatasetPreparationArtifactWriter(
+            path_provider=path_provider,
+            image_artifact_writer=FilesystemImageArtifactWriter(
+                image_codec=VisionImageCodec(),
+                output_mime_type="image/png",
+            ),
+        ),
+        manifest_writer=DatasetPreparationManifestWriter(
+            path_provider=path_provider,
+            json_file_writer=JsonFileWriter(),
+        ),
+        workspace_manager=workspace_manager,
+        artifact_cleanup=DatasetPreparationWorkspaceCleanup(
+            workspace_manager=workspace_manager
+        ),
+        board_folder_name_resolver=BoardFolderNameResolver(),
+        report_builder=DatasetPreparationReportBuilder(),
+        utc_clock=SystemUtcClock(),
     )
 
 

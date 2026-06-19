@@ -1,6 +1,7 @@
 .datasets-module-header,
 .uc06-section,
 .uc11-section,
+.uc17-section,
 .uc12-section,
 .uc14-aside-card {
   display: grid;
@@ -81,6 +82,7 @@
 }
 
 .uc12-panel,
+.uc17-panel,
 .uc14-panel {
   min-width: 0;
   padding: 1rem;
@@ -92,9 +94,169 @@
 }
 
 .uc12-panel h3,
-.uc12-panel h4 {
+.uc12-panel h4,
+.uc17-panel h3,
+.uc17-panel h4 {
   margin: 0;
   color: #bfdbfe;
+}
+
+.uc17-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.uc17-panel-header p {
+  margin: 0.35rem 0 0;
+}
+
+.uc17-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.uc17-stat-chip,
+.uc17-status-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  padding: 0.25rem 0.6rem;
+  font-size: 0.82rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.uc17-stat-chip {
+  color: #dbeafe;
+  background: rgba(15, 23, 42, 0.58);
+}
+
+.uc17-groups {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.uc17-candidates-list,
+.uc17-draft-list {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.uc17-candidate {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.58);
+}
+
+.uc17-candidate.is-selected {
+  border-color: rgba(56, 189, 248, 0.8);
+  background: rgba(14, 116, 144, 0.2);
+}
+
+.uc17-draft {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0.85rem 0.9rem;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 12px;
+  background: rgba(2, 6, 23, 0.35);
+}
+
+.uc17-draft-header,
+.uc17-details-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.uc17-draft-list {
+  margin: 0;
+  padding-left: 1rem;
+}
+
+.uc17-draft-list li {
+  color: #dbeafe;
+}
+
+.uc17-draft-list span {
+  color: #cbd5e1;
+}
+
+.uc17-preparations-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.uc17-preparations-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.58);
+}
+
+.uc17-preparations-list li.is-active {
+  border-color: rgba(56, 189, 248, 0.75);
+  background: rgba(14, 116, 144, 0.18);
+}
+
+.uc17-preparation-actions {
+  display: grid;
+  justify-items: end;
+  gap: 0.55rem;
+}
+
+.uc17-details {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.uc17-status-badge.is-queued {
+  color: #e0f2fe;
+  border-color: rgba(56, 189, 248, 0.45);
+  background: rgba(14, 116, 144, 0.22);
+}
+
+.uc17-status-badge.is-running {
+  color: #fde68a;
+  border-color: rgba(245, 158, 11, 0.45);
+  background: rgba(120, 53, 15, 0.28);
+}
+
+.uc17-status-badge.is-completed {
+  color: #dcfce7;
+  border-color: rgba(74, 222, 128, 0.45);
+  background: rgba(22, 101, 52, 0.26);
+}
+
+.uc17-status-badge.is-failed {
+  color: #fecaca;
+  border-color: rgba(248, 113, 113, 0.45);
+  background: rgba(127, 29, 29, 0.3);
+}
+
+.uc17-status-badge.is-unknown {
+  color: #dbeafe;
+  border-color: rgba(148, 163, 184, 0.3);
+  background: rgba(51, 65, 85, 0.35);
 }
 
 .uc12-field {

@@ -28,6 +28,9 @@ public sealed class MlServiceOptions
     public string PrepareDatasetPath { get; init; } = "/ml/datasets/prepare";
 
     [Required]
+    public string DatasetPreparationsPath { get; init; } = "/ml/datasets/preparations";
+
+    [Required]
     public string StartTrainingPath { get; init; } = "/ml/trainings";
 
     [Required]

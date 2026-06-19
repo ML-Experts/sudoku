@@ -170,7 +170,7 @@ export function Uc11RawCandidatesSection({
             <>
               <p className="muted-copy">
                 W UC-11 pokazujemy tylko podsumowanie kandydatow, aby nie dublowac tej samej listy.
-                Szczegolowa lista z mozliwoscia zaznaczania zrodel jest dostepna w kroku UC-12.
+                Szczegolowa lista z mozliwoscia zaznaczania zrodel jest dostepna w kroku UC-17.
               </p>
               <ul className="uc11-candidates-list">
                 <li className="uc11-candidate-item">
