@@ -55,6 +55,7 @@ jobs:
       BE_RAW_DATASETS_DIGITS_SUBDIRECTORY: ${{ vars.BE_RAW_DATASETS_DIGITS_SUBDIRECTORY }}
       BE_DATASETS_PREP_BOARDS_SUBDIRECTORY: ${{ vars.BE_DATASETS_PREP_BOARDS_SUBDIRECTORY }}
       BE_DATASETS_PREP_DIGITS_SUBDIRECTORY: ${{ vars.BE_DATASETS_PREP_DIGITS_SUBDIRECTORY }}
+      BE_DATASETS_PREP_PREPARATIONS_DIRECTORY_PATH: ${{ vars.BE_DATASETS_PREP_PREPARATIONS_DIRECTORY_PATH }}
       BE_DATASETS_PREP_PROCESSED_DIRECTORY_PATH: ${{ vars.BE_DATASETS_PREP_PROCESSED_DIRECTORY_PATH }}
       BE_DATASETS_PREP_TEMPORARY_ARTIFACTS_DIRECTORY_PATH: ${{ vars.BE_DATASETS_PREP_TEMPORARY_ARTIFACTS_DIRECTORY_PATH }}
       BE_DATASETS_PREP_DEFAULT_PREPROCESSING_PROFILE: ${{ vars.BE_DATASETS_PREP_DEFAULT_PREPROCESSING_PROFILE }}
@@ -155,6 +156,11 @@ jobs:
 
           if [ -z "$BE_DATASETS_PREP_DIGITS_SUBDIRECTORY" ]; then
             echo "Missing BE_DATASETS_PREP_DIGITS_SUBDIRECTORY variable for the selected GitHub environment."
+            exit 1
+          fi
+
+          if [ -z "$BE_DATASETS_PREP_PREPARATIONS_DIRECTORY_PATH" ]; then
+            echo "Missing BE_DATASETS_PREP_PREPARATIONS_DIRECTORY_PATH variable for the selected GitHub environment."
             exit 1
           fi
 
@@ -293,6 +299,7 @@ jobs:
               "BE_RAW_DATASETS_DIGITS_SUBDIRECTORY",
               "BE_DATASETS_PREP_BOARDS_SUBDIRECTORY",
               "BE_DATASETS_PREP_DIGITS_SUBDIRECTORY",
+              "BE_DATASETS_PREP_PREPARATIONS_DIRECTORY_PATH",
               "BE_DATASETS_PREP_PROCESSED_DIRECTORY_PATH",
               "BE_DATASETS_PREP_TEMPORARY_ARTIFACTS_DIRECTORY_PATH",
               "BE_DATASETS_PREP_DEFAULT_PREPROCESSING_PROFILE",
@@ -390,6 +397,7 @@ jobs:
           datasets_preparation = config.setdefault("DatasetsPreparation", {})
           datasets_preparation["BoardsSubdirectory"] = os.environ["BE_DATASETS_PREP_BOARDS_SUBDIRECTORY"]
           datasets_preparation["DigitsSubdirectory"] = os.environ["BE_DATASETS_PREP_DIGITS_SUBDIRECTORY"]
+          datasets_preparation["PreparationsDirectoryPath"] = os.environ["BE_DATASETS_PREP_PREPARATIONS_DIRECTORY_PATH"]
           datasets_preparation["ProcessedDatasetsDirectoryPath"] = os.environ["BE_DATASETS_PREP_PROCESSED_DIRECTORY_PATH"]
           datasets_preparation["TemporaryArtifactsDirectoryPath"] = os.environ["BE_DATASETS_PREP_TEMPORARY_ARTIFACTS_DIRECTORY_PATH"]
           datasets_preparation["DefaultPreprocessingProfile"] = os.environ["BE_DATASETS_PREP_DEFAULT_PREPROCESSING_PROFILE"]

@@ -199,11 +199,13 @@ export default function App() {
       ? "UC-11 — Przeglad kandydatow raw"
       : datasetsStep === "uc17"
         ? "UC-17 — Przygotowanie datasetu"
-      : datasetsStep === "uc12"
-        ? "UC-12 — Legacy: budowa datasetu processed"
-        : datasetsStep === "uc06"
-          ? "UC-06 — Start i monitoring treningu"
-          : "UC-08 — Katalog runow i modeli";
+        : datasetsStep === "uc18"
+          ? "UC-18 — Przeglad zrodel preparation"
+          : datasetsStep === "uc12"
+            ? "UC-12 — Legacy: budowa datasetu processed"
+            : datasetsStep === "uc06"
+              ? "UC-06 — Start i monitoring treningu"
+              : "UC-08 — Katalog runow i modeli";
 
   async function handleAdminLoginSubmit() {
     if (!adminPassword.trim()) {

@@ -150,6 +150,522 @@ public sealed class DatasetsController : ControllerBase
     }
 
     [Authorize]
+    [HttpGet("preparations/{preparationName}/board/folders")]
+    [ProducesResponseType(typeof(DatasetPreparationFoldersApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> GetPreparationBoardFoldersAsync(
+        [FromRoute] string? preparationName,
+        CancellationToken cancellationToken)
+    {
+        const string type = "board";
+
+        _logger.LogInformation(
+            "Rozpoczęto odczyt listy folderów preparation. PreparationName={PreparationName}, Type={Type}.",
+            preparationName,
+            type);
+
+        try
+        {
+            var result = await _sender.Send(
+                new GetDatasetPreparationFoldersQuery(preparationName, type),
+                cancellationToken);
+            var response = ToDatasetPreparationFoldersApiResponse(result);
+
+            _logger.LogInformation(
+                "Zakończono odczyt listy folderów preparation. PreparationName={PreparationName}, Type={Type}, TotalCount={TotalCount}.",
+                response.PreparationName,
+                response.Type,
+                response.TotalCount);
+
+            return Ok(response);
+        }
+        catch (ValidationException exception)
+        {
+            return MapDatasetPreparationFoldersValidationError(exception);
+        }
+        catch (DatasetPreparationNotFoundException exception)
+        {
+            _logger.LogWarning(
+                exception,
+                "Nie znaleziono przygotowania datasetu dla odczytu folderów. PreparationName={PreparationName}, Type={Type}, ErrorType={ErrorType}.",
+                preparationName,
+                type,
+                GetDatasetPreparationFoldersErrorTypes.DatasetPreparationNotFound);
+
+            return NotFound(new ErrorApiResponse(
+                ErrorType: GetDatasetPreparationFoldersErrorTypes.DatasetPreparationNotFound,
+                Message: exception.Message));
+        }
+        catch (DatasetPreparationArtifactsNotReadyException exception)
+        {
+            _logger.LogWarning(
+                exception,
+                "Przygotowanie datasetu nie jest gotowe do odczytu folderów. PreparationName={PreparationName}, Type={Type}, Status={Status}, ErrorType={ErrorType}.",
+                exception.PreparationName,
+                type,
+                exception.Status,
+                GetDatasetPreparationFoldersErrorTypes.DatasetPreparationArtifactsNotReady);
+
+            return Conflict(new ErrorApiResponse(
+                ErrorType: GetDatasetPreparationFoldersErrorTypes.DatasetPreparationArtifactsNotReady,
+                Message: exception.Message));
+        }
+        catch (Exception exception) when (exception is IOException
+                                         or UnauthorizedAccessException
+                                         or InvalidDataException
+                                         or JsonException
+                                         or FileStorageItemNotFoundException)
+        {
+            _logger.LogError(
+                exception,
+                "Nie udało się odczytać listy folderów preparation. PreparationName={PreparationName}, Type={Type}, ErrorType={ErrorType}.",
+                preparationName,
+                type,
+                GetDatasetPreparationFoldersErrorTypes.DatasetPreparationFoldersReadFailed);
+
+            return StatusCode(
+                StatusCodes.Status500InternalServerError,
+                new ErrorApiResponse(
+                    ErrorType: GetDatasetPreparationFoldersErrorTypes.DatasetPreparationFoldersReadFailed,
+                    Message: "Nie udało się odczytać listy folderów preparation."));
+        }
+    }
+
+    [Authorize]
+    [HttpGet("preparations/{preparationName}/digit/folders")]
+    [ProducesResponseType(typeof(DatasetPreparationFoldersApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> GetPreparationDigitFoldersAsync(
+        [FromRoute] string? preparationName,
+        CancellationToken cancellationToken)
+    {
+        const string type = "digit";
+
+        _logger.LogInformation(
+            "Rozpoczęto odczyt listy folderów preparation. PreparationName={PreparationName}, Type={Type}.",
+            preparationName,
+            type);
+
+        try
+        {
+            var result = await _sender.Send(
+                new GetDatasetPreparationFoldersQuery(preparationName, type),
+                cancellationToken);
+            var response = ToDatasetPreparationFoldersApiResponse(result);
+
+            _logger.LogInformation(
+                "Zakończono odczyt listy folderów preparation. PreparationName={PreparationName}, Type={Type}, TotalCount={TotalCount}.",
+                response.PreparationName,
+                response.Type,
+                response.TotalCount);
+
+            return Ok(response);
+        }
+        catch (ValidationException exception)
+        {
+            return MapDatasetPreparationFoldersValidationError(exception);
+        }
+        catch (DatasetPreparationNotFoundException exception)
+        {
+            _logger.LogWarning(
+                exception,
+                "Nie znaleziono przygotowania datasetu dla odczytu folderów. PreparationName={PreparationName}, Type={Type}, ErrorType={ErrorType}.",
+                preparationName,
+                type,
+                GetDatasetPreparationFoldersErrorTypes.DatasetPreparationNotFound);
+
+            return NotFound(new ErrorApiResponse(
+                ErrorType: GetDatasetPreparationFoldersErrorTypes.DatasetPreparationNotFound,
+                Message: exception.Message));
+        }
+        catch (DatasetPreparationArtifactsNotReadyException exception)
+        {
+            _logger.LogWarning(
+                exception,
+                "Przygotowanie datasetu nie jest gotowe do odczytu folderów. PreparationName={PreparationName}, Type={Type}, Status={Status}, ErrorType={ErrorType}.",
+                exception.PreparationName,
+                type,
+                exception.Status,
+                GetDatasetPreparationFoldersErrorTypes.DatasetPreparationArtifactsNotReady);
+
+            return Conflict(new ErrorApiResponse(
+                ErrorType: GetDatasetPreparationFoldersErrorTypes.DatasetPreparationArtifactsNotReady,
+                Message: exception.Message));
+        }
+        catch (Exception exception) when (exception is IOException
+                                         or UnauthorizedAccessException
+                                         or InvalidDataException
+                                         or JsonException
+                                         or FileStorageItemNotFoundException)
+        {
+            _logger.LogError(
+                exception,
+                "Nie udało się odczytać listy folderów preparation. PreparationName={PreparationName}, Type={Type}, ErrorType={ErrorType}.",
+                preparationName,
+                type,
+                GetDatasetPreparationFoldersErrorTypes.DatasetPreparationFoldersReadFailed);
+
+            return StatusCode(
+                StatusCodes.Status500InternalServerError,
+                new ErrorApiResponse(
+                    ErrorType: GetDatasetPreparationFoldersErrorTypes.DatasetPreparationFoldersReadFailed,
+                    Message: "Nie udało się odczytać listy folderów preparation."));
+        }
+    }
+
+    [Authorize]
+    [HttpGet("preparations/{preparationName}/board/{sourceName}/files")]
+    [ProducesResponseType(typeof(DatasetPreparationBoardFilesApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> GetPreparationBoardFilesAsync(
+        [FromRoute] string? preparationName,
+        [FromRoute] string? sourceName,
+        [FromQuery] int? page,
+        [FromQuery] int? pageSize,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation(
+            "Rozpoczęto odczyt listy plansz preparation. PreparationName={PreparationName}, SourceName={SourceName}, Page={Page}, PageSize={PageSize}.",
+            preparationName,
+            sourceName,
+            page,
+            pageSize);
+
+        try
+        {
+            var result = await _sender.Send(
+                new GetDatasetPreparationBoardFilesQuery(preparationName, sourceName, page, pageSize),
+                cancellationToken);
+            var response = ToDatasetPreparationBoardFilesApiResponse(result);
+
+            _logger.LogInformation(
+                "Zakończono odczyt listy plansz preparation. PreparationName={PreparationName}, SourceName={SourceName}, Page={Page}, PageSize={PageSize}, TotalCount={TotalCount}, ReturnedItemsCount={ReturnedItemsCount}.",
+                response.PreparationName,
+                response.SourceName,
+                response.Page,
+                response.PageSize,
+                response.TotalCount,
+                response.Items.Count);
+
+            return Ok(response);
+        }
+        catch (ValidationException exception)
+        {
+            return MapDatasetPreparationBoardFilesValidationError(exception);
+        }
+        catch (DatasetPreparationNotFoundException exception)
+        {
+            _logger.LogWarning(
+                exception,
+                "Nie znaleziono przygotowania datasetu dla odczytu listy plansz. PreparationName={PreparationName}, SourceName={SourceName}, ErrorType={ErrorType}.",
+                preparationName,
+                sourceName,
+                GetDatasetPreparationBoardFilesErrorTypes.DatasetPreparationNotFound);
+
+            return NotFound(new ErrorApiResponse(
+                ErrorType: GetDatasetPreparationBoardFilesErrorTypes.DatasetPreparationNotFound,
+                Message: exception.Message));
+        }
+        catch (DatasetPreparationSourceNotFoundException exception)
+        {
+            _logger.LogWarning(
+                exception,
+                "Nie znaleziono źródła board dla odczytu listy plansz. PreparationName={PreparationName}, SourceName={SourceName}, ErrorType={ErrorType}.",
+                exception.PreparationName,
+                exception.SourceName,
+                GetDatasetPreparationBoardFilesErrorTypes.DatasetPreparationSourceNotFound);
+
+            return NotFound(new ErrorApiResponse(
+                ErrorType: GetDatasetPreparationBoardFilesErrorTypes.DatasetPreparationSourceNotFound,
+                Message: exception.Message));
+        }
+        catch (DatasetPreparationArtifactsNotReadyException exception)
+        {
+            _logger.LogWarning(
+                exception,
+                "Przygotowanie datasetu nie jest gotowe do odczytu listy plansz. PreparationName={PreparationName}, SourceName={SourceName}, Status={Status}, ErrorType={ErrorType}.",
+                exception.PreparationName,
+                sourceName,
+                exception.Status,
+                GetDatasetPreparationBoardFilesErrorTypes.DatasetPreparationArtifactsNotReady);
+
+            return Conflict(new ErrorApiResponse(
+                ErrorType: GetDatasetPreparationBoardFilesErrorTypes.DatasetPreparationArtifactsNotReady,
+                Message: exception.Message));
+        }
+        catch (Exception exception) when (exception is IOException
+                                         or UnauthorizedAccessException
+                                         or InvalidDataException
+                                         or JsonException
+                                         or FileStorageItemNotFoundException)
+        {
+            _logger.LogError(
+                exception,
+                "Nie udało się odczytać listy plansz preparation. PreparationName={PreparationName}, SourceName={SourceName}, ErrorType={ErrorType}.",
+                preparationName,
+                sourceName,
+                GetDatasetPreparationBoardFilesErrorTypes.DatasetPreparationBoardFilesReadFailed);
+
+            return StatusCode(
+                StatusCodes.Status500InternalServerError,
+                new ErrorApiResponse(
+                    ErrorType: GetDatasetPreparationBoardFilesErrorTypes.DatasetPreparationBoardFilesReadFailed,
+                    Message: "Nie udało się odczytać listy plansz preparation."));
+        }
+    }
+
+    [Authorize]
+    [HttpGet("preparations/{preparationName}/board/{sourceName}/files/{boardFolderName}/image")]
+    [ProducesResponseType(typeof(ImageApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> GetPreparationBoardImageAsync(
+        [FromRoute] string? preparationName,
+        [FromRoute] string? sourceName,
+        [FromRoute] string? boardFolderName,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation(
+            "Rozpoczęto odczyt obrazu planszy preparation. PreparationName={PreparationName}, SourceName={SourceName}, BoardFolderName={BoardFolderName}.",
+            preparationName,
+            sourceName,
+            boardFolderName);
+
+        try
+        {
+            var result = await _sender.Send(
+                new GetDatasetPreparationBoardImageQuery(preparationName, sourceName, boardFolderName),
+                cancellationToken);
+            var response = ToImageApiResponse(result);
+
+            _logger.LogInformation(
+                "Zakończono odczyt obrazu planszy preparation. PreparationName={PreparationName}, SourceName={SourceName}, BoardFolderName={BoardFolderName}, MimeType={MimeType}.",
+                preparationName,
+                sourceName,
+                boardFolderName,
+                response.MimeType);
+
+            return Ok(response);
+        }
+        catch (ValidationException exception)
+        {
+            return MapDatasetPreparationBoardImageValidationError(exception);
+        }
+        catch (DatasetPreparationNotFoundException exception)
+        {
+            _logger.LogWarning(
+                exception,
+                "Nie znaleziono przygotowania datasetu dla odczytu obrazu planszy. PreparationName={PreparationName}, SourceName={SourceName}, BoardFolderName={BoardFolderName}, ErrorType={ErrorType}.",
+                preparationName,
+                sourceName,
+                boardFolderName,
+                GetDatasetPreparationBoardImageErrorTypes.DatasetPreparationNotFound);
+
+            return NotFound(new ErrorApiResponse(
+                ErrorType: GetDatasetPreparationBoardImageErrorTypes.DatasetPreparationNotFound,
+                Message: exception.Message));
+        }
+        catch (DatasetPreparationSourceNotFoundException exception)
+        {
+            _logger.LogWarning(
+                exception,
+                "Nie znaleziono źródła board dla odczytu obrazu planszy. PreparationName={PreparationName}, SourceName={SourceName}, BoardFolderName={BoardFolderName}, ErrorType={ErrorType}.",
+                exception.PreparationName,
+                exception.SourceName,
+                boardFolderName,
+                GetDatasetPreparationBoardImageErrorTypes.DatasetPreparationSourceNotFound);
+
+            return NotFound(new ErrorApiResponse(
+                ErrorType: GetDatasetPreparationBoardImageErrorTypes.DatasetPreparationSourceNotFound,
+                Message: exception.Message));
+        }
+        catch (DatasetPreparationBoardFileNotFoundException exception)
+        {
+            _logger.LogWarning(
+                exception,
+                "Nie znaleziono planszy dla odczytu obrazu preparation. PreparationName={PreparationName}, SourceName={SourceName}, BoardFolderName={BoardFolderName}, ErrorType={ErrorType}.",
+                exception.PreparationName,
+                exception.SourceName,
+                exception.BoardFolderName,
+                GetDatasetPreparationBoardImageErrorTypes.DatasetPreparationBoardFileNotFound);
+
+            return NotFound(new ErrorApiResponse(
+                ErrorType: GetDatasetPreparationBoardImageErrorTypes.DatasetPreparationBoardFileNotFound,
+                Message: exception.Message));
+        }
+        catch (DatasetPreparationArtifactsNotReadyException exception)
+        {
+            _logger.LogWarning(
+                exception,
+                "Przygotowanie datasetu nie jest gotowe do odczytu obrazu planszy. PreparationName={PreparationName}, SourceName={SourceName}, BoardFolderName={BoardFolderName}, Status={Status}, ErrorType={ErrorType}.",
+                exception.PreparationName,
+                sourceName,
+                boardFolderName,
+                exception.Status,
+                GetDatasetPreparationBoardImageErrorTypes.DatasetPreparationArtifactsNotReady);
+
+            return Conflict(new ErrorApiResponse(
+                ErrorType: GetDatasetPreparationBoardImageErrorTypes.DatasetPreparationArtifactsNotReady,
+                Message: exception.Message));
+        }
+        catch (Exception exception) when (exception is IOException
+                                         or UnauthorizedAccessException
+                                         or InvalidDataException
+                                         or JsonException
+                                         or FileStorageItemNotFoundException)
+        {
+            _logger.LogError(
+                exception,
+                "Nie udało się odczytać obrazu planszy preparation. PreparationName={PreparationName}, SourceName={SourceName}, BoardFolderName={BoardFolderName}, ErrorType={ErrorType}.",
+                preparationName,
+                sourceName,
+                boardFolderName,
+                GetDatasetPreparationBoardImageErrorTypes.DatasetPreparationBoardImageReadFailed);
+
+            return StatusCode(
+                StatusCodes.Status500InternalServerError,
+                new ErrorApiResponse(
+                    ErrorType: GetDatasetPreparationBoardImageErrorTypes.DatasetPreparationBoardImageReadFailed,
+                    Message: "Nie udało się odczytać obrazu planszy preparation."));
+        }
+    }
+
+    [Authorize]
+    [HttpDelete("preparations/{preparationName}/board/{sourceName}/files/{boardFolderName}")]
+    [ProducesResponseType(typeof(DeleteDatasetPreparationBoardFileApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> DeletePreparationBoardFileAsync(
+        [FromRoute] string? preparationName,
+        [FromRoute] string? sourceName,
+        [FromRoute] string? boardFolderName,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation(
+            "Rozpoczęto usuwanie planszy preparation. PreparationName={PreparationName}, SourceName={SourceName}, BoardFolderName={BoardFolderName}.",
+            preparationName,
+            sourceName,
+            boardFolderName);
+
+        try
+        {
+            var result = await _sender.Send(
+                new DeleteDatasetPreparationBoardFileCommand(preparationName, sourceName, boardFolderName),
+                cancellationToken);
+            var response = ToDeleteDatasetPreparationBoardFileApiResponse(result);
+
+            _logger.LogInformation(
+                "Zakończono usuwanie planszy preparation. PreparationName={PreparationName}, SourceName={SourceName}, BoardFolderName={BoardFolderName}, Deleted={Deleted}, RemainingItemsCount={RemainingItemsCount}.",
+                response.PreparationName,
+                response.SourceName,
+                response.BoardFolderName,
+                response.Deleted,
+                response.RemainingItemsCount);
+
+            return Ok(response);
+        }
+        catch (ValidationException exception)
+        {
+            return MapDeleteDatasetPreparationBoardFileValidationError(exception);
+        }
+        catch (DatasetPreparationNotFoundException exception)
+        {
+            _logger.LogWarning(
+                exception,
+                "Nie znaleziono przygotowania datasetu dla usunięcia planszy. PreparationName={PreparationName}, SourceName={SourceName}, BoardFolderName={BoardFolderName}, ErrorType={ErrorType}.",
+                preparationName,
+                sourceName,
+                boardFolderName,
+                DeleteDatasetPreparationBoardFileErrorTypes.DatasetPreparationNotFound);
+
+            return NotFound(new ErrorApiResponse(
+                ErrorType: DeleteDatasetPreparationBoardFileErrorTypes.DatasetPreparationNotFound,
+                Message: exception.Message));
+        }
+        catch (DatasetPreparationSourceNotFoundException exception)
+        {
+            _logger.LogWarning(
+                exception,
+                "Nie znaleziono źródła board dla usunięcia planszy. PreparationName={PreparationName}, SourceName={SourceName}, BoardFolderName={BoardFolderName}, ErrorType={ErrorType}.",
+                exception.PreparationName,
+                exception.SourceName,
+                boardFolderName,
+                DeleteDatasetPreparationBoardFileErrorTypes.DatasetPreparationSourceNotFound);
+
+            return NotFound(new ErrorApiResponse(
+                ErrorType: DeleteDatasetPreparationBoardFileErrorTypes.DatasetPreparationSourceNotFound,
+                Message: exception.Message));
+        }
+        catch (DatasetPreparationBoardFileNotFoundException exception)
+        {
+            _logger.LogWarning(
+                exception,
+                "Nie znaleziono planszy do usunięcia. PreparationName={PreparationName}, SourceName={SourceName}, BoardFolderName={BoardFolderName}, ErrorType={ErrorType}.",
+                exception.PreparationName,
+                exception.SourceName,
+                exception.BoardFolderName,
+                DeleteDatasetPreparationBoardFileErrorTypes.DatasetPreparationBoardFileNotFound);
+
+            return NotFound(new ErrorApiResponse(
+                ErrorType: DeleteDatasetPreparationBoardFileErrorTypes.DatasetPreparationBoardFileNotFound,
+                Message: exception.Message));
+        }
+        catch (DatasetPreparationArtifactsNotReadyException exception)
+        {
+            _logger.LogWarning(
+                exception,
+                "Przygotowanie datasetu nie jest gotowe do usunięcia planszy. PreparationName={PreparationName}, SourceName={SourceName}, BoardFolderName={BoardFolderName}, Status={Status}, ErrorType={ErrorType}.",
+                exception.PreparationName,
+                sourceName,
+                boardFolderName,
+                exception.Status,
+                DeleteDatasetPreparationBoardFileErrorTypes.DatasetPreparationArtifactsNotReady);
+
+            return Conflict(new ErrorApiResponse(
+                ErrorType: DeleteDatasetPreparationBoardFileErrorTypes.DatasetPreparationArtifactsNotReady,
+                Message: exception.Message));
+        }
+        catch (Exception exception) when (exception is IOException
+                                         or UnauthorizedAccessException
+                                         or InvalidDataException
+                                         or JsonException
+                                         or FileStorageItemNotFoundException)
+        {
+            _logger.LogError(
+                exception,
+                "Nie udało się usunąć planszy preparation. PreparationName={PreparationName}, SourceName={SourceName}, BoardFolderName={BoardFolderName}, ErrorType={ErrorType}.",
+                preparationName,
+                sourceName,
+                boardFolderName,
+                DeleteDatasetPreparationBoardFileErrorTypes.DatasetPreparationBoardFileDeleteFailed);
+
+            return StatusCode(
+                StatusCodes.Status500InternalServerError,
+                new ErrorApiResponse(
+                    ErrorType: DeleteDatasetPreparationBoardFileErrorTypes.DatasetPreparationBoardFileDeleteFailed,
+                    Message: "Nie udało się usunąć planszy preparation."));
+        }
+    }
+
+    [Authorize]
     [HttpPost("preparations")]
     [ProducesResponseType(typeof(DatasetPreparationApiResponse), StatusCodes.Status202Accepted)]
     [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status400BadRequest)]
@@ -398,6 +914,35 @@ public sealed class DatasetsController : ControllerBase
             Warnings: result.Warnings);
     }
 
+    private static DatasetPreparationFoldersApiResponse ToDatasetPreparationFoldersApiResponse(
+        GetDatasetPreparationFoldersQueryResultDto result)
+    {
+        return new DatasetPreparationFoldersApiResponse(
+            PreparationName: result.PreparationName,
+            Type: result.Type,
+            Items: result.Items,
+            TotalCount: result.TotalCount);
+    }
+
+    private static DatasetPreparationBoardFilesApiResponse ToDatasetPreparationBoardFilesApiResponse(
+        GetDatasetPreparationBoardFilesQueryResultDto result)
+    {
+        return new DatasetPreparationBoardFilesApiResponse(
+            PreparationName: result.PreparationName,
+            SourceName: result.SourceName,
+            Items: result.Items
+                .Select(item => new DatasetPreparationBoardFileListItemApiResponse(
+                    BoardFolderName: item.BoardFolderName,
+                    ImageEndpoint: BuildDatasetPreparationBoardImageEndpoint(
+                        result.PreparationName,
+                        result.SourceName,
+                        item.BoardFolderName)))
+                .ToArray(),
+            Page: result.Page,
+            PageSize: result.PageSize,
+            TotalCount: result.TotalCount);
+    }
+
     private static DatasetPreparationListItemApiResponse ToDatasetPreparationListItemApiResponse(
         DatasetPreparationListItemDto item)
     {
@@ -407,6 +952,24 @@ public sealed class DatasetsController : ControllerBase
             Status: item.Status,
             BoardSourcesCount: item.BoardSourcesCount,
             DigitSourcesCount: item.DigitSourcesCount);
+    }
+
+    private static ImageApiResponse ToImageApiResponse(GetDatasetPreparationBoardImageQueryResultDto result)
+    {
+        return new ImageApiResponse(
+            MimeType: result.MimeType,
+            Base64: result.Base64);
+    }
+
+    private static DeleteDatasetPreparationBoardFileApiResponse ToDeleteDatasetPreparationBoardFileApiResponse(
+        DeleteDatasetPreparationBoardFileCommandResultDto result)
+    {
+        return new DeleteDatasetPreparationBoardFileApiResponse(
+            PreparationName: result.PreparationName,
+            SourceName: result.SourceName,
+            BoardFolderName: result.BoardFolderName,
+            Deleted: result.Deleted,
+            RemainingItemsCount: result.RemainingItemsCount);
     }
 
     private static IActionResult MapValidationError(ValidationException exception)
@@ -454,5 +1017,69 @@ public sealed class DatasetsController : ControllerBase
         {
             StatusCode = StatusCodes.Status400BadRequest
         };
+    }
+
+    private static IActionResult MapDatasetPreparationFoldersValidationError(ValidationException exception)
+    {
+        var failure = exception.Errors.FirstOrDefault();
+        var errorType = failure?.ErrorCode ?? GetDatasetPreparationFoldersErrorTypes.InvalidDatasetPreparationName;
+        var message = failure?.ErrorMessage ?? "Nieprawidłowe parametry odczytu folderów preparation.";
+
+        return new ObjectResult(new ErrorApiResponse(
+            ErrorType: errorType,
+            Message: message))
+        {
+            StatusCode = StatusCodes.Status400BadRequest
+        };
+    }
+
+    private static IActionResult MapDatasetPreparationBoardFilesValidationError(ValidationException exception)
+    {
+        var failure = exception.Errors.FirstOrDefault();
+        var errorType = failure?.ErrorCode ?? GetDatasetPreparationBoardFilesErrorTypes.InvalidDatasetPreparationName;
+        var message = failure?.ErrorMessage ?? "Nieprawidłowe parametry odczytu listy plansz preparation.";
+
+        return new ObjectResult(new ErrorApiResponse(
+            ErrorType: errorType,
+            Message: message))
+        {
+            StatusCode = StatusCodes.Status400BadRequest
+        };
+    }
+
+    private static IActionResult MapDatasetPreparationBoardImageValidationError(ValidationException exception)
+    {
+        var failure = exception.Errors.FirstOrDefault();
+        var errorType = failure?.ErrorCode ?? GetDatasetPreparationBoardImageErrorTypes.InvalidDatasetPreparationName;
+        var message = failure?.ErrorMessage ?? "Nieprawidłowe parametry odczytu obrazu planszy preparation.";
+
+        return new ObjectResult(new ErrorApiResponse(
+            ErrorType: errorType,
+            Message: message))
+        {
+            StatusCode = StatusCodes.Status400BadRequest
+        };
+    }
+
+    private static IActionResult MapDeleteDatasetPreparationBoardFileValidationError(ValidationException exception)
+    {
+        var failure = exception.Errors.FirstOrDefault();
+        var errorType = failure?.ErrorCode ?? DeleteDatasetPreparationBoardFileErrorTypes.InvalidDatasetPreparationName;
+        var message = failure?.ErrorMessage ?? "Nieprawidłowe parametry usuwania planszy preparation.";
+
+        return new ObjectResult(new ErrorApiResponse(
+            ErrorType: errorType,
+            Message: message))
+        {
+            StatusCode = StatusCodes.Status400BadRequest
+        };
+    }
+
+    private static string BuildDatasetPreparationBoardImageEndpoint(
+        string preparationName,
+        string sourceName,
+        string boardFolderName)
+    {
+        return $"/api/datasets/preparations/{Uri.EscapeDataString(preparationName)}/board/{Uri.EscapeDataString(sourceName)}/files/{Uri.EscapeDataString(boardFolderName)}/image";
     }
 }
