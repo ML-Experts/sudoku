@@ -78,6 +78,7 @@ class NpzDigitDatasetLoader:
         self._validate_split(arrays.x_train, arrays.y_train, "train")
         self._validate_split(arrays.x_val, arrays.y_val, "val")
         self._validate_split(arrays.x_test, arrays.y_test, "test")
+        self._validate_label_ranges(arrays)
         if arrays.y_train.shape[0] == 0:
             raise TrainingRunValidationError(
                 "processed_dataset_empty_train_split",
@@ -96,3 +97,25 @@ class NpzDigitDatasetLoader:
                 "processed_dataset_invalid",
                 f"Split {split_name} ma niespójne liczby obrazów i etykiet.",
             )
+
+    def _validate_label_ranges(self, arrays: NpzDigitArrays) -> None:
+        class_count = len(arrays.class_names)
+        if class_count <= 0:
+            raise TrainingRunValidationError(
+                "processed_dataset_invalid",
+                "Plik .npz nie definiuje żadnych klas.",
+            )
+
+        for split_name, labels in (
+            ("train", arrays.y_train),
+            ("val", arrays.y_val),
+            ("test", arrays.y_test),
+        ):
+            if labels.size == 0:
+                continue
+            if np.any(labels < 0) or np.any(labels >= class_count):
+                raise TrainingRunValidationError(
+                    "processed_dataset_invalid",
+                    "Plik .npz zawiera etykiety spoza zakresu klas "
+                    f"zadeklarowanych dla splitu {split_name}.",
+                )

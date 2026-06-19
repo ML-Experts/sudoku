@@ -117,6 +117,7 @@ class PytorchTrainingRunner:
             arrays = self._dataset_loader.load(
                 context.processed_dataset.file_path
             )
+            self._validate_dataset_contract(arrays, context)
             dataloaders = self._dataloader_factory.build(
                 arrays,
                 transform,
@@ -314,6 +315,14 @@ class PytorchTrainingRunner:
         except CancelledTrainingRun:
             await self._publish_cancelled(sequence, context)
         except Exception as error:
+            LOGGER.exception(
+                "Training run failed.",
+                extra={
+                    "run_name": context.run_name,
+                    "stage": stage,
+                    "error_type": type(error).__name__,
+                },
+            )
             await self._publish_failed(sequence, context, stage, error)
         finally:
             self._cancellation_registry.release(context.run_name)
@@ -490,6 +499,19 @@ class PytorchTrainingRunner:
         if len(dataloaders["val"].dataset) > 0:
             return dataloaders["val"]
         return dataloaders["train"]
+
+    def _validate_dataset_contract(
+        self,
+        arrays,
+        context: TrainingRunContextDto,
+    ) -> None:
+        declared_class_count = len(arrays.class_names)
+        supported_class_count = context.model_manifest.architecture.num_classes
+        if declared_class_count > supported_class_count:
+            raise ValueError(
+                "Plik .npz deklaruje więcej klas niż obsługuje wybrany model. "
+                "Przygotuj zgodny dataset albo wybierz model z większą liczbą klas."
+            )
 
     def _predict(
         self,

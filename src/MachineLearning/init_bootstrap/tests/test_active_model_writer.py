@@ -7,7 +7,7 @@ from init_bootstrap.active_model_writer import ensure_active_model_if_missing
 
 
 class ActiveModelWriterTests(unittest.TestCase):
-    def test_should_create_active_model_pointer_for_inference_model(self) -> None:
+    def test_should_create_active_model_pointer_for_sudoku_inference_model(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root_path = Path(temp_dir)
             registry_path = root_path / "registry"
@@ -15,6 +15,7 @@ class ActiveModelWriterTests(unittest.TestCase):
             self._write_manifest(
                 registry_path / "cnn-baseline" / "model.json",
                 can_use_for_inference=True,
+                num_classes=9,
             )
 
             result = ensure_active_model_if_missing(
@@ -54,6 +55,27 @@ class ActiveModelWriterTests(unittest.TestCase):
             self._write_manifest(
                 registry_path / "cnn-baseline" / "model.json",
                 can_use_for_inference=False,
+                num_classes=9,
+            )
+
+            result = ensure_active_model_if_missing(
+                active_model_directory_path=active_path,
+                registry_directory_path=registry_path,
+                default_active_model="cnn-baseline",
+                set_active_if_missing=True,
+            )
+
+            self.assertEqual(result.reason, "model_not_inference_capable")
+
+    def test_should_skip_10_class_model_even_when_flagged_for_inference(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root_path = Path(temp_dir)
+            registry_path = root_path / "registry"
+            active_path = root_path / "active"
+            self._write_manifest(
+                registry_path / "cnn-baseline" / "model.json",
+                can_use_for_inference=True,
+                num_classes=10,
             )
 
             result = ensure_active_model_if_missing(
@@ -66,13 +88,14 @@ class ActiveModelWriterTests(unittest.TestCase):
             self.assertEqual(result.reason, "model_not_inference_capable")
 
     def _write_manifest(
-        self, path: Path, *, can_use_for_inference: bool
+        self, path: Path, *, can_use_for_inference: bool, num_classes: int
     ) -> None:
         path.parent.mkdir(parents=True)
         path.write_text(
             json.dumps(
                 {
                     "name": path.parent.name,
+                    "architecture": {"numClasses": num_classes},
                     "capabilities": {
                         "canUseForInference": can_use_for_inference
                     },

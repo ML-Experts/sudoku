@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from typing import Protocol
 
@@ -28,6 +29,7 @@ INVALID_IMAGE_PAYLOAD_MESSAGE = (
 CELL_IMAGE_NOT_PROCESSABLE_MESSAGE = (
     "Nie udało się przygotować obrazu komórki do inferencji."
 )
+LOGGER = logging.getLogger(__name__)
 
 
 class ImageCodec(Protocol):
@@ -116,6 +118,8 @@ class InferCellDigitCommandHandler:
             ),
         )
 
+        predicted_class_index: int | None = None
+        predicted_digit: int | None = None
         try:
             input_tensor = runtime_model.input_transform(preprocessed_image)
             input_tensor = input_tensor.unsqueeze(0).to(runtime_model.device)
@@ -123,11 +127,36 @@ class InferCellDigitCommandHandler:
             runtime_model.model.eval()
             with torch.inference_mode():
                 output = runtime_model.model(input_tensor)
-                predicted_digit = int(torch.argmax(output, dim=1).item())
+                predicted_class_index = int(torch.argmax(output, dim=1).item())
+                predicted_digit = self._map_sudoku_class_index_to_digit(
+                    predicted_class_index
+                )
+            LOGGER.info(
+                "Cell inference model prediction: model_name=%s input_profile=%s "
+                "inference_profile=%s predicted_class_index=%s predicted_digit=%s",
+                command.active_model.name,
+                command.active_model.input_profile,
+                runtime_configuration.inference_profile_name,
+                predicted_class_index,
+                predicted_digit,
+            )
             inference_result = CellDigitInferenceResult(digit=predicted_digit)
         except CellDigitInferenceCommandError:
             raise
         except ValueError as error:
+            LOGGER.warning(
+                "Cell inference produced out-of-contract digit: model_name=%s "
+                "input_profile=%s inference_profile=%s predicted_class_index=%s "
+                "predicted_digit=%s "
+                "reason=%s",
+                command.active_model.name,
+                command.active_model.input_profile,
+                runtime_configuration.inference_profile_name,
+                predicted_class_index,
+                predicted_digit,
+                error,
+                exc_info=True,
+            )
             raise CellDigitInferenceValidationError(
                 "invalid_inference_result",
                 "Model zwrócił wynik spoza zakresu produktu.",
@@ -139,6 +168,9 @@ class InferCellDigitCommandHandler:
             ) from error
 
         return self._to_command_result(inference_result)
+
+    def _map_sudoku_class_index_to_digit(self, class_index: int) -> int:
+        return class_index + 1
 
     def _build_runtime_configuration(
         self,
@@ -248,6 +280,12 @@ class InferCellDigitCommandHandler:
             )
             return self._image_codec.decode_image(encoded_input_image)
         except ValueError as error:
+            LOGGER.warning(
+                "Cell inference image decode failed: mime_type=%s reason=%s",
+                command.mime_type,
+                error,
+                exc_info=True,
+            )
             raise CellDigitInferenceValidationError(
                 "invalid_image_payload",
                 INVALID_IMAGE_PAYLOAD_MESSAGE,
@@ -263,6 +301,14 @@ class InferCellDigitCommandHandler:
             )
             return foreground_mask.astype(np.float32) / 255.0
         except ValueError as error:
+            LOGGER.warning(
+                "Cell inference foreground mask build failed: image_shape=%s "
+                "image_dtype=%s reason=%s",
+                decoded_image.shape,
+                decoded_image.dtype,
+                error,
+                exc_info=True,
+            )
             raise CellDigitInferenceValidationError(
                 "cell_image_not_processable",
                 CELL_IMAGE_NOT_PROCESSABLE_MESSAGE,
@@ -275,6 +321,14 @@ class InferCellDigitCommandHandler:
         try:
             return self._cell_preprocessing_pipeline.run(decoded_image)
         except ValueError as error:
+            LOGGER.warning(
+                "Cell inference preprocessing failed: image_shape=%s image_dtype=%s "
+                "reason=%s",
+                decoded_image.shape,
+                decoded_image.dtype,
+                error,
+                exc_info=True,
+            )
             raise CellDigitInferenceValidationError(
                 "cell_image_not_processable",
                 CELL_IMAGE_NOT_PROCESSABLE_MESSAGE,
@@ -296,6 +350,22 @@ class InferCellDigitCommandHandler:
                 line_artifact_max_thickness_ratio = (runtime_configuration.line_artifact_max_thickness_ratio)
             )
         except ValueError as error:
+            LOGGER.warning(
+                "Cell inference occupancy detection failed: image_shape=%s "
+                "inner_margin_ratio=%s dark_pixel_ratio_threshold=%s "
+                "center_area_ratio=%s min_component_area_ratio=%s "
+                "line_artifact_min_span_ratio=%s "
+                "line_artifact_max_thickness_ratio=%s reason=%s",
+                occupancy_image.shape,
+                runtime_configuration.empty_cell_inner_margin_ratio,
+                runtime_configuration.empty_cell_dark_pixel_ratio_threshold,
+                runtime_configuration.center_area_ratio,
+                runtime_configuration.min_component_area_ratio,
+                runtime_configuration.line_artifact_min_span_ratio,
+                runtime_configuration.line_artifact_max_thickness_ratio,
+                error,
+                exc_info=True,
+            )
             raise CellDigitInferenceValidationError(
                 "cell_image_not_processable",
                 CELL_IMAGE_NOT_PROCESSABLE_MESSAGE,

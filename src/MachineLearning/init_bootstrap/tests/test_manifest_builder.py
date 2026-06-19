@@ -21,6 +21,7 @@ class ManifestBuilderTests(unittest.TestCase):
         self.assertEqual(manifest["name"], "cnn-baseline")
         self.assertEqual(manifest["sourceType"], "bootstrap")
         self.assertIsNone(manifest["sourceRunName"])
+        self.assertEqual(manifest["architecture"]["numClasses"], 9)
         self.assertEqual(manifest["architecture"]["inputChannels"], 1)
         self.assertFalse(manifest["capabilities"]["canUseForInference"])
 
@@ -36,6 +37,7 @@ class ManifestBuilderTests(unittest.TestCase):
         manifest = build_manifest(declaration)
 
         self.assertEqual(manifest["name"], "resnet18-imagenet-bootstrap")
+        self.assertEqual(manifest["architecture"]["numClasses"], 9)
         self.assertEqual(manifest["architecture"]["library"], "torchvision")
         self.assertEqual(manifest["architecture"]["inputHeight"], 224)
 
@@ -76,6 +78,24 @@ class ManifestBuilderTests(unittest.TestCase):
             manifest["architecture"]["pretrainedSource"],
             "Wide_ResNet101_2_Weights.DEFAULT",
         )
+
+    def test_build_manifest_should_allow_inference_capability_for_9_class_model(
+        self,
+    ) -> None:
+        declaration = parse_bootstrap_declaration(
+            {
+                "family": "cnn",
+                "type": "custom-cnn-v1",
+                "name": "cnn-baseline",
+                "displayName": "CNN baseline",
+                "canUseForInference": True,
+            }
+        )
+
+        manifest = build_manifest(declaration)
+
+        self.assertTrue(manifest["capabilities"]["canUseForInference"])
+        self.assertEqual(manifest["architecture"]["numClasses"], 9)
 
     def test_parse_declaration_should_reject_technical_overrides(self) -> None:
         with self.assertRaises(BootstrapConfigurationError):

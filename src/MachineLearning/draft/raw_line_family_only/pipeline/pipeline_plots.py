@@ -1,0 +1,199 @@
+from __future__ import annotations
+
+import numpy as np
+
+from pipeline_artifacts import RawLineFamilyArtifacts
+
+
+def _has_image(image: np.ndarray | None) -> bool:
+    return image is not None and image.size > 0
+
+
+def build_raw_line_family_plot_items(
+    artifacts: RawLineFamilyArtifacts,
+) -> list[tuple[str, np.ndarray, bool]]:
+    plot_items: list[tuple[str, np.ndarray, bool]] = [
+        ("source", artifacts.display_bgr, True),
+        ("gray", artifacts.gray_image, False),
+        (
+            f"denoise: {artifacts.denoise_name}",
+            artifacts.denoised_image,
+            False,
+        ),
+        (
+            f"binary: {artifacts.threshold_name}",
+            artifacts.binary_image,
+            False,
+        ),
+        (
+            f"cleanup: {artifacts.cleanup_name}",
+            artifacts.clean_binary,
+            False,
+        ),
+        (
+            f"repair: {artifacts.repair_name}",
+            artifacts.repaired_binary,
+            False,
+        ),
+        (
+            "raw line families on cleanup binary",
+            artifacts.binary_family_overlay,
+            True,
+        ),
+        ("raw line families on source", artifacts.source_family_overlay, True),
+    ]
+    if _has_image(artifacts.raw_segment_group_board):
+        plot_items.append(
+            (
+                "raw segment groups board",
+                artifacts.raw_segment_group_board,
+                True,
+            )
+        )
+    if _has_image(artifacts.clean_binary_axis_overlay):
+        plot_items.append(
+            (
+                "cleanup binary with x/y axis grid",
+                artifacts.clean_binary_axis_overlay,
+                True,
+            )
+        )
+    if _has_image(artifacts.containment_prune_board):
+        plot_items.append(
+            (
+                "containment prune board",
+                artifacts.containment_prune_board,
+                True,
+            )
+        )
+    if _has_image(artifacts.vertex_containment_merge_board):
+        plot_items.append(
+            (
+                "logical lines post vertex merge board",
+                artifacts.vertex_containment_merge_board,
+                True,
+            )
+        )
+    if _has_image(artifacts.binary_connection_input_overlay):
+        plot_items.append(
+            (
+                "pixel connection tolerance rectangles on repair binary",
+                artifacts.binary_connection_input_overlay,
+                True,
+            )
+        )
+    if _has_image(artifacts.source_connection_input_overlay):
+        plot_items.append(
+            (
+                "pixel connection tolerance rectangles on source",
+                artifacts.source_connection_input_overlay,
+                True,
+            )
+        )
+    if _has_image(artifacts.binary_post_connection_logical_line_overlay):
+        plot_items.append(
+            (
+                "logical lines post connection on repair binary",
+                artifacts.binary_post_connection_logical_line_overlay,
+                True,
+            )
+        )
+    if _has_image(artifacts.source_post_connection_logical_line_overlay):
+        plot_items.append(
+            (
+                "logical lines post connection on source",
+                artifacts.source_post_connection_logical_line_overlay,
+                True,
+            )
+        )
+    plot_items.extend(
+        [
+            (
+                "logical lines final on repair binary",
+                artifacts.binary_logical_line_overlay,
+                True,
+            ),
+            (
+                "logical lines final on source",
+                artifacts.source_logical_line_overlay,
+                True,
+            ),
+        ]
+    )
+    if _has_image(artifacts.source_logical_line_intersection_overlay):
+        plot_items.append(
+            (
+                "logical line intersections on source",
+                artifacts.source_logical_line_intersection_overlay,
+                True,
+            )
+        )
+    if _has_image(artifacts.source_trimmed_logical_line_overlay):
+        plot_items.append(
+            (
+                "logical lines trimmed vs post connection on source",
+                artifacts.source_trimmed_logical_line_overlay,
+                True,
+            )
+        )
+    if _has_image(artifacts.source_logical_line_frame_overlay):
+        plot_items.append(
+            (
+                "logical line frames on source",
+                artifacts.source_logical_line_frame_overlay,
+                True,
+            )
+        )
+    if _has_image(artifacts.source_selected_logical_line_frame_overlay):
+        plot_items.append(
+            (
+                "selected logical line frame on source",
+                artifacts.source_selected_logical_line_frame_overlay,
+                True,
+            )
+        )
+    if _has_image(artifacts.source_selected_frame_warp_overlay):
+        plot_items.append(
+            (
+                "warp corners on selected logical line frame",
+                artifacts.source_selected_frame_warp_overlay,
+                True,
+            )
+        )
+    if _has_image(artifacts.selected_frame_square_warp):
+        plot_items.append(
+            (
+                "selected logical line frame warped to square",
+                artifacts.selected_frame_square_warp,
+                True,
+            )
+        )
+    warp_result = artifacts.line_family_result.selected_logical_line_frame_warp_result
+    if (
+        warp_result is not None
+        and warp_result.cells_grid_result is not None
+        and _has_image(warp_result.cells_grid_result.preview_image)
+    ):
+        plot_items.append(
+            (
+                "warped frame equal 9x9 cells grid",
+                warp_result.cells_grid_result.preview_image,
+                True,
+            )
+        )
+    if (
+        warp_result is not None
+        and warp_result.cells_grid_result is not None
+        and _has_image(warp_result.cells_grid_result.ml_ready_preview_image)
+    ):
+        plot_items.append(
+            (
+                "warped frame ML-ready 28x28 inverted cells grid",
+                warp_result.cells_grid_result.ml_ready_preview_image,
+                True,
+            )
+        )
+    return plot_items
+
+
+__all__ = ["build_raw_line_family_plot_items"]

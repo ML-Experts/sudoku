@@ -1,3 +1,6 @@
+import logging
+import sys
+
 from fastapi import FastAPI
 
 from api.config.environment import load_runtime_environment
@@ -16,7 +19,31 @@ from api.controllers.test_inference_controller import test_inference_controller
 from api.controllers.trainings_controller import trainings_controller
 
 
+def _configure_logging() -> None:
+    formatter = logging.Formatter(
+        "%(asctime)s %(levelname)s [%(name)s] %(message)s"
+    )
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO)
+
+    stdout_handler = None
+    for handler in root_logger.handlers:
+        if isinstance(handler, logging.StreamHandler) and getattr(
+            handler, "stream", None
+        ) is sys.stdout:
+            stdout_handler = handler
+            break
+
+    if stdout_handler is None:
+        stdout_handler = logging.StreamHandler(sys.stdout)
+        root_logger.addHandler(stdout_handler)
+
+    stdout_handler.setLevel(logging.INFO)
+    stdout_handler.setFormatter(formatter)
+
+
 def create_app() -> FastAPI:
+    _configure_logging()
     runtime_settings = load_runtime_environment()
 
     # Centralize app construction here so routers share one runtime configuration.

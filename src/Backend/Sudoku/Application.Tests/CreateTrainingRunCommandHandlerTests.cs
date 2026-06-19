@@ -224,12 +224,55 @@ public sealed class CreateTrainingRunCommandHandlerTests
         Assert.Equal("TrainingParameters.FineTuningPolicy", failure.PropertyName);
     }
 
+    [Fact]
+    public async Task Handle_DoesNotOverwriteTerminalEventThatArrivedBeforeQueuedStatusWasPersisted()
+    {
+        var trainingRunsGateway = new InMemoryTrainingRunsGateway();
+        var mlTrainingsGateway = new StubMlTrainingsGateway(delayCompletion: true);
+        var lockProvider = new InMemoryTrainingRunEventLockProvider();
+        var handler = CreateHandler(
+            trainingRunsGateway: trainingRunsGateway,
+            mlTrainingsGateway: mlTrainingsGateway,
+            trainingRunEventLockProvider: lockProvider);
+
+        var handleTask = handler.Handle(CreateCommand(), CancellationToken.None);
+        await mlTrainingsGateway.WaitForStartCallAsync();
+
+        var runName = Assert.Single(trainingRunsGateway.Items.Keys);
+        await using (await lockProvider.AcquireAsync(runName, CancellationToken.None))
+        {
+            var terminalMetadata = trainingRunsGateway.Items[runName] with
+            {
+                Status = "failed",
+                UpdatedAtUtc = FixedNow,
+                Stage = "training",
+                LastAcceptedSequence = 2,
+                LastEventType = "failed",
+                LastEventMessage = "Training failed before first running event.",
+                LastEventOccurredAtUtc = FixedNow,
+                FailureReason = "Training failed before first running event.",
+                FailureErrorType = "training_run_failed",
+                FinishedAtUtc = FixedNow
+            };
+            trainingRunsGateway.Items[runName] = terminalMetadata;
+            mlTrainingsGateway.AllowCompletion();
+        }
+
+        var result = await handleTask;
+
+        Assert.Equal("failed", result.Status);
+        Assert.Equal("failed", trainingRunsGateway.Items[runName].Status);
+        Assert.Equal("failed", trainingRunsGateway.Items[runName].LastEventType);
+        Assert.Equal(2L, trainingRunsGateway.Items[runName].LastAcceptedSequence);
+    }
+
     private static CreateTrainingRunCommandHandler CreateHandler(
         InMemoryTrainingRunsGateway? trainingRunsGateway = null,
         StubMlTrainingsGateway? mlTrainingsGateway = null,
         StubModelsRegistryGateway? modelsRegistryGateway = null,
         StubProcessedDatasetsGateway? processedDatasetsGateway = null,
-        ITrainingRunCancellationRecovery? trainingRunCancellationRecovery = null)
+        ITrainingRunCancellationRecovery? trainingRunCancellationRecovery = null,
+        ITrainingRunEventLockProvider? trainingRunEventLockProvider = null)
     {
         return new CreateTrainingRunCommandHandler(
             trainingRunsGateway ?? new InMemoryTrainingRunsGateway(),
@@ -238,6 +281,7 @@ public sealed class CreateTrainingRunCommandHandlerTests
             mlTrainingsGateway ?? new StubMlTrainingsGateway(),
             trainingRunCancellationRecovery ?? new StubTrainingRunCancellationRecovery(),
             new StubTrainingEventsPathProvider(),
+            trainingRunEventLockProvider ?? new InMemoryTrainingRunEventLockProvider(),
             new StubTrainingRunNameGenerator("train-cnn-bootstrap-digits"),
             Options.Create(new TrainingDefaultsOptions
             {
@@ -419,17 +463,47 @@ public sealed class CreateTrainingRunCommandHandlerTests
 
     private sealed class StubMlTrainingsGateway : IMlTrainingsGateway
     {
+        private readonly bool _delayCompletion;
         public StartMlTrainingRequestDto? LastRequest { get; private set; }
+        private readonly TaskCompletionSource<bool> _startCalled =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource<bool> _allowCompletion =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public StubMlTrainingsGateway(bool delayCompletion = false)
+        {
+            _delayCompletion = delayCompletion;
+            if (!delayCompletion)
+            {
+                _allowCompletion.TrySetResult(true);
+            }
+        }
 
         public Task<StartMlTrainingResultDto> StartTrainingAsync(
             StartMlTrainingRequestDto request,
             CancellationToken cancellationToken = default)
         {
             LastRequest = request;
+            _startCalled.TrySetResult(true);
+            if (_delayCompletion)
+            {
+                return WaitForCompletionAsync(cancellationToken);
+            }
+
             return Task.FromResult(new StartMlTrainingResultDto(
                 AcceptedAtUtc: FixedNow,
                 MlJobId: "ml-job-01",
                 Status: "queued"));
+        }
+
+        public Task WaitForStartCallAsync()
+        {
+            return _startCalled.Task;
+        }
+
+        public void AllowCompletion()
+        {
+            _allowCompletion.TrySetResult(true);
         }
 
         public Task<CancelMlTrainingResultDto> CancelTrainingAsync(
@@ -437,6 +511,16 @@ public sealed class CreateTrainingRunCommandHandlerTests
             CancellationToken cancellationToken = default)
         {
             throw new NotSupportedException();
+        }
+
+        private async Task<StartMlTrainingResultDto> WaitForCompletionAsync(
+            CancellationToken cancellationToken)
+        {
+            await _allowCompletion.Task.WaitAsync(cancellationToken);
+            return new StartMlTrainingResultDto(
+                AcceptedAtUtc: FixedNow,
+                MlJobId: "ml-job-01",
+                Status: "queued");
         }
     }
 
