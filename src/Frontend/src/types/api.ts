@@ -143,6 +143,35 @@ export type DatasetPreparationsListApiResponse = {
   totalCount: number;
 };
 
+export type DatasetPreparationFoldersApiResponse = {
+  preparationName: string;
+  type: string;
+  items: string[];
+  totalCount: number;
+};
+
+export type DatasetPreparationBoardFileListItemApiResponse = {
+  boardFolderName: string;
+  imageEndpoint: string;
+};
+
+export type DatasetPreparationBoardFilesApiResponse = {
+  preparationName: string;
+  sourceName: string;
+  items: DatasetPreparationBoardFileListItemApiResponse[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+};
+
+export type DeleteDatasetPreparationBoardFileApiResponse = {
+  preparationName: string;
+  sourceName: string;
+  boardFolderName: string;
+  deleted: boolean;
+  remainingItemsCount: number;
+};
+
 export type SelectedRawDatasetSourceApiEntry = {
   name: string;
   type: string;
