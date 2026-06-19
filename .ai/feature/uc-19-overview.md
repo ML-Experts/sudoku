@@ -260,6 +260,14 @@ Po co:
 - `POST /api/datasets/processed` buduje finalny `.npz` z wybranego przygotowania,
 - `GET /api/datasets/processed` zwraca listę gotowych datasetów `.npz`.
 
+Status endpointów:
+- `GET /api/datasets/preparations` — nowy endpoint do dodania; zdefiniowany wcześniej jako część bytu `preparation`,
+- `GET /api/datasets/preparations/{preparationName}` — nowy endpoint do dodania,
+- `GET /api/datasets/preparations/{preparationName}/board/folders` — nowy endpoint do dodania,
+- `GET /api/datasets/preparations/{preparationName}/digit/folders` — nowy endpoint do dodania,
+- `POST /api/datasets/processed` — endpoint już istnieje, ale wymaga refaktoru kontraktu i logiki z `raw -> npz` na `preparation -> npz`,
+- `GET /api/datasets/processed` — endpoint już istnieje; kontrakt listy może pozostać bez zmian albo wymagać co najwyżej niewielkiego rozszerzenia metadanych.
+
 Kontrakty wejściowe/wyjściowe:
 - `CreateProcessedDatasetApiEntry`
   - `preparationName`
@@ -319,6 +327,9 @@ Endpoint:
 
 Po co:
 - endpoint służy do zbudowania finalnego `.npz` z gotowych folderów przygotowania, bez ponownego wracania do danych `raw`.
+
+Status endpointów:
+- `POST /ml/datasets/prepare` — endpoint już istnieje, ale wymaga refaktoru kontraktu wejściowego i logiki wykonania; obecnie buduje `.npz` bezpośrednio z `raw`, docelowo ma budować `.npz` z `preparation`.
 
 Kontrakty wejściowe/wyjściowe:
 - `PrepareDatasetArtifactRequest`

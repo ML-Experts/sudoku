@@ -197,8 +197,10 @@ export default function App() {
   const datasetsStepLabel =
     datasetsStep === "uc11"
       ? "UC-11 — Przeglad kandydatow raw"
+      : datasetsStep === "uc17"
+        ? "UC-17 — Przygotowanie datasetu"
       : datasetsStep === "uc12"
-        ? "UC-12 — Budowa datasetu processed"
+        ? "UC-12 — Legacy: budowa datasetu processed"
         : datasetsStep === "uc06"
           ? "UC-06 — Start i monitoring treningu"
           : "UC-08 — Katalog runow i modeli";

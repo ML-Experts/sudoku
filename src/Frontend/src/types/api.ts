@@ -106,6 +106,43 @@ export type RawDatasetCandidateApiResponse = {
   type: string;
 };
 
+export type CreateDatasetPreparationSourceApiEntry = {
+  name: string;
+  type: string;
+};
+
+export type CreateDatasetPreparationApiEntry = {
+  preparationName: string;
+  sources: CreateDatasetPreparationSourceApiEntry[];
+};
+
+export type DatasetPreparationSourceApiResponse = {
+  name: string;
+  type: string;
+  preparedItemsCount: number;
+};
+
+export type DatasetPreparationApiResponse = {
+  preparationName: string;
+  createdAtUtc: string;
+  status: string;
+  sources: DatasetPreparationSourceApiResponse[];
+  warnings: string[];
+};
+
+export type DatasetPreparationListItemApiResponse = {
+  preparationName: string;
+  createdAtUtc: string;
+  status: string;
+  boardSourcesCount: number;
+  digitSourcesCount: number;
+};
+
+export type DatasetPreparationsListApiResponse = {
+  items: DatasetPreparationListItemApiResponse[];
+  totalCount: number;
+};
+
 export type SelectedRawDatasetSourceApiEntry = {
   name: string;
   type: string;

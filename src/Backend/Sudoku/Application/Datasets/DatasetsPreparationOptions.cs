@@ -13,6 +13,9 @@ public sealed class DatasetsPreparationOptions
     public string DigitsSubdirectory { get; init; } = string.Empty;
 
     [Required]
+    public string PreparationsDirectoryPath { get; init; } = string.Empty;
+
+    [Required]
     public string ProcessedDatasetsDirectoryPath { get; init; } = string.Empty;
 
     [Required]

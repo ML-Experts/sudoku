@@ -171,6 +171,15 @@ Po co:
 - `GET /api/datasets/preparations/{preparationName}/board/{sourceName}/files/{boardFolderName}/image` zwraca `corrected-board.png` do podglądu,
 - `DELETE /api/datasets/preparations/{preparationName}/board/{sourceName}/files/{boardFolderName}` usuwa folder planszy i aktualizuje `file.json`.
 
+Status endpointów:
+- `GET /api/datasets/preparations` — nowy endpoint do dodania; w `UC-18` wykorzystywany ponownie, ale jego byt bazowy należy do `UC-17`,
+- `GET /api/datasets/preparations/{preparationName}` — nowy endpoint do dodania; w `UC-18` wykorzystywany do szczegółów/statusu,
+- `GET /api/datasets/preparations/{preparationName}/board/folders` — nowy endpoint do dodania,
+- `GET /api/datasets/preparations/{preparationName}/digit/folders` — nowy endpoint do dodania,
+- `GET /api/datasets/preparations/{preparationName}/board/{sourceName}/files?page={page}&pageSize={pageSize}` — nowy endpoint do dodania,
+- `GET /api/datasets/preparations/{preparationName}/board/{sourceName}/files/{boardFolderName}/image` — nowy endpoint do dodania,
+- `DELETE /api/datasets/preparations/{preparationName}/board/{sourceName}/files/{boardFolderName}` — nowy endpoint do dodania.
+
 Kontrakty wejściowe/wyjściowe:
 - `DatasetPreparationsListApiResponse`
   - `items: DatasetPreparationListItemApiResponse[]`
@@ -233,6 +242,9 @@ Przykładowa odpowiedź dla listy plansz:
 Brak nowych endpointów w `UC-18`.
 
 Przeglądanie i usuwanie działa wyłącznie na strukturze plików przygotowania zarządzanej przez `Backend`. `ML` nie jest wołany do listowania, ładowania `corrected-board.png` ani aktualizacji `file.json`.
+
+Status endpointów:
+- brak zmian po stronie `ML`; `UC-18` nie wymaga żadnego endpointu `ML`.
 
 ## Poza zakresem
 - budowa `.npz`,

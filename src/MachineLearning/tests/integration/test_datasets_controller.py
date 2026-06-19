@@ -19,6 +19,7 @@ class DatasetsControllerTests(unittest.TestCase):
             "ML_DIGITS_SUBDIRECTORY",
             "ML_TEMP_DATASETS_DIRECTORY_PATH",
             "ML_DATASET_PREVIEWS_DIRECTORY_PATH",
+            "ML_DATASET_PREPARATIONS_DIRECTORY_PATH",
             "ML_EXAMPLES_UPLOADS_DIR",
             "ML_MODELS_ACTIVE_DIR",
             "ML_MODELS_REGISTRY_DIR",
@@ -122,6 +123,165 @@ class DatasetsControllerTests(unittest.TestCase):
                     for sample in preview_index["digitSources"][0]["samples"]
                 )
             )
+
+    def test_post_preparations_should_write_digit_preparation_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_directory:
+            root_path = Path(temp_directory)
+            boards_path = root_path / "boards"
+            digits_path = root_path / "digits"
+            datasets_path = root_path / "datasets"
+            previews_path = root_path / "previews"
+            preparations_path = root_path / "preparations"
+            examples_path = root_path / "examples"
+            models_active_path = root_path / "models" / "active"
+            models_registry_path = root_path / "models" / "registry"
+
+            boards_path.mkdir(parents=True)
+            digits_path.mkdir(parents=True)
+            datasets_path.mkdir(parents=True)
+            previews_path.mkdir(parents=True)
+            preparations_path.mkdir(parents=True)
+            examples_path.mkdir(parents=True)
+            models_active_path.mkdir(parents=True)
+            models_registry_path.mkdir(parents=True)
+
+            _write_idx_pair(
+                digits_path / "mnist_train.idx3-ubyte",
+                digits_path / "mnist_train.idx1-ubyte",
+            )
+
+            os.environ["ML_ENVIRONMENT"] = "local"
+            os.environ["ML_BOARDS_SUBDIRECTORY"] = str(boards_path)
+            os.environ["ML_DIGITS_SUBDIRECTORY"] = str(digits_path)
+            os.environ["ML_TEMP_DATASETS_DIRECTORY_PATH"] = str(datasets_path)
+            os.environ["ML_DATASET_PREVIEWS_DIRECTORY_PATH"] = str(
+                previews_path
+            )
+            os.environ["ML_DATASET_PREPARATIONS_DIRECTORY_PATH"] = str(
+                preparations_path
+            )
+            os.environ["ML_EXAMPLES_UPLOADS_DIR"] = str(examples_path)
+            os.environ["ML_MODELS_ACTIVE_DIR"] = str(models_active_path)
+            os.environ["ML_MODELS_REGISTRY_DIR"] = str(models_registry_path)
+
+            client = TestClient(create_app())
+            payload = {
+                "preparationName": "preparation-001",
+                "sources": [
+                    {
+                        "name": "mnist_train",
+                        "type": "digit",
+                    }
+                ],
+            }
+
+            response = client.post("/ml/datasets/preparations", json=payload)
+
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(
+                response.json(),
+                {
+                    "preparationName": "preparation-001",
+                    "createdAtUtc": response.json()["createdAtUtc"],
+                    "status": "completed",
+                    "sourceReports": [
+                        {
+                            "name": "mnist_train",
+                            "type": "digit",
+                            "preparedItemsCount": 2,
+                            "rejectedItemsCount": 0,
+                            "emptyCellCount": 0,
+                        }
+                    ],
+                    "warnings": [],
+                },
+            )
+            self.assertTrue(
+                (
+                    preparations_path
+                    / "preparation-001"
+                    / "digit"
+                    / "folders.json"
+                ).is_file()
+            )
+            self.assertTrue(
+                (
+                    preparations_path
+                    / "preparation-001"
+                    / "digit"
+                    / "mnist_train"
+                    / "index.json"
+                ).is_file()
+            )
+            self.assertTrue(
+                (
+                    preparations_path
+                    / "preparation-001"
+                    / "digit"
+                    / "mnist_train"
+                    / "000000.png"
+                ).is_file()
+            )
+            self.assertTrue(
+                (
+                    preparations_path
+                    / "preparation-001"
+                    / "digit"
+                    / "mnist_train"
+                    / "000001.png"
+                ).is_file()
+            )
+
+    def test_post_preparations_should_return_422_when_source_is_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_directory:
+            root_path = Path(temp_directory)
+            boards_path = root_path / "boards"
+            digits_path = root_path / "digits"
+            datasets_path = root_path / "datasets"
+            previews_path = root_path / "previews"
+            preparations_path = root_path / "preparations"
+            examples_path = root_path / "examples"
+            models_active_path = root_path / "models" / "active"
+            models_registry_path = root_path / "models" / "registry"
+
+            boards_path.mkdir(parents=True)
+            digits_path.mkdir(parents=True)
+            datasets_path.mkdir(parents=True)
+            previews_path.mkdir(parents=True)
+            preparations_path.mkdir(parents=True)
+            examples_path.mkdir(parents=True)
+            models_active_path.mkdir(parents=True)
+            models_registry_path.mkdir(parents=True)
+
+            os.environ["ML_ENVIRONMENT"] = "local"
+            os.environ["ML_BOARDS_SUBDIRECTORY"] = str(boards_path)
+            os.environ["ML_DIGITS_SUBDIRECTORY"] = str(digits_path)
+            os.environ["ML_TEMP_DATASETS_DIRECTORY_PATH"] = str(datasets_path)
+            os.environ["ML_DATASET_PREVIEWS_DIRECTORY_PATH"] = str(
+                previews_path
+            )
+            os.environ["ML_DATASET_PREPARATIONS_DIRECTORY_PATH"] = str(
+                preparations_path
+            )
+            os.environ["ML_EXAMPLES_UPLOADS_DIR"] = str(examples_path)
+            os.environ["ML_MODELS_ACTIVE_DIR"] = str(models_active_path)
+            os.environ["ML_MODELS_REGISTRY_DIR"] = str(models_registry_path)
+
+            client = TestClient(create_app())
+            payload = {
+                "preparationName": "preparation-001",
+                "sources": [
+                    {
+                        "name": "mnist_train",
+                        "type": "digit",
+                    }
+                ],
+            }
+
+            response = client.post("/ml/datasets/preparations", json=payload)
+
+            self.assertEqual(response.status_code, 422)
+            self.assertEqual(response.json()["errorType"], "raw_dataset_not_found")
 
 
 def _write_idx_pair(images_path: Path, labels_path: Path) -> None:

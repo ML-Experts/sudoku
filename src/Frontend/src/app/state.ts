@@ -217,4 +217,4 @@ export const defaultLoginState: LoginState = {
 };
 
 export type AppView = "health" | "examples" | "datasets";
-export type DatasetsStep = "uc11" | "uc12" | "uc06" | "uc08";
+export type DatasetsStep = "uc11" | "uc17" | "uc12" | "uc06" | "uc08";

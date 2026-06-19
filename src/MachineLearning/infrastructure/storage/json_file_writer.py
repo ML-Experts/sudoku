@@ -4,7 +4,7 @@ from typing import Any
 
 
 class JsonFileWriter:
-    def write(self, path: Path, payload: dict[str, Any]) -> None:
+    def write(self, path: Path, payload: Any) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         temporary_path = path.with_suffix(f"{path.suffix}.tmp")
         temporary_path.write_text(

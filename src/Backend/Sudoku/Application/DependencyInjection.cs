@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Sudoku.Application.Abstractions;
 using Sudoku.Application.Behaviors;
+using Sudoku.Application.Datasets;
 using Sudoku.Application.ModelsActive;
 using Sudoku.Application.SudokuSolve;
 using Sudoku.Application.Trainings;
@@ -20,6 +21,8 @@ public static class DependencyInjection
         });
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
         services.AddTransient<IActiveModelResolver, ActiveModelResolver>();
+        services.AddTransient<DatasetPreparationJobRunner>();
+        services.AddTransient<IDatasetPreparationRecovery, DatasetPreparationRecovery>();
         services.AddTransient<ISudokuBacktrackingSolver, SudokuBacktrackingSolver>();
         services.AddTransient<ISudokuSolveSessionRunner, SudokuSolveSessionRunner>();
         services.AddTransient<ITrainingRunCancellationRecovery, TrainingRunCancellationRecovery>();
