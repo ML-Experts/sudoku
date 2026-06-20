@@ -69,13 +69,13 @@ function toCreateStatusHint(status: number | null): string | null {
   const hints: Record<number, string> = {
     400: "Sprawdz nazwe datasetu i konfiguracje zrodel.",
     401: "Sesja administracyjna wygasla. Zaloguj sie ponownie.",
-    404: "Preparation albo jedno ze zrodel nie jest juz dostepne.",
+    404: "Przygotowanie albo jedno ze zrodel nie jest juz dostepne.",
     409: "Dataset o tej nazwie juz istnieje albo koliduje z istniejacym rekordem.",
-    422: "Backend odrzucil build jako niespojny semantycznie.",
+    422: "Backend odrzucil budowe datasetu jako niespojna semantycznie.",
     500: "Backend nie zakonczyl builda z powodu bledu technicznego.",
     502: "Backend lub usluga posrednia jest chwilowo niedostepna.",
     503: "Backend lub usluga posrednia jest chwilowo niedostepna.",
-    504: "Build datasetu przekroczyl limit czasu.",
+    504: "Budowa datasetu przekroczyla limit czasu.",
   };
 
   return hints[status] ?? null;

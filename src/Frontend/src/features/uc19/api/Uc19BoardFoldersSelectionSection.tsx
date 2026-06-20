@@ -16,10 +16,11 @@ export function Uc19BoardFoldersSelectionSection({
     <article className="uc17-panel">
       <div className="uc17-panel-header">
         <div>
-          <h3>Krok 3 - Zrodla `board` do builda</h3>
+          <h3>Krok 3 - Zrodla plansz do budowy datasetu</h3>
           <p className="muted-copy">
-            Ten krok pobiera tylko logiczne nazwy folderow `board`, bez listowania plansz
-            i bez przejscia do browse/delete z `UC-18`.
+            Ten krok pobiera tylko logiczne nazwy folderow plansz, bez listowania
+            plansz i bez przechodzenia do kroku przegladu oraz usuwania wadliwych
+            danych z `UC-18`.
           </p>
         </div>
         <button
@@ -28,26 +29,29 @@ export function Uc19BoardFoldersSelectionSection({
           onClick={() => void boardFolders.retryLoadBoardFolders()}
           disabled={!canLoadBoardFolders || boardFolders.status === "loading"}
         >
-          {boardFolders.status === "loading" ? "Odswiezanie..." : "Odswiez liste board"}
+          {boardFolders.status === "loading"
+            ? "Odswiezanie..."
+            : "Odswiez liste zrodel plansz"}
         </button>
       </div>
 
       {!selectedPreparationName ? (
         <p className="muted-copy">
-          Najpierw wybierz preparation, aby odblokowac konfiguracje zrodel `board`.
+          Najpierw wybierz przygotowanie datasetu, aby odblokowac konfiguracje
+          zrodel plansz.
         </p>
       ) : null}
 
       {selectedPreparationName && !canLoadBoardFolders ? (
         <p className="status-banner status-loading">
-          Krok `board/folders` pozostaje zablokowany, dopoki wybrane preparation nie
-          przejdzie walidacji w kroku 2.
+          Krok zrodel plansz pozostaje zablokowany, dopoki wybrane przygotowanie
+          nie przejdzie walidacji w kroku 2.
         </p>
       ) : null}
 
       {boardFolders.status === "loading" ? (
         <p className="status-banner status-loading">
-          Pobieranie zrodel `board` dla preparation{" "}
+          Pobieranie zrodel plansz dla przygotowania{" "}
           <code>{boardFolders.preparationName ?? selectedPreparationName}</code>...
         </p>
       ) : null}
@@ -62,8 +66,8 @@ export function Uc19BoardFoldersSelectionSection({
           ) : null}
           {boardFolders.httpStatus === 404 ? (
             <p className="muted-copy">
-              Wybrane preparation nie jest juz dostepne. Odswiez liste i wybierz inny
-              rekord.
+              Wybrane przygotowanie nie jest juz dostepne. Odswiez liste i wybierz
+              inny rekord.
             </p>
           ) : null}
         </>
@@ -72,9 +76,9 @@ export function Uc19BoardFoldersSelectionSection({
       {boardFolders.preparationName ? (
         <div className="uc18-summary">
           <span className="uc17-stat-chip">
-            Preparation: <code>{boardFolders.preparationName}</code>
+            Przygotowanie: <code>{boardFolders.preparationName}</code>
           </span>
-          <span className="uc17-stat-chip">Liczba zrodel board: {boardFolders.totalCount}</span>
+          <span className="uc17-stat-chip">Liczba zrodel plansz: {boardFolders.totalCount}</span>
           <span className="uc17-stat-chip">Wybrane zrodla: {boardFolders.selectedCount}</span>
           <span className="uc17-stat-chip">
             Niepoprawne wybory: {boardFolders.invalidSelectedCount}
@@ -84,13 +88,13 @@ export function Uc19BoardFoldersSelectionSection({
 
       {boardFolders.selectedCount > 0 && boardFolders.invalidSelectedCount > 0 ? (
         <p className="status-banner status-error">
-          Co najmniej jedno aktywne zrodlo `board` ma niepoprawna konfiguracje splitow.
+          Co najmniej jedno aktywne zrodlo plansz ma niepoprawna konfiguracje splitow.
         </p>
       ) : null}
 
       {boardFolders.status === "success" && boardFolders.totalCount === 0 ? (
         <p className="status-banner status-loading">
-          To preparation nie ma jeszcze zadnych zrodel `board`.
+          To przygotowanie nie ma jeszcze zadnych zrodel plansz.
         </p>
       ) : null}
 
@@ -109,7 +113,7 @@ export function Uc19BoardFoldersSelectionSection({
 
       {boardFolders.selectedCount === 0 && boardFolders.drafts.length > 0 ? (
         <p className="muted-copy">
-          Zaznacz wybrane foldery `board`, aby przygotowac ich mapowanie do
+          Zaznacz wybrane foldery plansz, aby przygotowac ich mapowanie do
           <code> sources[].name</code> i lokalnych splitow.
         </p>
       ) : null}

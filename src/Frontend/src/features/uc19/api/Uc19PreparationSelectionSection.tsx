@@ -97,18 +97,18 @@ export function Uc19PreparationSelectionSection({
 
   return (
     <section className="hero-card uc19-section">
-      <p className="eyebrow">UC-19 - Build finalnego datasetu</p>
-      <h2>Wybierz preparation jako punkt wejscia do builda `.npz`</h2>
+      <p className="eyebrow">UC-19 - Budowa finalnego datasetu</p>
+      <h2>Wybierz przygotowanie datasetu do budowy pliku `.npz`</h2>
       <p className="hero-copy">
-        Ten krok reuse'uje liste preparation z backendu i pozwala wybrac rekord,
-        ktory odblokuje dalsza konfiguracje zrodel <code>board</code> i{" "}
-        <code>digit</code> przed finalnym buildem datasetu.
+        Ten krok korzysta z listy przygotowan z backendu i pozwala wybrac rekord,
+        ktory odblokuje dalsza konfiguracje zrodel plansz i cyfr przed
+        utworzeniem finalnego datasetu.
       </p>
 
       <article className="uc17-panel">
         <div className="uc17-panel-header">
           <div>
-            <h3>Krok 1 - Lista preparation</h3>
+            <h3>Krok 1 - Lista przygotowan</h3>
             <p className="muted-copy">
               Backend pozostaje zrodlem prawdy dla kolejnosci rekordow, statusow i
               licznikow zrodel.
@@ -201,8 +201,8 @@ export function Uc19PreparationSelectionSection({
                       {isRefreshingActiveDetails
                         ? "Odswiezanie..."
                         : isActive
-                          ? "Odswiez selection"
-                          : "Wybierz preparation do builda"}
+                          ? "Odswiez wybor"
+                          : "Wybierz przygotowanie"}
                     </button>
                   </div>
                 </li>
@@ -211,7 +211,7 @@ export function Uc19PreparationSelectionSection({
           </ul>
         ) : preparationSelection.preparationsState.kind === "success" ? (
           <p className="muted-copy">
-            Brak zapisanych preparation. Najpierw utworz przygotowanie w `UC-17`.
+            Brak zapisanych przygotowan. Najpierw utworz przygotowanie w `UC-17`.
           </p>
         ) : null}
       </article>
@@ -219,10 +219,10 @@ export function Uc19PreparationSelectionSection({
       <article className="uc17-panel">
         <div className="uc17-panel-header">
           <div>
-            <h3>Krok 2 - Walidacja wybranego preparation</h3>
+            <h3>Krok 2 - Walidacja wybranego przygotowania</h3>
             <p className="muted-copy">
               Tylko rekord gotowy po stronie backendu powinien odblokowac dalsze
-              pobieranie zrodel `board/folders` i `digit/folders`.
+              pobieranie zrodel plansz i cyfr.
             </p>
           </div>
           <button
@@ -242,8 +242,8 @@ export function Uc19PreparationSelectionSection({
 
         {!preparationSelection.selectedPreparation ? (
           <p className="muted-copy">
-            Wybierz rekord z listy, aby sprawdzic czy moze byc uzyty jako zrodlo builda
-            `.npz`.
+            Wybierz rekord z listy, aby sprawdzic czy moze byc uzyty jako zrodlo
+            budowy pliku `.npz`.
           </p>
         ) : null}
 
@@ -299,10 +299,10 @@ export function Uc19PreparationSelectionSection({
 
             <div className="uc18-summary">
               <span className="uc17-stat-chip">
-                Zrodla board: {preparationSelection.selectedPreparation.boardSourcesCount}
+                Zrodla plansz: {preparationSelection.selectedPreparation.boardSourcesCount}
               </span>
               <span className="uc17-stat-chip">
-                Zrodla digit: {preparationSelection.selectedPreparation.digitSourcesCount}
+                Zrodla cyfr: {preparationSelection.selectedPreparation.digitSourcesCount}
               </span>
               <span className="uc17-stat-chip">
                 Dalszy krok:{" "}
@@ -312,7 +312,7 @@ export function Uc19PreparationSelectionSection({
 
             {preparationSelection.detailsState.kind === "loading" ? (
               <p className="status-banner status-loading">
-                Pobieranie szczegolow wybranego preparation...
+                Pobieranie szczegolow wybranego przygotowania...
               </p>
             ) : null}
 
@@ -352,19 +352,19 @@ export function Uc19PreparationSelectionSection({
                     </ul>
                   </>
                 ) : (
-                  <p className="muted-copy">Brak ostrzezen dla tego preparation.</p>
+                  <p className="muted-copy">Brak ostrzezen dla tego przygotowania.</p>
                 )}
               </>
             ) : preparationSelection.selectedPreparationName ? (
               <p className="muted-copy">
-                Szczegoly tego preparation pojawia sie tutaj po poprawnym pobraniu
-                endpointu walidacyjnego.
+                Szczegoly tego przygotowania pojawia sie tutaj po poprawnym
+                pobraniu endpointu walidacyjnego.
               </p>
             ) : null}
 
             {preparationSelection.canContinueToSources ? (
               <p className="status-banner status-success">
-                Wybrane preparation odblokowalo konfiguracje zrodel `board` i `digit`
+                Wybrane przygotowanie odblokowalo konfiguracje zrodel plansz i cyfr
                 w kolejnych krokach ponizej.
               </p>
             ) : null}

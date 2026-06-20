@@ -83,7 +83,7 @@ export default function App() {
   const [adminPassword, setAdminPassword] = useState("");
   const [loginState, setLoginState] = useState<LoginState>(defaultLoginState);
   const [activeView, setActiveView] = useState<AppView>("health");
-  const [datasetsStep, setDatasetsStep] = useState<DatasetsStep>("uc11");
+  const [datasetsStep, setDatasetsStep] = useState<DatasetsStep>("uc17");
   const [examplesWorkflowContext, setExamplesWorkflowContext] =
     useState<Uc14ActiveParameterContext>(null);
   const [manualExamplesWorkflowContext, setManualExamplesWorkflowContext] =
@@ -196,13 +196,15 @@ export default function App() {
         : "Datasety";
   const datasetsStepLabel =
     datasetsStep === "uc11"
-      ? "UC-11 — Przeglad kandydatow raw"
+      ? "UC-11 — Przeglad kandydatow surowych datasetow"
       : datasetsStep === "uc17"
         ? "UC-17 — Przygotowanie datasetu"
+        : datasetsStep === "uc19"
+          ? "UC-19 — Budowa finalnego datasetu"
         : datasetsStep === "uc18"
-          ? "UC-18 — Przeglad zrodel preparation"
+          ? "UC-18 — Przegladanie i usuwanie wadliwych danych"
           : datasetsStep === "uc12"
-            ? "UC-12 — Legacy: budowa datasetu processed"
+            ? "UC-12 — Migracyjny widok budowy datasetu"
             : datasetsStep === "uc06"
               ? "UC-06 — Start i monitoring treningu"
               : "UC-08 — Katalog runow i modeli";

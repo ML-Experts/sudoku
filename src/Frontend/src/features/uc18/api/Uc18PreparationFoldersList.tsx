@@ -41,7 +41,7 @@ function Uc18PreparationFolderCard({ folder, hint }: Uc18PreparationFolderCardPr
 
 export function Uc18PreparationFoldersList({
   folders,
-  emptyMessage = "Brak zrodel dla wybranego preparation.",
+  emptyMessage = "Brak zrodel dla wybranego przygotowania.",
   ...props
 }: Uc18PreparationFoldersListProps) {
   if (folders.length === 0) {

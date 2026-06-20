@@ -14,6 +14,7 @@ type Uc18BoardFoldersSectionProps = {
   accessToken?: string | null;
   onUnauthorized?: () => void;
   preferredPreparationName?: string | null;
+  onSelectedPreparationNameChange?: (preparationName: string | null) => void;
 };
 
 function formatTimestamp(timestampUtc: string): string {
@@ -35,6 +36,7 @@ export function Uc18BoardFoldersSection({
   accessToken,
   onUnauthorized,
   preferredPreparationName,
+  onSelectedPreparationNameChange,
 }: Uc18BoardFoldersSectionProps) {
   const datasetPreparations = useUc17DatasetPreparations({
     apiBaseUrl,
@@ -101,24 +103,27 @@ export function Uc18BoardFoldersSection({
     preferredPreparationName,
   ]);
 
+  useEffect(() => {
+    onSelectedPreparationNameChange?.(datasetPreparations.selectedPreparationName);
+  }, [datasetPreparations.selectedPreparationName, onSelectedPreparationNameChange]);
+
   return (
     <section className="hero-card uc18-section">
-      <p className="eyebrow">UC-18 - Przeglad zrodel przygotowania</p>
-      <h2>Wybierz preparation i przejrzyj zrodla</h2>
+      <p className="eyebrow">UC-18 - Przegladanie i usuwanie wadliwych danych</p>
+      <h2>Wybierz przygotowanie datasetu i przejrzyj jego dane</h2>
       <p className="hero-copy">
-        Ten krok pobiera z backendu istniejace preparation oraz listy zrodel{" "}
-        <code>board</code> i <code>digit</code> dla wybranego rekordu, a po wyborze
-        konkretnego zrodla `board` doladowuje paginowana liste plansz. Preview obrazu{" "}
-        <code>corrected-board.png</code> pozostaje jeszcze placeholderem.
+        Ten krok pobiera z backendu zapisane przygotowania datasetu oraz listy
+        zrodel plansz i cyfr dla wybranego rekordu. Po wyborze zrodla plansz
+        doladowywana jest stronicowana lista plansz wraz z podgladem obrazu.
       </p>
 
       <article className="uc17-panel">
         <div className="uc17-panel-header">
           <div>
-            <h3>Krok 1 - Wybierz preparation</h3>
+            <h3>Krok 1 - Lista przygotowan datasetu</h3>
             <p className="muted-copy">
-              Lista preparation pochodzi z backendu i jest punktem wejsciowym do dalszego
-              przegladu `board/folders` i `digit/folders`.
+              Lista przygotowan pochodzi z backendu i stanowi punkt wejscia do
+              dalszego przegladu zrodel plansz i cyfr.
             </p>
           </div>
           <button
@@ -195,7 +200,7 @@ export function Uc18BoardFoldersSection({
                         ? "Odswiezanie..."
                         : isActive
                           ? "Odswiez szczegoly"
-                          : "Wybierz preparation"}
+                          : "Wybierz przygotowanie"}
                     </button>
                   </div>
                 </li>
@@ -210,10 +215,10 @@ export function Uc18BoardFoldersSection({
       <article className="uc17-panel">
         <div className="uc17-panel-header">
           <div>
-            <h3>Krok 2 - Kontekst wybranego preparation</h3>
+            <h3>Krok 2 - Szczegoly wybranego przygotowania</h3>
             <p className="muted-copy">
-              Szczegoly pomagaja potwierdzic, z ktorego rekordu pobierasz listy zrodel
-              `board` i `digit`.
+              Szczegoly pomagaja potwierdzic, z ktorego rekordu pobierasz listy
+              zrodel plansz i cyfr.
             </p>
           </div>
           <button
@@ -233,7 +238,7 @@ export function Uc18BoardFoldersSection({
 
         {!datasetPreparations.selectedPreparationName ? (
           <p className="muted-copy">
-            Wybierz rekord z listy przygotowan, aby pobrac jego zrodla `board` i `digit`.
+            Wybierz rekord z listy przygotowan, aby pobrac jego zrodla plansz i cyfr.
           </p>
         ) : null}
 
@@ -289,10 +294,10 @@ export function Uc18BoardFoldersSection({
       <article className="uc17-panel">
         <div className="uc17-panel-header">
           <div>
-            <h3>Krok 3 - Zrodla `board`</h3>
+            <h3>Krok 3 - Zrodla plansz</h3>
             <p className="muted-copy">
-              Backend zwraca tylko nazwy logicznych zrodel. Wybor przygotowuje nastepny
-              krok listowania plansz.
+              Backend zwraca tylko nazwy logicznych zrodel. Wybor przygotowuje
+              nastepny krok listowania plansz.
             </p>
           </div>
           <button
@@ -309,14 +314,14 @@ export function Uc18BoardFoldersSection({
 
         {!datasetPreparations.selectedPreparationName ? (
           <p className="muted-copy">
-            Najpierw wybierz preparation. Lista zrodel `board` nie jest pobierana bez
-            poprawnego <code>preparationName</code>.
+            Najpierw wybierz przygotowanie datasetu. Lista zrodel plansz nie jest
+            pobierana bez poprawnego <code>preparationName</code>.
           </p>
         ) : null}
 
         {boardFolders.status === "loading" ? (
           <p className="status-banner status-loading">
-            Pobieranie zrodel `board` dla preparation{" "}
+            Pobieranie zrodel plansz dla przygotowania{" "}
             <code>{datasetPreparations.selectedPreparationName}</code>...
           </p>
         ) : null}
@@ -331,7 +336,7 @@ export function Uc18BoardFoldersSection({
             ) : null}
             {boardFolders.httpStatus === 404 ? (
               <p className="muted-copy">
-                Wybrane preparation nie jest juz dostepne. Wybierz inny rekord z listy.
+                Wybrane przygotowanie nie jest juz dostepne. Wybierz inny rekord z listy.
               </p>
             ) : null}
           </>
@@ -340,9 +345,9 @@ export function Uc18BoardFoldersSection({
         {boardFolders.preparationName ? (
           <div className="uc18-summary">
             <span className="uc17-stat-chip">
-              Preparation: <code>{boardFolders.preparationName}</code>
+              Przygotowanie: <code>{boardFolders.preparationName}</code>
             </span>
-            <span className="uc17-stat-chip">Liczba zrodel board: {boardFolders.totalCount}</span>
+            <span className="uc17-stat-chip">Liczba zrodel plansz: {boardFolders.totalCount}</span>
             <span className="uc17-stat-chip">
               Aktywne zrodlo:{" "}
               {boardFolders.selectedSourceName ? (
@@ -356,7 +361,7 @@ export function Uc18BoardFoldersSection({
 
         {boardFolders.status === "success" && boardFolders.totalCount === 0 ? (
           <p className="status-banner status-loading">
-            To preparation nie ma jeszcze zadnych zrodel `board`.
+            To przygotowanie nie ma jeszcze zadnych zrodel plansz.
           </p>
         ) : null}
 
@@ -369,7 +374,7 @@ export function Uc18BoardFoldersSection({
             folders={boardFolders.folders}
             selectedSourceName={boardFolders.selectedSourceName}
             onSelect={boardFolders.selectBoardSource}
-            emptyMessage="Brak zrodel `board` dla wybranego preparation."
+            emptyMessage="Brak zrodel plansz dla wybranego przygotowania."
             disabled={boardFolders.status === "loading"}
           />
         ) : null}

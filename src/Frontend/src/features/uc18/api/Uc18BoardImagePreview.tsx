@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import { useUc18BoardImage } from "../application/useUc18BoardImage";
 import type { Uc18BoardFile } from "../domain/uc18BoardFile";
 
@@ -6,6 +8,7 @@ type Uc18BoardImagePreviewProps = {
   boardFile: Uc18BoardFile;
   accessToken?: string | null;
   onUnauthorized?: () => void;
+  deleteAction?: ReactNode;
 };
 
 export function Uc18BoardImagePreview({
@@ -13,6 +16,7 @@ export function Uc18BoardImagePreview({
   boardFile,
   accessToken,
   onUnauthorized,
+  deleteAction,
 }: Uc18BoardImagePreviewProps) {
   const boardImage = useUc18BoardImage({
     apiBaseUrl,
@@ -23,11 +27,14 @@ export function Uc18BoardImagePreview({
     accessToken,
     onUnauthorized,
   });
-  const altText = `Preview planszy ${boardFile.boardFolderName} ze zrodla ${boardFile.sourceName} i preparation ${boardFile.preparationName}.`;
+  const altText = `Podglad planszy ${boardFile.boardFolderName} ze zrodla ${boardFile.sourceName} w przygotowaniu ${boardFile.preparationName}.`;
 
   return (
     <div className="uc18-board-file-preview">
-      <span className="uc18-board-file-preview-label">Preview obrazu</span>
+      <div className="uc18-board-file-preview-header">
+        <span className="uc18-board-file-preview-label">Podglad obrazu</span>
+        {deleteAction}
+      </div>
 
       {boardImage.status === "loading" || boardImage.status === "idle" ? (
         <div
@@ -37,7 +44,7 @@ export function Uc18BoardImagePreview({
         >
           <div className="uc18-board-image-skeleton" aria-hidden="true" />
           <p className="muted-copy">
-            Ladowanie <code>corrected-board.png</code> dla{" "}
+            Ladowanie obrazu <code>corrected-board.png</code> dla{" "}
             <code>{boardFile.boardFolderName}</code>...
           </p>
         </div>
@@ -46,7 +53,7 @@ export function Uc18BoardImagePreview({
       {boardImage.status === "error" ? (
         <div className="uc18-board-image-state is-error" aria-live="polite">
           <p className="muted-copy">
-            Nie udalo sie zaladowac preview dla{" "}
+            Nie udalo sie zaladowac podgladu dla{" "}
             <code>{boardFile.boardFolderName}</code>.
           </p>
           {boardImage.httpStatus === 404 ? (
@@ -74,7 +81,7 @@ export function Uc18BoardImagePreview({
             type="button"
             onClick={() => void boardImage.retryLoadBoardImage()}
           >
-            Ponow ladowanie preview
+            Ponow ladowanie podgladu
           </button>
         </div>
       ) : null}
@@ -88,7 +95,7 @@ export function Uc18BoardImagePreview({
             loading="lazy"
           />
           <p className="muted-copy">
-            Preview <code>corrected-board.png</code> dla{" "}
+            Podglad <code>corrected-board.png</code> dla{" "}
             <code>{boardFile.boardFolderName}</code>.
           </p>
         </div>

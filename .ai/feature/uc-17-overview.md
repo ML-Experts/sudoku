@@ -352,6 +352,12 @@ Kontrakty wejściowe/wyjściowe:
 - usuwanie pojedynczych komórek,
 - ręczna edycja etykiet.
 
+## Powiązanie z przyszłym refaktorem
+- Wspólne wnioski o tym, gdzie uruchamiać detekcję pustej komórki, a gdzie czyszczenie próbki pod model, opisuje notatka `uc-empty-cell-cleaning-refactor-notes.md`.
+- Dla `UC-17` kluczowe jest zachowanie kolejności: `raw cell -> label decision -> cleaning -> save prepared sample`.
+- W `UC-17` źródłem prawdy o tym, czy komórka ma trafić do `cells/`, jest label, a nie runtime'owy algorytm `empty detection`.
+- Obrazy diagnostyczne, takie jak `center composite` albo overlay znalezionych segmentów, nie są próbką do inferencji i nie powinny trafiać do `cells/`; do `cells/` trafia tylko oczyszczona komórka przygotowana pod model.
+
 ## Kryteria akceptacji
 - System tworzy trwałe przygotowanie bez wskazywania splitów.
 - Ciężki preprocessing plansz jest wykonywany tylko raz.

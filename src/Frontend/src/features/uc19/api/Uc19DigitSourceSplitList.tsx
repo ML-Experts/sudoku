@@ -66,7 +66,7 @@ export function Uc19DigitSourceSplitList({
             <div className="uc19-source-controls">
               <p className="muted-copy">
                 Nazwa folderu trafi 1:1 do <code>sources[].name</code> jako zrodlo{" "}
-                <code>digit</code> w dalszym buildzie.
+                <code>digit</code> w dalszej budowie datasetu.
               </p>
 
               <div className="uc12-splits">
@@ -94,7 +94,7 @@ export function Uc19DigitSourceSplitList({
                 </p>
               ) : (
                 <p className="muted-copy">
-                  Wlacz zrodlo, aby przypisac splity do builda datasetu.
+                  Wlacz zrodlo, aby przypisac splity do budowy datasetu.
                 </p>
               )}
             </div>

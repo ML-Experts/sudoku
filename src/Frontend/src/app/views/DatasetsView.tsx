@@ -59,6 +59,7 @@ export function DatasetsView({
         accessToken={accessToken}
         onUnauthorized={onUnauthorized}
         preferredPreparationName={selectedUc19PreparationName}
+        onSelectedPreparationNameChange={setSelectedUc19PreparationName}
       />
     ) : datasetsStep === "uc12" ? (
       <Uc12DatasetPreparationSection
@@ -89,49 +90,37 @@ export function DatasetsView({
       <section className="hero-card datasets-module-header">
         <p className="eyebrow">Workflow datasetowy</p>
         <h2>
-          UC-11 -&gt; UC-17 -&gt; UC-19 (build) -&gt; UC-18 (browse) -&gt; UC-12
-          (legacy) -&gt; UC-06 -&gt; UC-08
+          UC-17 -&gt; UC-18 -&gt; UC-19 -&gt; UC-06 -&gt; UC-08
         </h2>
         <p className="hero-copy">
-          Nawiguj krokami: od kandydatow raw przez przygotowanie i wybor
-          `preparation` do konfiguracji builda `.npz` w `UC-19`. `UC-18` pozostaje
-          osobnym krokiem przegladu i czyszczenia preparation, a `UC-12` to legacy
-          workflow bezposredniego builda z danych `raw`.
+          Nawiguj kolejnymi krokami: od przygotowania datasetu, przez przegladanie
+          i usuwanie wadliwych danych, po budowe finalnego datasetu, trening oraz
+          katalog runow i modeli.
         </p>
         <div className="datasets-stepper" role="tablist" aria-label="Kroki datasetu">
           <DatasetStepButton
-            isActive={datasetsStep === "uc11"}
-            label="1. Przeglad kandydatow raw (UC-11)"
-            onClick={() => onDatasetsStepChange("uc11")}
-          />
-          <DatasetStepButton
             isActive={datasetsStep === "uc17"}
-            label="2. Przygotowanie datasetu (UC-17)"
+            label="1. Przygotowanie datasetu (UC-17)"
             onClick={() => onDatasetsStepChange("uc17")}
           />
           <DatasetStepButton
-            isActive={datasetsStep === "uc19"}
-            label="3. Build z preparation (UC-19)"
-            onClick={() => onDatasetsStepChange("uc19")}
-          />
-          <DatasetStepButton
             isActive={datasetsStep === "uc18"}
-            label="4. Browse i czyszczenie preparation (UC-18)"
+            label="2. Przegladanie i usuwanie wadliwych danych (UC-18)"
             onClick={() => onDatasetsStepChange("uc18")}
           />
           <DatasetStepButton
-            isActive={datasetsStep === "uc12"}
-            label="5. Legacy: dataset processed (UC-12)"
-            onClick={() => onDatasetsStepChange("uc12")}
+            isActive={datasetsStep === "uc19"}
+            label="3. Budowa finalnego datasetu (UC-19)"
+            onClick={() => onDatasetsStepChange("uc19")}
           />
           <DatasetStepButton
             isActive={datasetsStep === "uc06"}
-            label="6. Start i monitoring treningu (UC-06)"
+            label="4. Start i monitoring treningu (UC-06)"
             onClick={() => onDatasetsStepChange("uc06")}
           />
           <DatasetStepButton
             isActive={datasetsStep === "uc08"}
-            label="7. Katalog runow i modeli (UC-08)"
+            label="5. Katalog runow i modeli (UC-08)"
             onClick={() => onDatasetsStepChange("uc08")}
           />
         </div>

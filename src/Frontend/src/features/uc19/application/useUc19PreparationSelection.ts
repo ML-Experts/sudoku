@@ -137,7 +137,7 @@ export function useUc19PreparationSelection({
         });
         setSelectionWarningState({
           message:
-            "Wybrane preparation nie jest juz dostepne. Wybierz inny rekord przed przejsciem dalej.",
+            "Wybrane przygotowanie nie jest juz dostepne. Wybierz inny rekord przed przejsciem dalej.",
           severity: "warning",
         });
       }
@@ -160,7 +160,7 @@ export function useUc19PreparationSelection({
       });
       setSelectionWarningState({
         message:
-          "Wybrane preparation nie jest juz gotowe do dalszego kroku. Odswiez lub wybierz inny rekord.",
+          "Wybrane przygotowanie nie jest juz gotowe do dalszego kroku. Odswiez lub wybierz inny rekord.",
         severity: "warning",
       });
     }
@@ -180,8 +180,8 @@ export function useUc19PreparationSelection({
       ? {
           message:
             detailsState.httpStatus === 404
-              ? "Wybrane preparation nie istnieje juz po stronie backendu. Odswiez liste lub wybierz inny rekord przed przejsciem dalej."
-              : "Nie udalo sie potwierdzic szczegolow wybranego preparation. Dalszy krok pozostaje zablokowany do czasu poprawnego odswiezenia.",
+              ? "Wybrane przygotowanie nie istnieje juz po stronie backendu. Odswiez liste lub wybierz inny rekord przed przejsciem dalej."
+              : "Nie udalo sie potwierdzic szczegolow wybranego przygotowania. Dalszy krok pozostaje zablokowany do czasu poprawnego odswiezenia.",
           severity: "warning" as const,
         }
       : selectedPreparationDetails?.readiness.reason
