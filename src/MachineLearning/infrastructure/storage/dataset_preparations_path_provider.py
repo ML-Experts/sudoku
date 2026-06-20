@@ -9,6 +9,22 @@ class DatasetPreparationsPathProvider:
     def preparation_root(self, preparation_name: str) -> Path:
         return self._preparations_directory_path / preparation_name
 
+    def board_root(self, preparation_name: str) -> Path:
+        return self.preparation_root(preparation_name) / "board"
+
+    def digit_root(self, preparation_name: str) -> Path:
+        return self.preparation_root(preparation_name) / "digit"
+
+    def board_source_root(
+        self, preparation_name: str, source_name: str
+    ) -> Path:
+        return self.board_root(preparation_name) / source_name
+
+    def digit_source_root(
+        self, preparation_name: str, source_name: str
+    ) -> Path:
+        return self.digit_root(preparation_name) / source_name
+
     def create_stage_dir(self, preparation_name: str) -> Path:
         stage_dir = (
             self._preparations_directory_path / f".{preparation_name}.staging"

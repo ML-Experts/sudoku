@@ -869,6 +869,149 @@ public sealed class DatasetsControllerTests
         Assert.Equal(DeleteDatasetPreparationBoardFileErrorTypes.DatasetPreparationBoardFileDeleteFailed, payload.ErrorType);
     }
 
+    [Fact]
+    public async Task CreateProcessedAsync_ReturnsCreatedAndMapsCommand()
+    {
+        var sender = new StubSender(new CreateProcessedDatasetCommandResultDto(
+            Name: "digits-v2",
+            FileName: "digits-v2.npz",
+            PreprocessingProfile: "default-28x28-v1",
+            CreatedAtUtc: DateTimeOffset.Parse("2026-06-20T00:15:00Z"),
+            Sources:
+            [
+                new SelectedRawDatasetSourceDto("v1_training", "board", ["mix"])
+            ],
+            SampleCounts: new SplitSampleCountsDto(Train: 10, Val: 2, Test: 1),
+            SourceReports:
+            [
+                new ProcessedDatasetSourceReportDto("v1_training", "board", 13, 13, 0, 0, [])
+            ],
+            Warnings: ["ml_warning"]));
+        var controller = CreateController(sender);
+
+        var result = await controller.CreateProcessedAsync(
+            new CreateProcessedDatasetApiEntry(
+                PreparationName: "preparation-001",
+                Name: "digits-v2",
+                Sources:
+                [
+                    new SelectedRawDatasetSourceApiEntry("v1_training", "board", ["mix"])
+                ]),
+            CancellationToken.None);
+
+        var createdResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status201Created, createdResult.StatusCode);
+
+        var command = Assert.IsType<CreateProcessedDatasetCommand>(sender.LastRequest);
+        Assert.Equal("preparation-001", command.PreparationName);
+        Assert.Equal("digits-v2", command.Name);
+        Assert.Single(command.Sources!);
+        Assert.Equal("v1_training", command.Sources![0].Name);
+
+        var payload = Assert.IsType<ProcessedDatasetApiResponse>(createdResult.Value);
+        Assert.Equal("digits-v2", payload.Name);
+        Assert.Equal("digits-v2.npz", payload.FileName);
+        Assert.Single(payload.Sources);
+        Assert.Equal("preparation-001", ((CreateProcessedDatasetCommand)sender.LastRequest!).PreparationName);
+    }
+
+    [Fact]
+    public async Task CreateProcessedAsync_ReturnsBadRequest_WhenPreparationNameValidationFails()
+    {
+        var sender = new StubSender(new ValidationException([
+            new ValidationFailure(nameof(CreateProcessedDatasetCommand.PreparationName), "Pole 'preparationName' jest wymagane.")
+            {
+                ErrorCode = CreateProcessedDatasetErrorTypes.InvalidDatasetPreparationName
+            }
+        ]));
+        var controller = CreateController(sender);
+
+        var result = await controller.CreateProcessedAsync(
+            new CreateProcessedDatasetApiEntry(
+                PreparationName: null,
+                Name: "digits-v2",
+                Sources:
+                [
+                    new SelectedRawDatasetSourceApiEntry("v1_training", "board", ["mix"])
+                ]),
+            CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status400BadRequest, objectResult.StatusCode);
+
+        var payload = Assert.IsType<ErrorApiResponse>(objectResult.Value);
+        Assert.Equal(CreateProcessedDatasetErrorTypes.InvalidDatasetPreparationName, payload.ErrorType);
+    }
+
+    [Fact]
+    public async Task CreateProcessedAsync_ReturnsNotFound_WhenPreparationDoesNotExist()
+    {
+        var sender = new StubSender(new DatasetPreparationNotFoundException("preparation-404"));
+        var controller = CreateController(sender);
+
+        var result = await controller.CreateProcessedAsync(
+            new CreateProcessedDatasetApiEntry(
+                PreparationName: "preparation-404",
+                Name: "digits-v2",
+                Sources:
+                [
+                    new SelectedRawDatasetSourceApiEntry("v1_training", "board", ["mix"])
+                ]),
+            CancellationToken.None);
+
+        var notFoundResult = Assert.IsType<NotFoundObjectResult>(result);
+        Assert.Equal(StatusCodes.Status404NotFound, notFoundResult.StatusCode);
+
+        var payload = Assert.IsType<ErrorApiResponse>(notFoundResult.Value);
+        Assert.Equal(CreateProcessedDatasetErrorTypes.DatasetPreparationNotFound, payload.ErrorType);
+    }
+
+    [Fact]
+    public async Task CreateProcessedAsync_ReturnsConflict_WhenPreparationArtifactsAreNotReady()
+    {
+        var sender = new StubSender(new DatasetPreparationArtifactsNotReadyException("preparation-001", "running"));
+        var controller = CreateController(sender);
+
+        var result = await controller.CreateProcessedAsync(
+            new CreateProcessedDatasetApiEntry(
+                PreparationName: "preparation-001",
+                Name: "digits-v2",
+                Sources:
+                [
+                    new SelectedRawDatasetSourceApiEntry("v1_training", "board", ["mix"])
+                ]),
+            CancellationToken.None);
+
+        var conflictResult = Assert.IsType<ConflictObjectResult>(result);
+        Assert.Equal(StatusCodes.Status409Conflict, conflictResult.StatusCode);
+
+        var payload = Assert.IsType<ErrorApiResponse>(conflictResult.Value);
+        Assert.Equal(CreateProcessedDatasetErrorTypes.DatasetPreparationArtifactsNotReady, payload.ErrorType);
+    }
+
+    [Fact]
+    public async Task CreateProcessedAsync_ReturnsNotFound_WhenPreparationSourceDoesNotExist()
+    {
+        var sender = new StubSender(new DatasetPreparationSourceNotFoundException("preparation-001", "missing-source"));
+        var controller = CreateController(sender);
+
+        var result = await controller.CreateProcessedAsync(
+            new CreateProcessedDatasetApiEntry(
+                PreparationName: "preparation-001",
+                Name: "digits-v2",
+                Sources:
+                [
+                    new SelectedRawDatasetSourceApiEntry("missing-source", "board", ["mix"])
+                ]),
+            CancellationToken.None);
+
+        var notFoundResult = Assert.IsType<NotFoundObjectResult>(result);
+        Assert.Equal(StatusCodes.Status404NotFound, notFoundResult.StatusCode);
+
+        var payload = Assert.IsType<ErrorApiResponse>(notFoundResult.Value);
+        Assert.Equal(CreateProcessedDatasetErrorTypes.DatasetPreparationSourceNotFound, payload.ErrorType);
+    }
+
     private static DatasetsController CreateController(StubSender sender)
     {
         return new DatasetsController(sender, NullLogger<DatasetsController>.Instance);

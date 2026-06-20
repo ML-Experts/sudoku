@@ -1,3 +1,6 @@
+import { useEffect, useRef } from "react";
+
+import { getDatasetPreparationStatusPresentation } from "../../../shared/datasets/getDatasetPreparationStatusPresentation";
 import { useUc17DatasetPreparations } from "../../uc17/application/useUc17DatasetPreparations";
 import { useUc18BoardFiles } from "../application/useUc18BoardFiles";
 import { useUc18BoardFolders } from "../application/useUc18BoardFolders";
@@ -10,6 +13,7 @@ type Uc18BoardFoldersSectionProps = {
   apiBaseUrl: string;
   accessToken?: string | null;
   onUnauthorized?: () => void;
+  preferredPreparationName?: string | null;
 };
 
 function formatTimestamp(timestampUtc: string): string {
@@ -26,39 +30,18 @@ function formatTimestamp(timestampUtc: string): string {
   }).format(parsedDate);
 }
 
-function getPreparationStatusLabel(status: string): string {
-  const labels: Record<string, string> = {
-    queued: "W kolejce",
-    running: "W trakcie",
-    completed: "Gotowe",
-    failed: "Niepowodzenie",
-  };
-
-  return labels[status] ?? status;
-}
-
-function getPreparationStatusClassName(status: string): string {
-  return status === "completed"
-    ? "is-completed"
-    : status === "failed"
-      ? "is-failed"
-      : status === "running"
-        ? "is-running"
-        : status === "queued"
-          ? "is-queued"
-          : "is-unknown";
-}
-
 export function Uc18BoardFoldersSection({
   apiBaseUrl,
   accessToken,
   onUnauthorized,
+  preferredPreparationName,
 }: Uc18BoardFoldersSectionProps) {
   const datasetPreparations = useUc17DatasetPreparations({
     apiBaseUrl,
     accessToken,
     onUnauthorized,
   });
+  const preferredSelectionRef = useRef<string | null>(null);
   const boardFolders = useUc18BoardFolders({
     apiBaseUrl,
     accessToken,
@@ -82,6 +65,41 @@ export function Uc18BoardFoldersSection({
     preparationName: datasetPreparations.selectedPreparationName,
     sourceName: selectedBoardSourceName,
   });
+  const selectedPreparationStatusPresentation = datasetPreparations.detailsState.data
+    ? getDatasetPreparationStatusPresentation(datasetPreparations.detailsState.data.status)
+    : null;
+
+  useEffect(() => {
+    if (!preferredPreparationName) {
+      preferredSelectionRef.current = null;
+      return;
+    }
+
+    if (datasetPreparations.selectedPreparationName === preferredPreparationName) {
+      preferredSelectionRef.current = preferredPreparationName;
+      return;
+    }
+
+    const preferredPreparationExists = datasetPreparations.preparationsState.data?.some(
+      (item) => item.preparationName === preferredPreparationName
+    );
+
+    if (!preferredPreparationExists) {
+      return;
+    }
+
+    if (preferredSelectionRef.current === preferredPreparationName) {
+      return;
+    }
+
+    preferredSelectionRef.current = preferredPreparationName;
+    void datasetPreparations.loadPreparationDetails(preferredPreparationName);
+  }, [
+    datasetPreparations.loadPreparationDetails,
+    datasetPreparations.preparationsState.data,
+    datasetPreparations.selectedPreparationName,
+    preferredPreparationName,
+  ]);
 
   return (
     <section className="hero-card uc18-section">
@@ -141,6 +159,9 @@ export function Uc18BoardFoldersSection({
                 datasetPreparations.selectedPreparationName === item.preparationName;
               const isRefreshingActiveDetails =
                 isActive && datasetPreparations.detailsState.kind === "loading";
+              const statusPresentation = getDatasetPreparationStatusPresentation(
+                item.status
+              );
 
               return (
                 <li
@@ -158,9 +179,9 @@ export function Uc18BoardFoldersSection({
                   </div>
                   <div className="uc17-preparation-actions">
                     <span
-                      className={`uc17-status-badge ${getPreparationStatusClassName(item.status)}`}
+                      className={`uc17-status-badge ${statusPresentation.className}`}
                     >
-                      {getPreparationStatusLabel(item.status)}
+                      {statusPresentation.label}
                     </span>
                     <button
                       className="secondary-button"
@@ -246,11 +267,10 @@ export function Uc18BoardFoldersSection({
                 </p>
               </div>
               <span
-                className={`uc17-status-badge ${getPreparationStatusClassName(
-                  datasetPreparations.detailsState.data.status
-                )}`}
+                className={`uc17-status-badge ${selectedPreparationStatusPresentation?.className ?? "is-unknown"}`}
               >
-                {getPreparationStatusLabel(datasetPreparations.detailsState.data.status)}
+                {selectedPreparationStatusPresentation?.label ??
+                  datasetPreparations.detailsState.data.status}
               </span>
             </div>
 

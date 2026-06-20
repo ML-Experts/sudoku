@@ -61,6 +61,9 @@ from infrastructure.reporting.dataset_preparation_report_builder import (
 from infrastructure.storage.dataset_preparation_artifact_writer import (
     DatasetPreparationArtifactWriter,
 )
+from infrastructure.storage.dataset_preparation_image_reader import (
+    DatasetPreparationImageReader,
+)
 from infrastructure.storage.npz_dataset_artifact_writer import (
     NpzDatasetArtifactWriter,
 )
@@ -70,6 +73,12 @@ from infrastructure.storage.dataset_preparation_artifact_cleanup import (
 )
 from infrastructure.storage.dataset_preparation_manifest_writer import (
     DatasetPreparationManifestWriter,
+)
+from infrastructure.storage.dataset_preparation_manifest_reader import (
+    DatasetPreparationManifestReader,
+)
+from infrastructure.storage.dataset_preparation_source_reader import (
+    DatasetPreparationSourceReader,
 )
 from infrastructure.storage.dataset_preparation_workspace_manager import (
     DatasetPreparationWorkspaceManager,
@@ -89,6 +98,9 @@ from infrastructure.storage.filesystem_image_artifact_writer import (
 from infrastructure.storage.json_file_writer import JsonFileWriter
 from infrastructure.storage.temp_dataset_path_provider import (
     TempDatasetPathProvider,
+)
+from infrastructure.storage.processed_dataset_artifact_cleanup import (
+    ProcessedDatasetArtifactCleanup,
 )
 from infrastructure.storage.filesystem_path_validator import (
     FilesystemPathValidator,
@@ -305,51 +317,29 @@ def get_render_overlay_cell_command_handler(
 
 def get_prepare_dataset_artifact_command_handler(
     runtime_settings: RuntimeSettings = Depends(get_runtime_settings),
-    preprocessing_settings: PreprocessingSettings = Depends(
-        get_preprocessing_settings
-    ),
 ) -> PrepareDatasetArtifactCommandHandler:
-    cells_pipeline = _build_warped_board_cells_pipeline(
-        preprocessing_settings
+    path_provider = DatasetPreparationsPathProvider(
+        runtime_settings.dataset_preparations_directory_path
     )
-    dataset_preview_path_provider = DatasetPreviewPathProvider(
-        previews_directory_path=runtime_settings.dataset_previews_directory_path
+    manifest_reader = DatasetPreparationManifestReader(
+        path_provider=path_provider
     )
     return PrepareDatasetArtifactCommandHandler(
-        dataset_source_resolver=DatasetSourceResolver(
-            boards_subdirectory=runtime_settings.boards_subdirectory,
-            digits_subdirectory=runtime_settings.digits_subdirectory,
+        source_reader=DatasetPreparationSourceReader(
+            path_provider=path_provider,
+            manifest_reader=manifest_reader,
         ),
-        board_dataset_scanner=BoardDatasetScanner(),
-        board_dat_parser=BoardDatParser(),
-        idx_dataset_loader=IdxDatasetLoader(),
+        manifest_reader=manifest_reader,
+        image_reader=DatasetPreparationImageReader(),
         sample_split_assigner=SampleSplitAssigner(),
-        cell_preprocessing_pipeline=CellPreprocessingPipeline(
-            output_size=28,
-            adaptive_block_size=preprocessing_settings.adaptive_threshold_block_size,
-            adaptive_c=preprocessing_settings.adaptive_threshold_c,
-        ),
         npz_dataset_artifact_writer=NpzDatasetArtifactWriter(),
         temp_dataset_path_provider=TempDatasetPathProvider(
             temp_datasets_directory_path=(
                 runtime_settings.temp_datasets_directory_path
             )
         ),
-        dataset_preview_path_provider=dataset_preview_path_provider,
-        preview_image_artifact_writer=FilesystemImageArtifactWriter(
-            image_codec=VisionImageCodec(),
-            output_mime_type="image/png",
-        ),
-        dataset_preview_index_writer=DatasetPreviewIndexWriter(
-            json_file_writer=JsonFileWriter()
-        ),
-        dataset_preparation_artifact_cleanup=DatasetPreparationArtifactCleanup(
-            dataset_preview_path_provider=dataset_preview_path_provider
-        ),
+        artifact_cleanup=ProcessedDatasetArtifactCleanup(),
         preparation_report_builder=PreparationReportBuilder(),
-        board_dataset_cell_extractor=EngineBoardDatasetCellExtractor(
-            pipeline=cells_pipeline,
-        ),
     )
 
 

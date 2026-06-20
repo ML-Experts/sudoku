@@ -33,6 +33,7 @@ public sealed class MlDatasetsPreparationHttpClient : IMlDatasetsPreparationGate
         CancellationToken cancellationToken = default)
     {
         var payload = new PrepareDatasetArtifactApiEntryContract(
+            PreparationName: request.PreparationName,
             DatasetName: request.DatasetName,
             Sources: request.Sources
                 .Select(source => new PrepareDatasetSourceApiEntryContract(
@@ -65,8 +66,7 @@ public sealed class MlDatasetsPreparationHttpClient : IMlDatasetsPreparationGate
 
             if (responsePayload?.SampleCounts is null || responsePayload.Sources is null)
             {
-                throw new MlOperationFailedException(
-                    DefaultOperationErrorType,
+                throw new MlServiceUnavailableException(
                     "Serwis ML zwrócił niepełny payload przygotowania datasetu.");
             }
 
@@ -92,7 +92,8 @@ public sealed class MlDatasetsPreparationHttpClient : IMlDatasetsPreparationGate
         {
             _logger.LogError(
                 exception,
-                "Przygotowanie datasetu po stronie ML przekroczyło timeout dla datasetu {DatasetName}.",
+                "Przygotowanie datasetu po stronie ML przekroczyło timeout. PreparationName={PreparationName}, DatasetName={DatasetName}.",
+                request.PreparationName,
                 request.DatasetName);
             throw new MlServiceTimeoutException("Upłynął limit czasu odpowiedzi serwisu ML.");
         }
@@ -100,7 +101,8 @@ public sealed class MlDatasetsPreparationHttpClient : IMlDatasetsPreparationGate
         {
             _logger.LogError(
                 exception,
-                "Wywołanie przygotowania datasetu zakończyło się błędem sieci dla datasetu {DatasetName}.",
+                "Wywołanie przygotowania datasetu zakończyło się błędem sieci. PreparationName={PreparationName}, DatasetName={DatasetName}.",
+                request.PreparationName,
                 request.DatasetName);
             throw new MlServiceUnavailableException("Serwis ML jest niedostępny.");
         }
@@ -108,20 +110,20 @@ public sealed class MlDatasetsPreparationHttpClient : IMlDatasetsPreparationGate
         {
             _logger.LogError(
                 exception,
-                "Serwis ML zwrócił niepoprawny JSON dla datasetu {DatasetName}.",
+                "Serwis ML zwrócił niepoprawny JSON. PreparationName={PreparationName}, DatasetName={DatasetName}.",
+                request.PreparationName,
                 request.DatasetName);
-            throw new MlOperationFailedException(
-                DefaultOperationErrorType,
+            throw new MlServiceUnavailableException(
                 "Serwis ML zwrócił nieprawidłowy payload JSON.");
         }
         catch (NotSupportedException exception)
         {
             _logger.LogError(
                 exception,
-                "Serwis ML zwrócił nieobsługiwany format JSON dla datasetu {DatasetName}.",
+                "Serwis ML zwrócił nieobsługiwany format JSON. PreparationName={PreparationName}, DatasetName={DatasetName}.",
+                request.PreparationName,
                 request.DatasetName);
-            throw new MlOperationFailedException(
-                DefaultOperationErrorType,
+            throw new MlServiceUnavailableException(
                 "Serwis ML zwrócił odpowiedź w nieobsługiwanym formacie.");
         }
     }
@@ -175,6 +177,7 @@ public sealed class MlDatasetsPreparationHttpClient : IMlDatasetsPreparationGate
     }
 
     private sealed record PrepareDatasetArtifactApiEntryContract(
+        string PreparationName,
         string DatasetName,
         IReadOnlyList<PrepareDatasetSourceApiEntryContract> Sources,
         string PreprocessingProfile);

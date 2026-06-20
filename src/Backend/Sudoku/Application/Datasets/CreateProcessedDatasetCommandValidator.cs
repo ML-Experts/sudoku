@@ -24,9 +24,21 @@ public sealed class CreateProcessedDatasetCommandValidator : AbstractValidator<C
         RuleFor(command => command)
             .Custom((command, context) =>
             {
+                ValidatePreparationName(command, context);
                 ValidateName(command, context);
                 ValidateSources(command, context);
             });
+    }
+
+    private static void ValidatePreparationName(
+        CreateProcessedDatasetCommand command,
+        ValidationContext<CreateProcessedDatasetCommand> context)
+    {
+        DatasetPreparationNameValidationRules.Validate(
+            command.PreparationName,
+            context,
+            nameof(CreateProcessedDatasetCommand.PreparationName),
+            CreateProcessedDatasetErrorTypes.InvalidDatasetPreparationName);
     }
 
     private static void ValidateName(CreateProcessedDatasetCommand command, ValidationContext<CreateProcessedDatasetCommand> context)

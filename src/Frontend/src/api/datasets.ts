@@ -1,37 +1,15 @@
 import type {
   CreateProcessedDatasetApiEntry,
-  ErrorApiResponse,
   ProcessedDatasetApiResponse,
   ProcessedDatasetListItemApiResponse,
   ProcessedDatasetsListApiResponse,
   RawDatasetCandidateApiResponse,
-  SelectedRawDatasetSourceApiEntry,
+  SelectedPreparedDatasetSourceApiEntry,
   SplitSampleCountsApiResponse,
 } from "../types/api";
+import { fetchJson, JsonApiError } from "./shared/fetchJson";
 
-export class DatasetsApiError extends Error {
-  readonly status: number;
-  readonly errorType: string | undefined;
-
-  constructor(message: string, status: number, errorType?: string) {
-    super(message);
-    this.name = "DatasetsApiError";
-    this.status = status;
-    this.errorType = errorType;
-  }
-}
-
-function tryParseJson(raw: string): unknown {
-  if (!raw.trim()) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(raw) as unknown;
-  } catch {
-    return null;
-  }
-}
+export class DatasetsApiError extends JsonApiError {}
 
 function buildAuthHeaders(accessToken?: string | null): HeadersInit {
   if (!accessToken) {
@@ -41,17 +19,6 @@ function buildAuthHeaders(accessToken?: string | null): HeadersInit {
   return {
     Authorization: `Bearer ${accessToken}`,
   };
-}
-
-function isErrorApiResponse(value: unknown): value is ErrorApiResponse {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-
-  const record = value as Record<string, unknown>;
-  return (
-    typeof record.message === "string" && typeof record.errorType === "string"
-  );
 }
 
 function isRawDatasetCandidateApiResponse(
@@ -80,9 +47,9 @@ function isSplitSampleCountsApiResponse(
   );
 }
 
-function isSelectedRawDatasetSourceApiEntry(
+function isSelectedPreparedDatasetSourceApiEntry(
   value: unknown
-): value is SelectedRawDatasetSourceApiEntry {
+): value is SelectedPreparedDatasetSourceApiEntry {
   if (!value || typeof value !== "object") {
     return false;
   }
@@ -154,7 +121,9 @@ function isProcessedDatasetApiResponse(
     return false;
   }
 
-  if (!record.sources.every((item) => isSelectedRawDatasetSourceApiEntry(item))) {
+  if (
+    !record.sources.every((item) => isSelectedPreparedDatasetSourceApiEntry(item))
+  ) {
     return false;
   }
 
@@ -183,49 +152,29 @@ function isProcessedDatasetApiResponse(
   return record.warnings.every((warning) => typeof warning === "string");
 }
 
-function buildErrorFromResponse(rawBody: string, status: number): DatasetsApiError {
-  const parsed = tryParseJson(rawBody);
-
-  if (isErrorApiResponse(parsed)) {
-    return new DatasetsApiError(parsed.message, status, parsed.errorType);
-  }
-
-  return new DatasetsApiError(
-    rawBody.trim()
-      ? `Backend zwrócił odpowiedź HTTP ${status}.`
-      : `Backend zwrócił odpowiedź HTTP ${status} bez treści.`,
-    status
-  );
-}
-
 export async function getRawDatasetCandidates(
   apiBaseUrl: string,
   accessToken?: string | null,
   signal?: AbortSignal
 ): Promise<RawDatasetCandidateApiResponse[]> {
-  const response = await fetch(`${apiBaseUrl}/datasets/raw-candidates`, {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-      ...buildAuthHeaders(accessToken),
+  return fetchJson<RawDatasetCandidateApiResponse[], DatasetsApiError>({
+    url: `${apiBaseUrl}/datasets/raw-candidates`,
+    init: {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        ...buildAuthHeaders(accessToken),
+      },
+      signal,
     },
-    signal,
+    expectedStatus: 200,
+    validateResponse: (value): value is RawDatasetCandidateApiResponse[] =>
+      Array.isArray(value) && value.every(isRawDatasetCandidateApiResponse),
+    invalidResponseMessage:
+      "Backend zwrocil niepoprawny ksztalt RawDatasetCandidateApiResponse[].",
+    errorFactory: (message, status, errorType) =>
+      new DatasetsApiError(message, status, errorType),
   });
-
-  const rawBody = await response.text();
-  const parsed = tryParseJson(rawBody);
-
-  if (response.status === 200) {
-    if (!Array.isArray(parsed) || !parsed.every(isRawDatasetCandidateApiResponse)) {
-      throw new Error(
-        "Backend zwrócił niepoprawny kształt RawDatasetCandidateApiResponse[]."
-      );
-    }
-
-    return parsed;
-  }
-
-  throw buildErrorFromResponse(rawBody, response.status);
 }
 
 export async function getProcessedDatasets(
@@ -233,29 +182,23 @@ export async function getProcessedDatasets(
   accessToken?: string | null,
   signal?: AbortSignal
 ): Promise<ProcessedDatasetsListApiResponse> {
-  const response = await fetch(`${apiBaseUrl}/datasets/processed`, {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-      ...buildAuthHeaders(accessToken),
+  return fetchJson<ProcessedDatasetsListApiResponse, DatasetsApiError>({
+    url: `${apiBaseUrl}/datasets/processed`,
+    init: {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+        ...buildAuthHeaders(accessToken),
+      },
+      signal,
     },
-    signal,
+    expectedStatus: 200,
+    validateResponse: isProcessedDatasetsListApiResponse,
+    invalidResponseMessage:
+      "Backend zwrocil niepoprawny ksztalt ProcessedDatasetsListApiResponse.",
+    errorFactory: (message, status, errorType) =>
+      new DatasetsApiError(message, status, errorType),
   });
-
-  const rawBody = await response.text();
-  const parsed = tryParseJson(rawBody);
-
-  if (response.status === 200) {
-    if (!isProcessedDatasetsListApiResponse(parsed)) {
-      throw new Error(
-        "Backend zwrócił niepoprawny kształt ProcessedDatasetsListApiResponse."
-      );
-    }
-
-    return parsed;
-  }
-
-  throw buildErrorFromResponse(rawBody, response.status);
 }
 
 export async function postCreateProcessedDataset(
@@ -264,29 +207,23 @@ export async function postCreateProcessedDataset(
   accessToken?: string | null,
   signal?: AbortSignal
 ): Promise<ProcessedDatasetApiResponse> {
-  const response = await fetch(`${apiBaseUrl}/datasets/processed`, {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      ...buildAuthHeaders(accessToken),
+  return fetchJson<ProcessedDatasetApiResponse, DatasetsApiError>({
+    url: `${apiBaseUrl}/datasets/processed`,
+    init: {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        ...buildAuthHeaders(accessToken),
+      },
+      body: JSON.stringify(entry),
+      signal,
     },
-    body: JSON.stringify(entry),
-    signal,
+    expectedStatus: 201,
+    validateResponse: isProcessedDatasetApiResponse,
+    invalidResponseMessage:
+      "Backend zwrocil niepoprawny ksztalt ProcessedDatasetApiResponse.",
+    errorFactory: (message, status, errorType) =>
+      new DatasetsApiError(message, status, errorType),
   });
-
-  const rawBody = await response.text();
-  const parsed = tryParseJson(rawBody);
-
-  if (response.status === 201) {
-    if (!isProcessedDatasetApiResponse(parsed)) {
-      throw new Error(
-        "Backend zwrócił niepoprawny kształt ProcessedDatasetApiResponse."
-      );
-    }
-
-    return parsed;
-  }
-
-  throw buildErrorFromResponse(rawBody, response.status);
 }

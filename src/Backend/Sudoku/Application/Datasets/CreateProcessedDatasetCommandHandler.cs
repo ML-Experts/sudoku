@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using Sudoku.Application.Abstractions;
 using Sudoku.Application.Ml;
 using Sudoku.Application.Storage;
+using Sudoku.Models.Datasets;
 
 namespace Sudoku.Application.Datasets;
 
@@ -11,20 +12,23 @@ public sealed class CreateProcessedDatasetCommandHandler
 {
     private static readonly string[] SelectedSplitsOrder = ["train", "val", "test"];
 
-    private readonly ISender _sender;
+    private readonly IDatasetPreparationsGateway _datasetPreparationsGateway;
+    private readonly IDatasetPreparationArtifactsGateway _datasetPreparationArtifactsGateway;
     private readonly IMlDatasetsPreparationGateway _mlDatasetsPreparationGateway;
     private readonly IProcessedDatasetsGateway _processedDatasetsGateway;
     private readonly DatasetsPreparationOptions _datasetsPreparationOptions;
     private readonly TimeProvider _timeProvider;
 
     public CreateProcessedDatasetCommandHandler(
-        ISender sender,
+        IDatasetPreparationsGateway datasetPreparationsGateway,
+        IDatasetPreparationArtifactsGateway datasetPreparationArtifactsGateway,
         IMlDatasetsPreparationGateway mlDatasetsPreparationGateway,
         IProcessedDatasetsGateway processedDatasetsGateway,
         IOptions<DatasetsPreparationOptions> datasetsPreparationOptions,
         TimeProvider timeProvider)
     {
-        _sender = sender;
+        _datasetPreparationsGateway = datasetPreparationsGateway;
+        _datasetPreparationArtifactsGateway = datasetPreparationArtifactsGateway;
         _mlDatasetsPreparationGateway = mlDatasetsPreparationGateway;
         _processedDatasetsGateway = processedDatasetsGateway;
         _datasetsPreparationOptions = datasetsPreparationOptions.Value;
@@ -35,11 +39,15 @@ public sealed class CreateProcessedDatasetCommandHandler
         CreateProcessedDatasetCommand request,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.Name) || request.Sources is null || request.Sources.Count == 0)
+        if (string.IsNullOrWhiteSpace(request.PreparationName)
+            || string.IsNullOrWhiteSpace(request.Name)
+            || request.Sources is null
+            || request.Sources.Count == 0)
         {
             throw new InvalidOperationException("CreateProcessedDatasetCommand must be validated before handler execution.");
         }
 
+        var preparationName = request.PreparationName.Trim();
         var datasetName = request.Name.Trim();
         var targetFileName = $"{datasetName}.npz";
 
@@ -62,9 +70,11 @@ public sealed class CreateProcessedDatasetCommandHandler
                     .ToArray()))
             .ToArray();
 
-        await ValidateSelectedSourcesAgainstRawCandidatesAsync(selectedSources, cancellationToken);
+        await EnsurePreparationExistsAndIsCompletedAsync(preparationName, cancellationToken);
+        await ValidateSelectedSourcesAgainstPreparationAsync(preparationName, selectedSources, cancellationToken);
 
         var prepareRequest = new PrepareDatasetArtifactRequestDto(
+            PreparationName: preparationName,
             DatasetName: datasetName,
             Sources: selectedSources
                 .Select(source => new PrepareDatasetSourceDto(
@@ -109,6 +119,7 @@ public sealed class CreateProcessedDatasetCommandHandler
         await _processedDatasetsGateway.SaveMetadataAsync(
             new ProcessedDatasetMetadataDto(
                 Name: result.Name,
+                PreparationName: preparationName,
                 FileName: result.FileName,
                 PreprocessingProfile: result.PreprocessingProfile,
                 CreatedAtUtc: result.CreatedAtUtc,
@@ -121,30 +132,48 @@ public sealed class CreateProcessedDatasetCommandHandler
         return result;
     }
 
-    private async Task ValidateSelectedSourcesAgainstRawCandidatesAsync(
+    private async Task EnsurePreparationExistsAndIsCompletedAsync(
+        string preparationName,
+        CancellationToken cancellationToken)
+    {
+        var preparation = await _datasetPreparationsGateway.GetByNameAsync(preparationName, cancellationToken);
+        if (preparation is null)
+        {
+            throw new DatasetPreparationNotFoundException(preparationName);
+        }
+
+        if (!string.Equals(preparation.Status, DatasetPreparationStatus.Completed, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new DatasetPreparationArtifactsNotReadyException(preparationName, preparation.Status);
+        }
+    }
+
+    private async Task ValidateSelectedSourcesAgainstPreparationAsync(
+        string preparationName,
         IReadOnlyList<SelectedRawDatasetSourceDto> selectedSources,
         CancellationToken cancellationToken)
     {
-        var candidates = await _sender.Send(new ListRawDatasetCandidatesQuery(), cancellationToken);
-        var candidatesByName = candidates.Items
-            .GroupBy(item => item.Name, StringComparer.Ordinal)
-            .ToDictionary(group => group.Key, group => group.ToArray(), StringComparer.Ordinal);
+        var allowedBoardSources = await _datasetPreparationArtifactsGateway.GetSourceFolderNamesAsync(
+            preparationName,
+            "board",
+            cancellationToken);
+        var allowedDigitSources = await _datasetPreparationArtifactsGateway.GetSourceFolderNamesAsync(
+            preparationName,
+            "digit",
+            cancellationToken);
+
+        var allowedBoardSourcesSet = new HashSet<string>(allowedBoardSources, StringComparer.Ordinal);
+        var allowedDigitSourcesSet = new HashSet<string>(allowedDigitSources, StringComparer.Ordinal);
 
         foreach (var source in selectedSources)
         {
-            if (!candidatesByName.TryGetValue(source.Name, out var variants))
-            {
-                throw new RawDatasetNotFoundException($"Źródło {source.Name} nie zostało odnalezione.");
-            }
+            var allowedSources = string.Equals(source.Type, "board", StringComparison.Ordinal)
+                ? allowedBoardSourcesSet
+                : allowedDigitSourcesSet;
 
-            var matchingVariant = variants.FirstOrDefault(item =>
-                string.Equals(item.Type, source.Type, StringComparison.OrdinalIgnoreCase));
-
-            if (matchingVariant is null)
+            if (!allowedSources.Contains(source.Name))
             {
-                var detectedType = variants[0].Type;
-                throw new RawDatasetTypeMismatchException(
-                    $"Źródło {source.Name} zostało wykryte jako {detectedType} i nie może być przygotowane jako {source.Type}.");
+                throw new DatasetPreparationSourceNotFoundException(preparationName, source.Name);
             }
         }
     }

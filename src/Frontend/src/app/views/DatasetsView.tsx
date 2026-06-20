@@ -1,8 +1,11 @@
+import { useState } from "react";
+
 import { Uc06TrainingSection } from "../../components/Uc06TrainingSection";
 import { Uc08CatalogSection } from "../../components/Uc08CatalogSection";
 import { Uc11RawCandidatesSection } from "../../components/Uc11RawCandidatesSection";
 import { Uc12DatasetPreparationSection } from "../../components/Uc12DatasetPreparationSection";
 import { Uc17RawCandidatesSection } from "../../features/uc17/api";
+import { Uc19PreparationSelectionSection } from "../../features/uc19/api";
 import { Uc18BoardFoldersSection } from "../../features/uc18/api";
 import type {
   TrainingRunParameterValidationResult,
@@ -26,6 +29,9 @@ export function DatasetsView({
   onUnauthorized,
   trainingRunParameterValidation,
 }: DatasetsViewProps) {
+  const [selectedUc19PreparationName, setSelectedUc19PreparationName] = useState<
+    string | null
+  >(null);
   const activeSection =
     datasetsStep === "uc11" ? (
       <Uc11RawCandidatesSection
@@ -39,11 +45,20 @@ export function DatasetsView({
         accessToken={accessToken}
         onUnauthorized={onUnauthorized}
       />
+    ) : datasetsStep === "uc19" ? (
+      <Uc19PreparationSelectionSection
+        apiBaseUrl={apiBaseUrl}
+        accessToken={accessToken}
+        onUnauthorized={onUnauthorized}
+        preferredPreparationName={selectedUc19PreparationName}
+        onSelectedPreparationNameChange={setSelectedUc19PreparationName}
+      />
     ) : datasetsStep === "uc18" ? (
       <Uc18BoardFoldersSection
         apiBaseUrl={apiBaseUrl}
         accessToken={accessToken}
         onUnauthorized={onUnauthorized}
+        preferredPreparationName={selectedUc19PreparationName}
       />
     ) : datasetsStep === "uc12" ? (
       <Uc12DatasetPreparationSection
@@ -73,11 +88,15 @@ export function DatasetsView({
     <>
       <section className="hero-card datasets-module-header">
         <p className="eyebrow">Workflow datasetowy</p>
-        <h2>UC-11 -&gt; UC-17 -&gt; UC-18 -&gt; UC-12 (legacy) -&gt; UC-06 -&gt; UC-08</h2>
+        <h2>
+          UC-11 -&gt; UC-17 -&gt; UC-19 (build) -&gt; UC-18 (browse) -&gt; UC-12
+          (legacy) -&gt; UC-06 -&gt; UC-08
+        </h2>
         <p className="hero-copy">
-          Nawiguj krokami: najpierw kandydaci raw, potem przygotowanie datasetu i
-          przeglad zrodel `board`, a osobno pozostaje stary workflow `UC-12` do
-          bezposredniego builda datasetu processed.
+          Nawiguj krokami: od kandydatow raw przez przygotowanie i wybor
+          `preparation` do konfiguracji builda `.npz` w `UC-19`. `UC-18` pozostaje
+          osobnym krokiem przegladu i czyszczenia preparation, a `UC-12` to legacy
+          workflow bezposredniego builda z danych `raw`.
         </p>
         <div className="datasets-stepper" role="tablist" aria-label="Kroki datasetu">
           <DatasetStepButton
@@ -91,23 +110,28 @@ export function DatasetsView({
             onClick={() => onDatasetsStepChange("uc17")}
           />
           <DatasetStepButton
+            isActive={datasetsStep === "uc19"}
+            label="3. Build z preparation (UC-19)"
+            onClick={() => onDatasetsStepChange("uc19")}
+          />
+          <DatasetStepButton
             isActive={datasetsStep === "uc18"}
-            label="3. Przeglad zrodel preparation (UC-18)"
+            label="4. Browse i czyszczenie preparation (UC-18)"
             onClick={() => onDatasetsStepChange("uc18")}
           />
           <DatasetStepButton
             isActive={datasetsStep === "uc12"}
-            label="4. Legacy: dataset processed (UC-12)"
+            label="5. Legacy: dataset processed (UC-12)"
             onClick={() => onDatasetsStepChange("uc12")}
           />
           <DatasetStepButton
             isActive={datasetsStep === "uc06"}
-            label="5. Start i monitoring treningu (UC-06)"
+            label="6. Start i monitoring treningu (UC-06)"
             onClick={() => onDatasetsStepChange("uc06")}
           />
           <DatasetStepButton
             isActive={datasetsStep === "uc08"}
-            label="6. Katalog runow i modeli (UC-08)"
+            label="7. Katalog runow i modeli (UC-08)"
             onClick={() => onDatasetsStepChange("uc08")}
           />
         </div>

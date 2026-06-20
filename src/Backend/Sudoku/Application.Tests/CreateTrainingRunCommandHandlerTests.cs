@@ -381,6 +381,7 @@ public sealed class CreateTrainingRunCommandHandlerTests
     {
         return new ProcessedDatasetMetadataDto(
             Name: "digits",
+            PreparationName: "preparation-001",
             FileName: "digits.npz",
             PreprocessingProfile: "default-28x28-v1",
             CreatedAtUtc: FixedNow.AddDays(-1),
