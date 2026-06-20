@@ -7,7 +7,9 @@ export type SolveCellInferenceParameterKey =
   | "centerAreaRatio"
   | "minComponentAreaRatio"
   | "lineArtifactMinSpanRatio"
-  | "lineArtifactMaxThicknessRatio";
+  | "lineArtifactMaxThicknessRatio"
+  | "emptyCellMinSegmentLengthPx"
+  | "emptyCellFilteredSegmentCountThreshold";
 
 export type SolveCellInferenceContextState =
   Uc14ContextState<SolveCellInferenceParameterKey>;
@@ -150,6 +152,55 @@ export const solveCellInferenceParameterDefinitions: readonly Uc14NumberParamete
       minInclusive: true,
       maxInclusive: true,
       step: 0.01,
+      advanced: true,
+    },
+    {
+      key: "emptyCellMinSegmentLengthPx",
+      kind: "number",
+      label: "Minimalna dlugosc segmentu Hough",
+      description:
+        "Minimalna dlugosc segmentu w pikselach, od ktorej wykryty odcinek jest liczony jako istotny sygnal niepustej komorki.",
+      guidance: {
+        purpose:
+          "Pozwala odfiltrowac bardzo krotkie segmenty powstajace z szumu, drobnych zabrudzen albo resztek binaryzacji.",
+        effect:
+          "Wieksza wartosc ignoruje wiecej krotkich segmentow. Mniejsza zwieksza czulosc na delikatne slady cyfry, ale latwiej przepuszcza artefakty.",
+        whenToChange:
+          "Warto dostroic, gdy puste komorki sa zbyt czesto uznawane za zajete przez drobne kreski albo gdy cienkie cyfry znikaja z logiki segmentowej.",
+        recommendation:
+          "Zmieniaj ten prog malymi krokami o 1-2 px i porownuj wynik razem z progiem liczby segmentow.",
+      },
+      min: 1,
+      max: 128,
+      minInclusive: true,
+      maxInclusive: true,
+      step: 1,
+      integerOnly: true,
+      unitLabel: " px",
+      advanced: true,
+    },
+    {
+      key: "emptyCellFilteredSegmentCountThreshold",
+      kind: "number",
+      label: "Prog liczby istotnych segmentow",
+      description:
+        "Minimalna liczba odfiltrowanych segmentow Hough potrzebna, aby logika segmentowa mogla uznac komorke za niepusta.",
+      guidance: {
+        purpose:
+          "Steruje, ile niezaleznych segmentow musi przejsc filtr dlugosci, zanim komorka zostanie zaakceptowana jako zajeta przez logike segmentowa.",
+        effect:
+          "Wieksza wartosc jest ostrozniejsza i rzadziej oznaczy komorke jako niepusta. Mniejsza szybciej zaakceptuje slaby slad cyfry, ale moze wpuscic szum.",
+        whenToChange:
+          "Ma sens wtedy, gdy pojedyncze artefakty nadal uruchamiaja rozpoznanie cyfry albo gdy faktyczne cyfry sa zbyt czesto traktowane jako puste.",
+        recommendation:
+          "Traktuj ten parametr jako pare z minimalna dlugoscia segmentu i testuj je razem na tych samych planszach.",
+      },
+      min: 1,
+      max: 16,
+      minInclusive: true,
+      maxInclusive: true,
+      step: 1,
+      integerOnly: true,
       advanced: true,
     },
   ];

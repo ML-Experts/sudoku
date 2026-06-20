@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Sudoku.Application.Ml;
+using Sudoku.Application.Sudoku;
 using Sudoku.Application.SudokuOverlay;
 using Sudoku.Infrastructure.Configuration;
 using Sudoku.Infrastructure.Ml;
@@ -14,6 +15,48 @@ namespace Application.Tests;
 
 public sealed class MlImageProcessingHttpClientTests
 {
+    [Fact]
+    public async Task InferDigitAsync_SendsResolvedConfigurationWithSegmentParameters()
+    {
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(
+                """{"digit":7}""",
+                Encoding.UTF8,
+                "application/json")
+        });
+        var client = CreateClient(handler);
+
+        var result = await client.InferDigitAsync(
+            new InferSudokuCellDigitMlRequestDto(
+                Image: new ImageContent("image/png", [1, 2, 3]),
+                ActiveModel: new InferSudokuCellDigitMlActiveModelDto(
+                    Name: "digit-model",
+                    ManifestPath: "/models/digit-model/model.json",
+                    PrimaryArtifactPath: "/models/digit-model/artifacts/model.pt",
+                    InputProfile: "default-28x28-v1"),
+                ResolvedConfiguration: new InferSudokuCellDigitMlResolvedConfigurationDto(
+                    InferenceProfileName: "default-28x28-v1",
+                    EmptyCellInnerMarginRatio: 0.12,
+                    EmptyCellDarkPixelRatioThreshold: 0.02,
+                    CenterAreaRatio: 0.5,
+                    MinComponentAreaRatio: 0.055,
+                    LineArtifactMinSpanRatio: 0.4,
+                    LineArtifactMaxThicknessRatio: 0.08,
+                    EmptyCellMinSegmentLengthPx: 8,
+                    EmptyCellFilteredSegmentCountThreshold: 2)),
+            CancellationToken.None);
+
+        Assert.Equal(7, result.Digit);
+        Assert.Equal(HttpMethod.Put, handler.LastMethod);
+        Assert.Equal("/ml/cells/inference", handler.LastPath);
+
+        using var payloadDocument = JsonDocument.Parse(handler.LastContent!);
+        var resolvedConfiguration = payloadDocument.RootElement.GetProperty("resolvedConfiguration");
+        Assert.Equal(8, resolvedConfiguration.GetProperty("emptyCellMinSegmentLengthPx").GetInt32());
+        Assert.Equal(2, resolvedConfiguration.GetProperty("emptyCellFilteredSegmentCountThreshold").GetInt32());
+    }
+
     [Fact]
     public async Task RenderOverlayCellAsync_SendsPostToConfiguredPath()
     {
@@ -110,6 +153,7 @@ public sealed class MlImageProcessingHttpClientTests
             Options.Create(new MlServiceOptions
             {
                 BaseUrl = "http://127.0.0.1:8000",
+                CellInferencePath = "/ml/cells/inference",
                 SudokuOverlayCellsPath = "/ml/sudoku/overlay/cells"
             }),
             NullLogger<MlImageProcessingHttpClient>.Instance);

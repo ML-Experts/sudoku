@@ -44,7 +44,9 @@ public sealed class SudokuCellsController : ControllerBase
             entry.CenterAreaRatio,
             entry.MinComponentAreaRatio,
             entry.LineArtifactMinSpanRatio,
-            entry.LineArtifactMaxThicknessRatio
+            entry.LineArtifactMaxThicknessRatio,
+            entry.EmptyCellMinSegmentLengthPx,
+            entry.EmptyCellFilteredSegmentCountThreshold
         );
 
         _logger.LogInformation("Rozpoczęto inferencję pojedynczej komórki sudoku.");

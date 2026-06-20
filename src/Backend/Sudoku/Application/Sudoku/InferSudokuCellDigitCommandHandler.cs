@@ -50,15 +50,11 @@ public sealed class InferSudokuCellDigitCommandHandler
         var image = new ImageContent(
             MimeType: request.MimeType,
             Content: imageBytes);
+        var resolvedConfiguration = SudokuCellsInferenceParameterPolicy.Resolve(request, _options);
         var mlRequest = BuildMlRequest(
             image,
             resolvedActiveModel,
-            request.EmptyCellDarkPixelRatioThreshold,
-            request.EmptyCellInnerMarginRatio,
-            request.CenterAreaRatio,
-            request.MinComponentAreaRatio,
-            request.LineArtifactMinSpanRatio,
-            request.LineArtifactMaxThicknessRatio
+            resolvedConfiguration
         );
 
         var mlResult = await _mlImageProcessingGateway.InferDigitAsync(mlRequest, cancellationToken);
@@ -81,12 +77,7 @@ public sealed class InferSudokuCellDigitCommandHandler
     private InferSudokuCellDigitMlRequestDto BuildMlRequest(
         ImageContent image,
         ResolvedActiveModelDto resolvedActiveModel,
-        double emptyCellDarkPixelRatioThreshold,
-        double emptyCellInnerMarginRatio,
-        double centerAreaRatio,
-        double minComponentAreaRatio,
-        double lineArtifactMinSpanRatio,
-        double lineArtifactMaxThicknessRatio
+        InferSudokuCellDigitMlResolvedConfigurationDto resolvedConfiguration
     )
     {
         return new InferSudokuCellDigitMlRequestDto(
@@ -96,14 +87,6 @@ public sealed class InferSudokuCellDigitCommandHandler
                 resolvedActiveModel.ManifestPath,
                 resolvedActiveModel.PrimaryArtifactPath,
                 resolvedActiveModel.Manifest.InputProfile),
-            ResolvedConfiguration: new InferSudokuCellDigitMlResolvedConfigurationDto(
-                _options.InferenceProfileName,
-                emptyCellInnerMarginRatio,
-                emptyCellDarkPixelRatioThreshold,
-                centerAreaRatio,
-                minComponentAreaRatio,
-                lineArtifactMinSpanRatio,
-                lineArtifactMaxThicknessRatio
-            ));
+            ResolvedConfiguration: resolvedConfiguration);
     }
 }

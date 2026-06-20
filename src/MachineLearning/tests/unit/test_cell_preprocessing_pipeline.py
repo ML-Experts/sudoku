@@ -2,6 +2,7 @@ import unittest
 
 import numpy as np
 
+from infrastructure.vision.cell_cleaning import clean_binary_mask_for_empty_detection
 from infrastructure.vision.cell_preprocessing_pipeline import (
     CellPreprocessingPipeline,
 )
@@ -54,6 +55,20 @@ class CellPreprocessingPipelineTests(unittest.TestCase):
 
         self.assertEqual(int(preview_image[0:4, 0:4].max()), 0)
         self.assertGreater(int(preview_image.max()), 0)
+
+    def test_empty_detection_cleanup_should_keep_original_resolution(self) -> None:
+        binary_mask = np.zeros((64, 64), dtype=np.uint8)
+        binary_mask[24:36, 46:50] = 255
+
+        cleaned_mask = clean_binary_mask_for_empty_detection(
+            binary_mask,
+            border_clearance_px=0,
+            min_component_area_ratio=0.0,
+        )
+
+        self.assertEqual(cleaned_mask.shape, (64, 64))
+        foreground_points = np.argwhere(cleaned_mask > 0)
+        self.assertTrue(np.all(foreground_points[:, 1] >= 46))
 
 
 if __name__ == "__main__":

@@ -38,6 +38,8 @@ const DEFAULT_DIGIT_INFERENCE_ENTRY: Omit<DigitInferenceApiEntry, "image"> = {
   minComponentAreaRatio: 0.055,
   lineArtifactMinSpanRatio: 0.4,
   lineArtifactMaxThicknessRatio: 0.08,
+  emptyCellMinSegmentLengthPx: 8,
+  emptyCellFilteredSegmentCountThreshold: 2,
 };
 
 export async function putSudokuCellInference(
