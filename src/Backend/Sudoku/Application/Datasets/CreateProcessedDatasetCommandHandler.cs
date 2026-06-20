@@ -10,8 +10,6 @@ namespace Sudoku.Application.Datasets;
 public sealed class CreateProcessedDatasetCommandHandler
     : IRequestHandler<CreateProcessedDatasetCommand, CreateProcessedDatasetCommandResultDto>
 {
-    private static readonly string[] SelectedSplitsOrder = ["train", "val", "test"];
-
     private readonly IDatasetPreparationsGateway _datasetPreparationsGateway;
     private readonly IDatasetPreparationArtifactsGateway _datasetPreparationArtifactsGateway;
     private readonly IMlDatasetsPreparationGateway _mlDatasetsPreparationGateway;
@@ -76,24 +74,17 @@ public sealed class CreateProcessedDatasetCommandHandler
         var prepareRequest = new PrepareDatasetArtifactRequestDto(
             PreparationName: preparationName,
             DatasetName: datasetName,
+            SplitPolicy: BuildRequestSplitPolicy(),
             Sources: selectedSources
                 .Select(source => new PrepareDatasetSourceDto(
                     Name: source.Name,
                     Type: source.Type,
-                    SplitPolicy: BuildSplitPolicy(source)))
-                .ToArray(),
-            PreprocessingProfile: _datasetsPreparationOptions.DefaultPreprocessingProfile);
+                    Splits: source.Splits))
+                .ToArray());
 
-        PrepareDatasetArtifactResultDto preparedArtifact;
-        try
-        {
-            preparedArtifact = await _mlDatasetsPreparationGateway.PrepareDatasetArtifactAsync(prepareRequest, cancellationToken);
-        }
-        catch (MlOperationFailedException exception)
-            when (string.Equals(exception.ErrorType, CreateProcessedDatasetErrorTypes.InvalidRequest, StringComparison.Ordinal))
-        {
-            throw new MlOperationFailedException(CreateProcessedDatasetErrorTypes.DatasetSourceInvalid, exception.Message);
-        }
+        var preparedArtifact = await _mlDatasetsPreparationGateway.PrepareDatasetArtifactAsync(
+            prepareRequest,
+            cancellationToken);
 
         if (SumSplitCounts(preparedArtifact.SampleCounts) == 0)
         {
@@ -178,38 +169,15 @@ public sealed class CreateProcessedDatasetCommandHandler
         }
     }
 
-    private DatasetSplitPolicyDto BuildSplitPolicy(SelectedRawDatasetSourceDto source)
+    private DatasetSplitPolicyDto BuildRequestSplitPolicy()
     {
-        var hasMix = source.Splits.Contains("mix", StringComparer.Ordinal);
-        var groupBy = string.Equals(source.Type, "board", StringComparison.OrdinalIgnoreCase)
-            ? "board"
-            : "sample";
-
-        if (hasMix)
-        {
-            return new DatasetSplitPolicyDto(
-                Mode: "mix",
-                Ratios: new SplitRatiosDto(
-                    Train: _datasetsPreparationOptions.DefaultMixSplitRatios.Train,
-                    Val: _datasetsPreparationOptions.DefaultMixSplitRatios.Val,
-                    Test: _datasetsPreparationOptions.DefaultMixSplitRatios.Test),
-                GroupBy: groupBy);
-        }
-
-        var selectedSplits = SelectedSplitsOrder
-            .Where(split => source.Splits.Contains(split, StringComparer.Ordinal))
-            .ToArray();
-        var ratioPerSplit = 1d / selectedSplits.Length;
-
-        var ratios = new SplitRatiosDto(
-            Train: selectedSplits.Contains("train", StringComparer.Ordinal) ? ratioPerSplit : 0d,
-            Val: selectedSplits.Contains("val", StringComparer.Ordinal) ? ratioPerSplit : 0d,
-            Test: selectedSplits.Contains("test", StringComparer.Ordinal) ? ratioPerSplit : 0d);
-
         return new DatasetSplitPolicyDto(
-            Mode: "selected",
-            Ratios: ratios,
-            GroupBy: groupBy);
+            Mode: "ratio",
+            Ratios: new SplitRatiosDto(
+                Train: _datasetsPreparationOptions.DefaultMixSplitRatios.Train,
+                Val: _datasetsPreparationOptions.DefaultMixSplitRatios.Val,
+                Test: _datasetsPreparationOptions.DefaultMixSplitRatios.Test),
+            GroupBy: "sourceType");
     }
 
     private static int SumSplitCounts(SplitSampleCountsDto splitSampleCounts)

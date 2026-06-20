@@ -75,28 +75,24 @@ public sealed class CreateProcessedDatasetCommandHandlerTests
         Assert.Equal(FixedNow, result.CreatedAtUtc);
         Assert.Equal("preparation-001", mlGateway.LastRequest!.PreparationName);
         Assert.Equal("digits-v2", mlGateway.LastRequest.DatasetName);
-        Assert.Equal("default-28x28-v1", mlGateway.LastRequest.PreprocessingProfile);
+        Assert.Equal("ratio", mlGateway.LastRequest.SplitPolicy.Mode);
+        Assert.Equal("sourceType", mlGateway.LastRequest.SplitPolicy.GroupBy);
+        Assert.Equal(0.8, mlGateway.LastRequest.SplitPolicy.Ratios.Train);
+        Assert.Equal(0.1, mlGateway.LastRequest.SplitPolicy.Ratios.Val);
+        Assert.Equal(0.1, mlGateway.LastRequest.SplitPolicy.Ratios.Test);
         Assert.Collection(
             mlGateway.LastRequest.Sources,
             source =>
             {
                 Assert.Equal("v1_training", source.Name);
                 Assert.Equal("board", source.Type);
-                Assert.Equal("mix", source.SplitPolicy.Mode);
-                Assert.Equal("board", source.SplitPolicy.GroupBy);
-                Assert.Equal(0.8, source.SplitPolicy.Ratios.Train);
-                Assert.Equal(0.1, source.SplitPolicy.Ratios.Val);
-                Assert.Equal(0.1, source.SplitPolicy.Ratios.Test);
+                Assert.Equal(["mix"], source.Splits);
             },
             source =>
             {
                 Assert.Equal("mnist_train", source.Name);
                 Assert.Equal("digit", source.Type);
-                Assert.Equal("selected", source.SplitPolicy.Mode);
-                Assert.Equal("sample", source.SplitPolicy.GroupBy);
-                Assert.Equal(0.5, source.SplitPolicy.Ratios.Train);
-                Assert.Equal(0.5, source.SplitPolicy.Ratios.Val);
-                Assert.Equal(0d, source.SplitPolicy.Ratios.Test);
+                Assert.Equal(["train", "val"], source.Splits);
             });
 
         Assert.Equal("digits-v2", processedDatasetsGateway.PromotedDatasetName);

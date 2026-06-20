@@ -35,19 +35,19 @@ public sealed class MlDatasetsPreparationHttpClient : IMlDatasetsPreparationGate
         var payload = new PrepareDatasetArtifactApiEntryContract(
             PreparationName: request.PreparationName,
             DatasetName: request.DatasetName,
+            SplitPolicy: new DatasetSplitPolicyApiEntryContract(
+                Mode: request.SplitPolicy.Mode,
+                Ratios: new SplitRatiosApiEntryContract(
+                    Train: request.SplitPolicy.Ratios.Train,
+                    Val: request.SplitPolicy.Ratios.Val,
+                    Test: request.SplitPolicy.Ratios.Test),
+                GroupBy: request.SplitPolicy.GroupBy),
             Sources: request.Sources
                 .Select(source => new PrepareDatasetSourceApiEntryContract(
                     Name: source.Name,
                     Type: source.Type,
-                    SplitPolicy: new DatasetSplitPolicyApiEntryContract(
-                        Mode: source.SplitPolicy.Mode,
-                        Ratios: new SplitRatiosApiEntryContract(
-                            Train: source.SplitPolicy.Ratios.Train,
-                            Val: source.SplitPolicy.Ratios.Val,
-                            Test: source.SplitPolicy.Ratios.Test),
-                        GroupBy: source.SplitPolicy.GroupBy)))
-                .ToArray(),
-            PreprocessingProfile: request.PreprocessingProfile);
+                    Splits: source.Splits))
+                .ToArray());
 
         try
         {
@@ -179,13 +179,13 @@ public sealed class MlDatasetsPreparationHttpClient : IMlDatasetsPreparationGate
     private sealed record PrepareDatasetArtifactApiEntryContract(
         string PreparationName,
         string DatasetName,
-        IReadOnlyList<PrepareDatasetSourceApiEntryContract> Sources,
-        string PreprocessingProfile);
+        DatasetSplitPolicyApiEntryContract SplitPolicy,
+        IReadOnlyList<PrepareDatasetSourceApiEntryContract> Sources);
 
     private sealed record PrepareDatasetSourceApiEntryContract(
         string Name,
         string Type,
-        DatasetSplitPolicyApiEntryContract SplitPolicy);
+        IReadOnlyList<string> Splits);
 
     private sealed record DatasetSplitPolicyApiEntryContract(
         string Mode,

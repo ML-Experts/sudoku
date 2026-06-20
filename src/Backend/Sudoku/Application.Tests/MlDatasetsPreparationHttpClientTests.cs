@@ -30,17 +30,17 @@ public sealed class MlDatasetsPreparationHttpClientTests
             new PrepareDatasetArtifactRequestDto(
                 PreparationName: "preparation-001",
                 DatasetName: "digits-v2",
+                SplitPolicy: new DatasetSplitPolicyDto(
+                    Mode: "ratio",
+                    Ratios: new SplitRatiosDto(Train: 0.8, Val: 0.1, Test: 0.1),
+                    GroupBy: "sourceType"),
                 Sources:
                 [
                     new PrepareDatasetSourceDto(
                         Name: "v1_training",
                         Type: "board",
-                        SplitPolicy: new DatasetSplitPolicyDto(
-                            Mode: "mix",
-                            Ratios: new SplitRatiosDto(Train: 0.8, Val: 0.1, Test: 0.1),
-                            GroupBy: "board"))
-                ],
-                PreprocessingProfile: "default-28x28-v1"),
+                        Splits: ["mix"])
+                ]),
             CancellationToken.None);
 
         Assert.Equal(HttpMethod.Post, handler.LastMethod);
@@ -49,7 +49,9 @@ public sealed class MlDatasetsPreparationHttpClientTests
         using var payloadDocument = JsonDocument.Parse(handler.LastContent!);
         Assert.Equal("preparation-001", payloadDocument.RootElement.GetProperty("preparationName").GetString());
         Assert.Equal("digits-v2", payloadDocument.RootElement.GetProperty("datasetName").GetString());
+        Assert.Equal("ratio", payloadDocument.RootElement.GetProperty("splitPolicy").GetProperty("mode").GetString());
         Assert.Equal("v1_training", payloadDocument.RootElement.GetProperty("sources")[0].GetProperty("name").GetString());
+        Assert.Equal("mix", payloadDocument.RootElement.GetProperty("sources")[0].GetProperty("splits")[0].GetString());
         Assert.Equal(10, result.SampleCounts.Train);
     }
 
@@ -69,17 +71,17 @@ public sealed class MlDatasetsPreparationHttpClientTests
             new PrepareDatasetArtifactRequestDto(
                 PreparationName: "preparation-001",
                 DatasetName: "digits-v2",
+                SplitPolicy: new DatasetSplitPolicyDto(
+                    Mode: "ratio",
+                    Ratios: new SplitRatiosDto(Train: 0.8, Val: 0.1, Test: 0.1),
+                    GroupBy: "sourceType"),
                 Sources:
                 [
                     new PrepareDatasetSourceDto(
                         Name: "v1_training",
                         Type: "board",
-                        SplitPolicy: new DatasetSplitPolicyDto(
-                            Mode: "mix",
-                            Ratios: new SplitRatiosDto(Train: 0.8, Val: 0.1, Test: 0.1),
-                            GroupBy: "board"))
-                ],
-                PreprocessingProfile: "default-28x28-v1"),
+                        Splits: ["mix"])
+                ]),
             CancellationToken.None));
     }
 
