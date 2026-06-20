@@ -32,6 +32,7 @@ from application.features.datasets.ports.dataset_preparation_ports import (
     BoardDatasetScannerPort,
     BoardFolderNameResolverPort,
     CellPreprocessingPipelinePort,
+    DigitSamplePreparationPort,
     DatasetPreparationArtifactCleanupPort,
     DatasetPreparationArtifactWriterPort,
     DatasetPreparationManifestWriterPort,
@@ -82,7 +83,8 @@ class CreateDatasetPreparationCommandHandler:
         board_dat_parser: BoardDatParserPort,
         idx_dataset_loader: IdxDatasetLoaderPort,
         board_dataset_cell_extractor: BoardDatasetCellExtractorPort,
-        cell_preprocessing_pipeline: CellPreprocessingPipelinePort,
+        board_cell_preprocessing_pipeline: CellPreprocessingPipelinePort,
+        digit_sample_preparation: DigitSamplePreparationPort,
         artifact_writer: DatasetPreparationArtifactWriterPort,
         manifest_writer: DatasetPreparationManifestWriterPort,
         workspace_manager: DatasetPreparationWorkspaceManagerPort,
@@ -96,7 +98,8 @@ class CreateDatasetPreparationCommandHandler:
         self._board_dat_parser = board_dat_parser
         self._idx_dataset_loader = idx_dataset_loader
         self._board_dataset_cell_extractor = board_dataset_cell_extractor
-        self._cell_preprocessing_pipeline = cell_preprocessing_pipeline
+        self._board_cell_preprocessing_pipeline = board_cell_preprocessing_pipeline
+        self._digit_sample_preparation = digit_sample_preparation
         self._artifact_writer = artifact_writer
         self._manifest_writer = manifest_writer
         self._workspace_manager = workspace_manager
@@ -505,8 +508,11 @@ class CreateDatasetPreparationCommandHandler:
                     error_type="dataset_source_invalid",
                     message="Źródło digit zawiera etykietę spoza zakresu 0..9.",
                 )
+            if record.label == 0:
+                empty_cell_count += 1
+                continue
             try:
-                processed_image = self._cell_preprocessing_pipeline.run_uint8(
+                processed_image = self._digit_sample_preparation.prepare_uint8(
                     record.image
                 )
             except ValueError as error:
@@ -521,10 +527,6 @@ class CreateDatasetPreparationCommandHandler:
                     record.sample_key,
                     error,
                 )
-                continue
-
-            if record.label == 0:
-                empty_cell_count += 1
                 continue
 
             file_name = f"{len(index_entries):06d}.png"
@@ -640,7 +642,7 @@ class CreateDatasetPreparationCommandHandler:
         self,
         cell_image: NDArray[np.uint8],
     ) -> NDArray[np.uint8]:
-        return self._cell_preprocessing_pipeline.run_uint8(cell_image)
+        return self._board_cell_preprocessing_pipeline.run_uint8(cell_image)
 
     def _is_valid_path_component(self, value: str) -> bool:
         stripped_value = value.strip()

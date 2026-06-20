@@ -116,6 +116,9 @@ from infrastructure.training.model.model_manifest_reader import (
 from infrastructure.vision.cell_preprocessing_pipeline import (
     CellPreprocessingPipeline,
 )
+from infrastructure.vision.digit_sample_preparation_pipeline import (
+    DigitSamplePreparationPipeline,
+)
 from infrastructure.vision.engine_board_dataset_cell_extractor import (
     EngineBoardDatasetCellExtractor,
 )
@@ -367,11 +370,12 @@ def get_create_dataset_preparation_command_handler(
         board_dataset_cell_extractor=EngineBoardDatasetCellExtractor(
             pipeline=cells_pipeline,
         ),
-        cell_preprocessing_pipeline=CellPreprocessingPipeline(
+        board_cell_preprocessing_pipeline=CellPreprocessingPipeline(
             output_size=28,
             adaptive_block_size=preprocessing_settings.adaptive_threshold_block_size,
             adaptive_c=preprocessing_settings.adaptive_threshold_c,
         ),
+        digit_sample_preparation=DigitSamplePreparationPipeline(),
         artifact_writer=DatasetPreparationArtifactWriter(
             path_provider=path_provider,
             image_artifact_writer=FilesystemImageArtifactWriter(

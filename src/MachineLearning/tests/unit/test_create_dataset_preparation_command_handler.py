@@ -50,6 +50,9 @@ from infrastructure.storage.json_file_writer import JsonFileWriter
 from infrastructure.vision.cell_preprocessing_pipeline import (
     CellPreprocessingPipeline,
 )
+from infrastructure.vision.digit_sample_preparation_pipeline import (
+    DigitSamplePreparationPipeline,
+)
 from infrastructure.vision.vision_image_codec import VisionImageCodec
 from models.board_grid_label import BoardGridLabel
 from models.cells_grid import CellsGrid
@@ -125,6 +128,48 @@ class CreateDatasetPreparationCommandHandlerTests(unittest.TestCase):
                     / "000000.png"
                 ).is_file()
             )
+
+    def test_handle_should_prepare_digit_source_without_board_cleaning(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_directory:
+            preparation_root = Path(temp_directory) / "preparations"
+            records = (
+                DigitDatasetRecord(
+                    sample_key="0",
+                    image=np.full((28, 28), 255, dtype=np.uint8),
+                    label=0,
+                ),
+                DigitDatasetRecord(
+                    sample_key="1",
+                    image=np.full((28, 28), 173, dtype=np.uint8),
+                    label=4,
+                ),
+            )
+            board_pipeline = _CountingCellPreprocessingPipeline()
+            digit_preparation = _CountingDigitSamplePreparation()
+            handler = self._create_handler(
+                preparation_root=preparation_root,
+                dataset_source_resolver=_DigitSourceResolver(),
+                idx_dataset_loader=_IdxDatasetLoader(records),
+                cell_preprocessing_pipeline=board_pipeline,
+                digit_sample_preparation=digit_preparation,
+            )
+
+            result = handler.handle(
+                CreateDatasetPreparationCommand(
+                    preparation_name="digits-prep",
+                    sources=(
+                        CreateDatasetPreparationSourceDto(
+                            name="mnist_train",
+                            type="digit",
+                        ),
+                    ),
+                )
+            )
+
+            self.assertEqual(result.status, "completed")
+            self.assertEqual(board_pipeline.run_uint8_call_count, 0)
+            self.assertEqual(digit_preparation.prepare_uint8_call_count, 1)
+            self.assertEqual(digit_preparation.prepared_values, [173])
 
     def test_handle_should_write_board_preparation_with_only_non_zero_cells(self) -> None:
         with tempfile.TemporaryDirectory() as temp_directory:
@@ -441,6 +486,7 @@ class CreateDatasetPreparationCommandHandlerTests(unittest.TestCase):
         idx_dataset_loader: object | None = None,
         board_dataset_cell_extractor: object | None = None,
         cell_preprocessing_pipeline: object | None = None,
+        digit_sample_preparation: object | None = None,
         image_writer: object | None = None,
     ) -> CreateDatasetPreparationCommandHandler:
         path_provider = DatasetPreparationsPathProvider(str(preparation_root))
@@ -454,8 +500,10 @@ class CreateDatasetPreparationCommandHandlerTests(unittest.TestCase):
             idx_dataset_loader=idx_dataset_loader or _IdxDatasetLoader(tuple()),
             board_dataset_cell_extractor=board_dataset_cell_extractor
             or _UnusedBoardDependency(),
-            cell_preprocessing_pipeline=cell_preprocessing_pipeline
+            board_cell_preprocessing_pipeline=cell_preprocessing_pipeline
             or CellPreprocessingPipeline(output_size=28),
+            digit_sample_preparation=digit_sample_preparation
+            or DigitSamplePreparationPipeline(),
             artifact_writer=DatasetPreparationArtifactWriter(
                 path_provider=path_provider,
                 image_artifact_writer=image_writer
@@ -568,6 +616,17 @@ class _CountingCellPreprocessingPipeline:
     def run_uint8(self, cell_image: np.ndarray) -> np.ndarray:
         self.run_uint8_call_count += 1
         return cell_image
+
+
+class _CountingDigitSamplePreparation:
+    def __init__(self) -> None:
+        self.prepare_uint8_call_count = 0
+        self.prepared_values: list[int] = []
+
+    def prepare_uint8(self, sample_image: np.ndarray) -> np.ndarray:
+        self.prepare_uint8_call_count += 1
+        self.prepared_values.append(int(sample_image[0, 0]))
+        return sample_image
 
 
 class _FailingImageArtifactWriter:
