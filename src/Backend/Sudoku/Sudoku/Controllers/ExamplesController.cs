@@ -103,6 +103,55 @@ public sealed class ExamplesController : ControllerBase
         }
     }
 
+    [HttpPut("preprocess/board")]
+    [ProducesResponseType(typeof(ImageApiResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status503ServiceUnavailable)]
+    [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status504GatewayTimeout)]
+    public async Task<IActionResult> PreprocessBoardInlineAsync(
+        [FromBody] ImageApiEntry? entry,
+        CancellationToken cancellationToken)
+    {
+        var command = new PreprocessInlineBoardCommand(
+            MimeType: entry?.MimeType,
+            Base64: entry?.Base64);
+
+        try
+        {
+            var result = await _sender.Send(command, cancellationToken);
+            return Ok(new ImageApiResponse(
+                MimeType: result.MimeType,
+                Base64: result.Base64));
+        }
+        catch (ValidationException exception)
+        {
+            return MapValidationError(exception, PreprocessInlineBoardErrorTypes.InvalidRequest);
+        }
+        catch (MlOperationFailedException exception)
+        {
+            return UnprocessableEntity(new ErrorApiResponse(
+                ErrorType: exception.ErrorType,
+                Message: exception.Message));
+        }
+        catch (MlServiceUnavailableException exception)
+        {
+            return StatusCode(
+                StatusCodes.Status503ServiceUnavailable,
+                new ErrorApiResponse(
+                    ErrorType: PreprocessInlineBoardErrorTypes.MlUnavailable,
+                    Message: exception.Message));
+        }
+        catch (MlServiceTimeoutException exception)
+        {
+            return StatusCode(
+                StatusCodes.Status504GatewayTimeout,
+                new ErrorApiResponse(
+                    ErrorType: PreprocessInlineBoardErrorTypes.MlTimeout,
+                    Message: exception.Message));
+        }
+    }
+
     [HttpPut("preprocess/cells")]
     [ProducesResponseType(typeof(CellsGridApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorApiResponse), StatusCodes.Status400BadRequest)]

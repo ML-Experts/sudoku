@@ -19,7 +19,7 @@ import type { Uc14ActiveParameterContext } from "../../uc14/domain/uc14Parameter
 type Uc05WorkflowSectionProps = {
   apiBaseUrl: string;
   cellsGrid: CellsGridApiResponse | null;
-  selectedProcessName: string | null;
+  selectedSourceLabel: string | null;
   solveCellInferenceParameters: SudokuCellInferenceParametersApiEntry | null;
   solveCellInferenceParametersValid: boolean;
   solveCellInferenceParameterErrorCount: number;
@@ -34,7 +34,7 @@ type Uc05WorkflowSectionProps = {
 export function Uc05WorkflowSection({
   apiBaseUrl,
   cellsGrid,
-  selectedProcessName,
+  selectedSourceLabel,
   solveCellInferenceParameters,
   solveCellInferenceParametersValid,
   solveCellInferenceParameterErrorCount,
@@ -122,12 +122,13 @@ export function Uc05WorkflowSection({
         <h2>Wspolny workflow `recognizedGrid` do sesji solve</h2>
         <p className="hero-copy">
           `UC-05A` buduje kanoniczny `recognizedGrid`, a `UC-05B` wykorzystuje go
-          bez tworzenia drugiego modelu planszy ani drugiego widoku 9x9.
+          bez tworzenia drugiego modelu planszy ani drugiego widoku 9x9, niezaleznie
+          od tego, czy upstream pochodzi z `UC-04`, czy z `UC-20`.
         </p>
       </section>
 
       <Uc05aRecognitionPanel
-        selectedProcessName={selectedProcessName}
+        selectedSourceLabel={selectedSourceLabel}
         cellsGridAvailable={cellsGrid !== null}
         parameterOverrideCount={solveCellInferenceOverrideCount}
         parametersValid={solveCellInferenceParametersValid}

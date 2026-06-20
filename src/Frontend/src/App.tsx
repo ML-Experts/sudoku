@@ -381,11 +381,11 @@ export default function App() {
   }, [availableExamplesUc14Contexts, manualExamplesWorkflowContext]);
 
   useEffect(() => {
-    if (activeView !== "examples" || !examplesModule.selectedProcessName) {
+    if (activeView !== "examples" || !examplesModule.hasSelectedSource) {
       setExamplesWorkflowContext(null);
       setManualExamplesWorkflowContext(null);
     }
-  }, [activeView, examplesModule.selectedProcessName]);
+  }, [activeView, examplesModule.hasSelectedSource]);
   return (
     <main className="app-root">
       <AppHeader
@@ -421,6 +421,7 @@ export default function App() {
 
           {activeView === "examples" ? (
             <ExamplesView
+              activeCellsGrid={examplesModule.activeCellsGrid}
               apiBaseUrl={apiBaseUrl}
               boardStageState={examplesModule.boardStageState}
               canSubmitUpload={examplesModule.canSubmitUpload}
@@ -432,15 +433,17 @@ export default function App() {
               fileInputRef={examplesModule.fileInputRef}
               isAdminMode={isAdminMode}
               isUploadBusy={examplesModule.isUploadBusy}
+              hasSelectedSource={examplesModule.hasSelectedSource}
               onDownload={(fileName) => void examplesModule.handleDownloadClick(fileName)}
               onLoadExamples={() => void examplesModule.loadExamplesList()}
               onRunUpload={() => void examplesModule.handleUploadClick()}
               onSelectedFileChange={examplesModule.setSelectedFile}
-              onSelectProcessName={examplesModule.setSelectedProcessName}
+              onSelectProcessName={examplesModule.handleSelectProcessName}
               onUc14ContextChange={setExamplesWorkflowContext}
               previewStageState={examplesModule.previewStageState}
               runUc04Flow={(fileName) => void examplesModule.runUc04Flow(fileName)}
               selectedProcessName={examplesModule.selectedProcessName}
+              selectedSourceLabel={examplesModule.selectedSourceLabel}
               sessionExamples={examplesModule.sessionExamples}
               solveCellInferenceParameters={solveCellInferenceParameters}
               solveCellInferenceParametersValid={solveCellInferenceValidation.isValid}
@@ -450,6 +453,7 @@ export default function App() {
               solveLiveParametersValid={solveLiveValidation.isValid}
               solveLiveParameterErrorCount={solveLiveValidation.errorCount}
               solveLiveOverrideCount={solveLiveOverrideCount}
+              uc20LocalImageFlow={examplesModule.uc20LocalImageFlow}
             />
           ) : null}
 

@@ -10,7 +10,11 @@ import {
   putPreprocessBoard,
   putPreprocessCells,
 } from "../../api/examples";
-import type { ExampleFileApiResponse } from "../../types/api";
+import { useUc20LocalImageFlow } from "../../features/uc20/application/useUc20LocalImageFlow";
+import type {
+  CellsGridApiResponse,
+  ExampleFileApiResponse,
+} from "../../types/api";
 import {
   defaultCellsStageState,
   defaultExamplesListState,
@@ -29,6 +33,48 @@ type UseExamplesModuleOptions = {
   onRequireLogin: () => void;
   onUnauthorized: (errorType?: string | null) => void;
 };
+
+type ResolvedExamplesSource = {
+  sourceKind: "example" | "local" | null;
+  sourceLabel: string | null;
+  cellsGrid: CellsGridApiResponse | null;
+};
+
+function resolveActiveExamplesSource({
+  selectedExampleName,
+  uc04CellsStageState,
+  localDraftFileName,
+  localCellsStageState,
+}: {
+  selectedExampleName: string | null;
+  uc04CellsStageState: CellsStageState;
+  localDraftFileName: string | null;
+  localCellsStageState: CellsStageState;
+}): ResolvedExamplesSource {
+  if (localDraftFileName) {
+    return {
+      sourceKind: "local",
+      sourceLabel: localDraftFileName,
+      cellsGrid:
+        localCellsStageState.kind === "success" ? localCellsStageState.cells : null,
+    };
+  }
+
+  if (selectedExampleName) {
+    return {
+      sourceKind: "example",
+      sourceLabel: selectedExampleName,
+      cellsGrid:
+        uc04CellsStageState.kind === "success" ? uc04CellsStageState.cells : null,
+    };
+  }
+
+  return {
+    sourceKind: null,
+    sourceLabel: null,
+    cellsGrid: null,
+  };
+}
 
 export function useExamplesModule({
   apiBaseUrl,
@@ -201,6 +247,22 @@ export function useExamplesModule({
     setCellsStageState(defaultCellsStageState);
   }, []);
 
+  const handleActivateLocalSource = useCallback(() => {
+    if (selectedProcessName) {
+      console.info("[UC-20] Aktywacja lokalnego obrazu czysci aktywny flow biblioteki.", {
+        selectedExampleName: selectedProcessName,
+      });
+    }
+
+    resetUc04Flow();
+    setSelectedProcessName(null);
+  }, [resetUc04Flow, selectedProcessName]);
+
+  const uc20LocalImageFlow = useUc20LocalImageFlow({
+    apiBaseUrl,
+    onActivateLocalSource: handleActivateLocalSource,
+  });
+
   const runUc04Flow = useCallback(
     async (fileName: string) => {
       uc04AbortRef.current?.abort();
@@ -349,6 +411,27 @@ export function useExamplesModule({
     };
   }, []);
 
+  const handleSelectProcessName = useCallback(
+    (value: string | null) => {
+      if (value) {
+        console.info("[UC-20] Zmiana zrodla na biblioteke przykladow resetuje lokalny flow.", {
+          selectedExampleName: value,
+        });
+        uc20LocalImageFlow.resetUc20Flow();
+      }
+
+      setSelectedProcessName(value);
+    },
+    [uc20LocalImageFlow],
+  );
+
+  const activeSource = resolveActiveExamplesSource({
+    selectedExampleName: selectedProcessName,
+    uc04CellsStageState: cellsStageState,
+    localDraftFileName: uc20LocalImageFlow.draftState.selectedDraft?.fileName ?? null,
+    localCellsStageState: uc20LocalImageFlow.cellsStageState,
+  });
+
   const isUploadBusy = uploadState.kind === "loading";
   const canSubmitUpload = Boolean(selectedFile) && !isUploadBusy && isAdminMode;
   const examplesListData =
@@ -359,6 +442,7 @@ export function useExamplesModule({
         : null;
 
   return {
+    activeCellsGrid: activeSource.cellsGrid,
     boardStageState,
     canSubmitUpload,
     cellsStageState,
@@ -368,15 +452,19 @@ export function useExamplesModule({
     fileInputRef,
     handleDownloadClick,
     handleUploadClick,
+    handleSelectProcessName,
+    hasSelectedSource: activeSource.sourceKind !== null,
     isUploadBusy,
     loadExamplesList,
     previewStageState,
     runUc04Flow,
+    selectedSourceKind: activeSource.sourceKind,
+    selectedSourceLabel: activeSource.sourceLabel,
     selectedFile,
     selectedProcessName,
     sessionExamples,
     setSelectedFile,
-    setSelectedProcessName,
+    uc20LocalImageFlow,
     uploadState,
   };
 }

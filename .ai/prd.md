@@ -104,7 +104,7 @@ Zasady architektoniczne:
 ### 8) Glowne przeplywy systemu
 
 #### P1. Rozwiaz Sudoku z obrazu
-1. Uzytkownik wybiera obraz Sudoku.
+1. Uzytkownik wybiera obraz Sudoku z biblioteki przykladow albo bezposrednio z lokalnego pliku.
 2. System wykrywa plansze i przygotowuje dane wejsciowe.
 3. System rozpoznaje grid 9x9.
 4. System rozwiazuje Sudoku.
@@ -143,6 +143,10 @@ Ponizej utrzymujemy tylko skrotowa mape historyjek. Szczegoly nalezy czytac w do
 
 - **UC-04 - Wykonaj wstepna obrobke wybranego przykladu**  
   Wykrycie planszy i przygotowanie widoku do dalszej inferencji.
+
+- **UC-20 - Wykonaj wstepna obrobke lokalnego zdjecia Sudoku bez zapisu na serwerze**  
+  Alternatywna sciezka wejscia dla `UC-04`: preprocessing obrazu wybranego z komputera uzytkownika bez dodawania go do biblioteki przykladow i bez trwalego zapisu po stronie serwera.  
+  Szczegoly: `.ai/feature/uc-20-overview.md`
 
 - **UC-05 - Rozpoznaj cyfry, rozwiaz Sudoku i pokaz wynik**  
   Glowna wartosc produktu dla uzytkownika koncowego.
