@@ -45,10 +45,11 @@ export function Uc19ProcessedDatasetsListSection({
     <article className="uc17-panel">
       <div className="uc17-panel-header">
         <div>
-          <h3>Krok 6 - Katalog gotowych datasetow processed</h3>
+          <h3>Krok 6 - Katalog gotowych datasetow</h3>
           <p className="muted-copy">
-            Ten panel reuse'uje <code>GET /api/datasets/processed</code> jako read-only
-            katalog pomocniczy przed buildem i do weryfikacji po sukcesie{" "}
+            Ten panel korzysta z <code>GET /api/datasets/processed</code> jako
+            pomocniczego katalogu tylko do odczytu przed budowa datasetu i do
+            weryfikacji po sukcesie{" "}
             <code>POST /api/datasets/processed</code>.
           </p>
         </div>
@@ -77,7 +78,7 @@ export function Uc19ProcessedDatasetsListSection({
 
       {status === "loading" ? (
         <p className="status-banner status-loading">
-          Odczytywanie katalogu gotowych datasetow processed...
+          Odczytywanie katalogu gotowych datasetow...
         </p>
       ) : null}
 
@@ -103,7 +104,7 @@ export function Uc19ProcessedDatasetsListSection({
       ) : null}
 
       {status === "success" && totalCount === 0 ? (
-        <p className="muted-copy">Brak gotowych datasetow processed w systemie.</p>
+        <p className="muted-copy">Brak gotowych datasetow w systemie.</p>
       ) : null}
 
       {shouldRenderList ? (

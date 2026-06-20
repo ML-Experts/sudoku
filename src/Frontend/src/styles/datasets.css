@@ -559,11 +559,53 @@
   gap: 0.55rem;
 }
 
+.uc18-board-file-delete-slot {
+  position: relative;
+  justify-items: end;
+}
+
+.uc18-board-file-delete-icon {
+  width: 1.9rem;
+  height: 1.9rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  border-radius: 999px;
+  background: rgba(127, 29, 29, 0.28);
+  color: #fecaca;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    opacity 120ms ease;
+}
+
+.uc18-board-file-delete-icon:hover:not(:disabled) {
+  background: rgba(185, 28, 28, 0.34);
+  border-color: rgba(252, 165, 165, 0.6);
+}
+
+.uc18-board-file-delete-icon:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .uc18-board-file-delete-confirmation {
+  position: absolute;
+  top: calc(100% + 0.45rem);
+  right: 0;
+  z-index: 2;
+  width: min(320px, calc(100vw - 5rem));
   padding: 0.75rem;
   border: 1px solid rgba(248, 113, 113, 0.28);
   border-radius: 10px;
   background: rgba(127, 29, 29, 0.16);
+  backdrop-filter: blur(6px);
 }
 
 .uc18-board-file-delete-warning,
@@ -596,6 +638,13 @@
   border: 1px dashed rgba(56, 189, 248, 0.35);
   border-radius: 12px;
   background: rgba(14, 116, 144, 0.12);
+}
+
+.uc18-board-file-preview-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 0.75rem;
 }
 
 .uc18-board-file-preview-label {

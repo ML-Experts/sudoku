@@ -14,10 +14,11 @@ export function Uc18DigitFoldersPanel({
     <article className="uc17-panel">
       <div className="uc17-panel-header">
         <div>
-          <h3>Krok 5 - Zrodla `digit`</h3>
+          <h3>Krok 5 - Zrodla cyfr</h3>
           <p className="muted-copy">
-            Ten panel ma charakter informacyjny. Backend zwraca liste logicznych zrodel
-            `digit`, ale ten krok nie prowadzi do osobnego preview ani usuwania probek.
+            Ten panel ma charakter informacyjny. Backend zwraca liste logicznych
+            zrodel cyfr, ale ten krok nie prowadzi do osobnego podgladu ani
+            usuwania probek.
           </p>
         </div>
         <button
@@ -28,20 +29,20 @@ export function Uc18DigitFoldersPanel({
         >
           {digitFolders.status === "loading"
             ? "Odswiezanie..."
-            : "Odswiez liste digit"}
+            : "Odswiez liste zrodel cyfr"}
         </button>
       </div>
 
       {!preparationName ? (
         <p className="muted-copy">
-          Najpierw wybierz preparation. Lista zrodel `digit` nie jest pobierana bez
-          poprawnego <code>preparationName</code>.
+          Najpierw wybierz przygotowanie datasetu. Lista zrodel cyfr nie jest
+          pobierana bez poprawnego <code>preparationName</code>.
         </p>
       ) : null}
 
       {digitFolders.status === "loading" ? (
         <p className="status-banner status-loading">
-          Pobieranie zrodel `digit` dla preparation <code>{preparationName}</code>...
+          Pobieranie zrodel cyfr dla przygotowania <code>{preparationName}</code>...
         </p>
       ) : null}
 
@@ -55,7 +56,7 @@ export function Uc18DigitFoldersPanel({
           ) : null}
           {digitFolders.httpStatus === 404 ? (
             <p className="muted-copy">
-              Wybrane preparation nie jest juz dostepne. Wybierz inny rekord z listy.
+              Wybrane przygotowanie nie jest juz dostepne. Wybierz inny rekord z listy.
             </p>
           ) : null}
         </>
@@ -64,16 +65,16 @@ export function Uc18DigitFoldersPanel({
       {digitFolders.preparationName ? (
         <div className="uc18-summary">
           <span className="uc17-stat-chip">
-            Preparation: <code>{digitFolders.preparationName}</code>
+            Przygotowanie: <code>{digitFolders.preparationName}</code>
           </span>
-          <span className="uc17-stat-chip">Liczba zrodel digit: {digitFolders.totalCount}</span>
+          <span className="uc17-stat-chip">Liczba zrodel cyfr: {digitFolders.totalCount}</span>
           <span className="uc17-stat-chip">Tryb: tylko odczyt</span>
         </div>
       ) : null}
 
       {digitFolders.status === "success" && digitFolders.totalCount === 0 ? (
         <p className="status-banner status-loading">
-          To preparation nie ma jeszcze zadnych zrodel `digit`.
+          To przygotowanie nie ma jeszcze zadnych zrodel cyfr.
         </p>
       ) : null}
 
@@ -84,8 +85,8 @@ export function Uc18DigitFoldersPanel({
         <Uc18PreparationFoldersList
           mode="readonly"
           folders={digitFolders.folders}
-          emptyMessage="Brak zrodel `digit` dla wybranego preparation."
-          itemHint="Zrodlo digit nalezace do wybranego preparation."
+          emptyMessage="Brak zrodel cyfr dla wybranego przygotowania."
+          itemHint="Zrodlo cyfr nalezace do wybranego przygotowania."
         />
       ) : null}
     </article>

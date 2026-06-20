@@ -88,6 +88,7 @@ Reguły odpowiedzi błędnych:
 - Brak wygenerowanego overlay nie blokuje podstawowej prezentacji rozwiązania jako grid 9x9.
 - Wariant renderowania na całej planszy po stronie `ML` nie jest wybrany dla tego etapu.
 - Wariant na oryginalnym zdjęciu wymaga osobnego podejścia i zachowania transformacji perspektywy z preprocessingu.
+- Dalsze porządkowanie odpowiedzialności między overlay, detekcją pustej komórki i czyszczeniem próbki opisuje notatka `uc-empty-cell-cleaning-refactor-notes.md`.
 
 ## Kryteria akceptacji
 - System potrafi wyrenderować cyfrę na pojedynczej komórce pochodzącej z etapu 2 `UC-04`.

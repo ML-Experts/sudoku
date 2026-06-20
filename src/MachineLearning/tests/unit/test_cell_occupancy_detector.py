@@ -20,6 +20,26 @@ class CellOccupancyDetectorTests(unittest.TestCase):
             line_artifact_max_thickness_ratio=0.07,
         )
 
+    def _detect_with_configuration(
+        self,
+        image: np.ndarray,
+        *,
+        inner_margin_ratio: float,
+        center_area_ratio: float,
+        line_artifact_min_span_ratio: float,
+        line_artifact_max_thickness_ratio: float,
+    ) -> object:
+        detector = CellOccupancyDetector()
+        return detector.detect(
+            image=image,
+            inner_margin_ratio=inner_margin_ratio,
+            dark_pixel_ratio_threshold=0.02,
+            center_area_ratio=center_area_ratio,
+            min_component_area_ratio=0.02,
+            line_artifact_min_span_ratio=line_artifact_min_span_ratio,
+            line_artifact_max_thickness_ratio=line_artifact_max_thickness_ratio,
+        )
+
     def test_detect_should_mark_blank_cell_as_empty(self) -> None:
         image = np.zeros((28, 28), dtype=np.float32)
 
@@ -121,6 +141,30 @@ class CellOccupancyDetectorTests(unittest.TestCase):
 
         self.assertFalse(result.is_empty)
         self.assertGreater(result.dark_pixel_ratio, 0.02)
+
+    def test_detect_should_apply_inner_margin_ratio_before_center_analysis(
+        self,
+    ) -> None:
+        image = np.zeros((28, 28), dtype=np.float32)
+        image[4:24, 4:7] = 1.0
+
+        result_without_margin = self._detect_with_configuration(
+            image,
+            inner_margin_ratio=0.0,
+            center_area_ratio=0.8,
+            line_artifact_min_span_ratio=1.0,
+            line_artifact_max_thickness_ratio=0.01,
+        )
+        result_with_margin = self._detect_with_configuration(
+            image,
+            inner_margin_ratio=0.12,
+            center_area_ratio=0.8,
+            line_artifact_min_span_ratio=1.0,
+            line_artifact_max_thickness_ratio=0.01,
+        )
+
+        self.assertFalse(result_without_margin.is_empty)
+        self.assertTrue(result_with_margin.is_empty)
 
 
 if __name__ == "__main__":

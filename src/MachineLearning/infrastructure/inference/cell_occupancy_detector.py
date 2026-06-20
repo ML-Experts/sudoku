@@ -58,8 +58,7 @@ class CellOccupancyDetector:
             - float32: 0.0 / 1.0
 
         inner_margin_ratio:
-            Kept only for compatibility with the current application interface.
-            It is not used by this central-area heuristic.
+            Removes the outer border area before central-area analysis.
 
         dark_pixel_ratio_threshold:
             Maximum filtered foreground ratio in the central area
@@ -104,13 +103,14 @@ class CellOccupancyDetector:
                 "Dark pixel ratio threshold must be in range [0.0, 1.0]."
             )
 
-        # Kept only to preserve the existing method signature.
-        _ = inner_margin_ratio
-
         foreground_mask = self._to_foreground_mask(image)
+        cropped_foreground_mask = self._crop_inner_margin(
+            mask=foreground_mask,
+            inner_margin_ratio=inner_margin_ratio,
+        )
 
         center_mask = self._extract_center_square(
-            mask=foreground_mask,
+            mask=cropped_foreground_mask,
             center_area_ratio=center_area_ratio,
         )
 
@@ -164,6 +164,32 @@ class CellOccupancyDetector:
     # ============================================================
     # Central square
     # ============================================================
+
+    def _crop_inner_margin(
+        self,
+        mask: NDArray[np.uint8],
+        inner_margin_ratio: float,
+    ) -> NDArray[np.uint8]:
+        if inner_margin_ratio == 0.0:
+            return mask
+
+        height, width = mask.shape
+        margin_y = int(round(height * inner_margin_ratio))
+        margin_x = int(round(width * inner_margin_ratio))
+
+        max_margin_y = max((height - 1) // 2, 0)
+        max_margin_x = max((width - 1) // 2, 0)
+        margin_y = min(margin_y, max_margin_y)
+        margin_x = min(margin_x, max_margin_x)
+
+        cropped_mask = mask[
+            margin_y : height - margin_y,
+            margin_x : width - margin_x,
+        ]
+        if cropped_mask.size == 0:
+            raise ValueError("Inner-margin crop produced an empty mask.")
+
+        return cropped_mask
 
     def _extract_center_square(
         self,

@@ -23,11 +23,11 @@ export function validateUc19ProcessedDatasetBuildRequest({
   const normalizedPreparationName = preparationName?.trim() ?? "";
 
   if (!normalizedPreparationName) {
-    return "Wybierz preparation przed buildem.";
+    return "Wybierz przygotowanie datasetu przed rozpoczeciem budowy.";
   }
 
   if (!canContinueToSources) {
-    return "Wybrane preparation nie odblokowuje jeszcze builda.";
+    return "Wybrane przygotowanie nie odblokowuje jeszcze budowy datasetu.";
   }
 
   const trimmedName = name.trim();
@@ -51,7 +51,7 @@ export function validateUc19ProcessedDatasetBuildRequest({
 
   for (const draft of boardSelectedDrafts) {
     if (draft.preparationName !== normalizedPreparationName) {
-      return "Co najmniej jedno wybrane zrodlo board pochodzi z innego preparation.";
+      return "Co najmniej jedno wybrane zrodlo plansz pochodzi z innego przygotowania.";
     }
 
     const validation = validateUc19BoardSourceDraft(draft);
@@ -62,7 +62,7 @@ export function validateUc19ProcessedDatasetBuildRequest({
 
   for (const draft of digitSelectedDrafts) {
     if (draft.preparationName !== normalizedPreparationName) {
-      return "Co najmniej jedno wybrane zrodlo digit pochodzi z innego preparation.";
+      return "Co najmniej jedno wybrane zrodlo cyfr pochodzi z innego przygotowania.";
     }
 
     const validation = validateUc19DigitSourceDraft(draft);

@@ -78,35 +78,35 @@ export function Uc19ProcessedDatasetBuildSection({
     <article className="uc17-panel">
       <div className="uc17-panel-header">
         <div>
-          <h3>Krok 5 - Build finalnego datasetu `.npz`</h3>
+          <h3>Krok 5 - Budowa finalnego datasetu `.npz`</h3>
           <p className="muted-copy">
             Ten krok sklada payload <code>CreateProcessedDatasetApiEntry</code> na
-            podstawie wybranego <code>preparation</code> i zaznaczonych zrodel{" "}
-            <code>board</code> oraz <code>digit</code>.
+            podstawie wybranego przygotowania oraz zaznaczonych zrodel plansz i
+            cyfr.
           </p>
         </div>
       </div>
 
       <div className="uc19-build-summary">
         <span className="uc17-stat-chip">
-          Preparation:{" "}
+          Przygotowanie:{" "}
           {selectedPreparationName ? <code>{selectedPreparationName}</code> : "brak"}
         </span>
-        <span className="uc17-stat-chip">Wybrane board: {selectedBoardCount}</span>
-        <span className="uc17-stat-chip">Wybrane digit: {selectedDigitCount}</span>
+        <span className="uc17-stat-chip">Wybrane zrodla plansz: {selectedBoardCount}</span>
+        <span className="uc17-stat-chip">Wybrane zrodla cyfr: {selectedDigitCount}</span>
         <span className="uc17-stat-chip">Lacznie zrodel: {totalSelectedCount}</span>
       </div>
 
       {!selectedPreparationName ? (
         <p className="muted-copy">
-          Najpierw wybierz preparation, aby zbudowac finalny dataset.
+          Najpierw wybierz przygotowanie datasetu, aby utworzyc finalny dataset.
         </p>
       ) : null}
 
       {selectedPreparationName && !canContinueToSources ? (
         <p className="status-banner status-loading">
-          Build pozostaje zablokowany do czasu potwierdzenia gotowosci wybranego
-          preparation.
+          Budowa datasetu pozostaje zablokowana do czasu potwierdzenia gotowosci
+          wybranego przygotowania.
         </p>
       ) : null}
 
@@ -134,12 +134,12 @@ export function Uc19ProcessedDatasetBuildSection({
         </div>
       ) : (
         <p className="muted-copy">
-          Zaznacz przynajmniej jedno zrodlo `board` lub `digit`, aby zbudowac request.
+          Zaznacz przynajmniej jedno zrodlo plansz lub cyfr, aby zbudowac zadanie.
         </p>
       )}
 
       <div className="uc19-request-preview">
-        <strong>Preview requestu</strong>
+        <strong>Podglad zadania</strong>
         <pre className="uc06-json-preview">
           {JSON.stringify(
             requestPreview ?? {
@@ -162,8 +162,8 @@ export function Uc19ProcessedDatasetBuildSection({
         disabled={createState.kind === "loading"}
       >
         {createState.kind === "loading"
-          ? "Budowanie datasetu..."
-          : "Buduj dataset .npz"}
+          ? "Tworzenie datasetu..."
+          : "Utworz dataset `.npz`"}
       </button>
 
       {createState.kind === "error" ? (
@@ -183,7 +183,7 @@ export function Uc19ProcessedDatasetBuildSection({
             {formatTimestamp(createState.response.createdAtUtc)}
           </p>
           <p className="muted-copy">
-            Sample counts: train {createState.response.sampleCounts.train}, val{" "}
+            Liczba probek: train {createState.response.sampleCounts.train}, val{" "}
             {createState.response.sampleCounts.val}, test{" "}
             {createState.response.sampleCounts.test}
           </p>
@@ -198,9 +198,9 @@ export function Uc19ProcessedDatasetBuildSection({
                   <strong>{report.name}</strong> ({report.type})
                 </p>
                 <p className="muted-copy">
-                  processed: {report.processedSampleCount}, included:{" "}
-                  {report.includedSampleCount}, empty: {report.emptyCellCount}, rejected:{" "}
-                  {report.rejectedSampleCount}
+                  Przetworzone: {report.processedSampleCount}, dolaczone:{" "}
+                  {report.includedSampleCount}, puste: {report.emptyCellCount},
+                  odrzucone: {report.rejectedSampleCount}
                 </p>
                 {report.warnings.length > 0 ? (
                   <ul className="uc12-warnings-list">
@@ -227,12 +227,12 @@ export function Uc19ProcessedDatasetBuildSection({
               </ul>
             </div>
           ) : (
-            <p className="muted-copy">Brak globalnych ostrzezen po buildzie.</p>
+            <p className="muted-copy">Brak globalnych ostrzezen po utworzeniu datasetu.</p>
           )}
         </div>
       ) : latestResponse ? (
         <p className="muted-copy">
-          Ostatni poprawny build: <code>{latestResponse.fileName}</code>.
+          Ostatnio utworzony dataset: <code>{latestResponse.fileName}</code>.
         </p>
       ) : null}
     </article>

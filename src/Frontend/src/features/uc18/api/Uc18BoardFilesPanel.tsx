@@ -42,11 +42,11 @@ export function Uc18BoardFilesPanel({
     <article className="uc17-panel">
       <div className="uc17-panel-header">
         <div>
-          <h3>Krok 4 - Plansze `board` dla wybranego zrodla</h3>
+          <h3>Krok 4 - Plansze dla wybranego zrodla</h3>
           <p className="muted-copy">
-            Ten panel pobiera paginowana liste logicznych plansz dla jednego zrodla
-            `board`. Renderuje nazwy folderow oraz izolowany preview obrazu per karta bez
-            budowania URL-i po stronie klienta.
+            Ten panel pobiera stronicowana liste logicznych plansz dla jednego
+            zrodla. Renderuje nazwy folderow oraz izolowany podglad obrazu dla
+            kazdej karty bez budowania URL-i po stronie klienta.
           </p>
         </div>
         <button
@@ -68,21 +68,21 @@ export function Uc18BoardFilesPanel({
 
       {!preparationName ? (
         <p className="muted-copy">
-          Najpierw wybierz preparation, aby przejsc do listy plansz `board`.
+          Najpierw wybierz przygotowanie datasetu, aby przejsc do listy plansz.
         </p>
       ) : null}
 
       {preparationName && !selectedSourceName ? (
         <p className="muted-copy">
-          Wybierz zrodlo `board` w poprzednim kroku. Dopiero wtedy frontend pobierze
-          paginowana liste plansz.
+          Wybierz zrodlo plansz w poprzednim kroku. Dopiero wtedy frontend pobierze
+          stronicowana liste plansz.
         </p>
       ) : null}
 
       {boardFiles.status === "loading" && currentPreparationName && currentSourceName ? (
         <p className="status-banner status-loading">
-          Pobieranie plansz `board` dla source <code>{currentSourceName}</code> z
-          preparation <code>{currentPreparationName}</code> (strona {boardFiles.page})...
+          Pobieranie plansz dla zrodla <code>{currentSourceName}</code> z
+          przygotowania <code>{currentPreparationName}</code> (strona {boardFiles.page})...
         </p>
       ) : null}
 
@@ -96,8 +96,8 @@ export function Uc18BoardFilesPanel({
           ) : null}
           {boardFiles.httpStatus === 404 ? (
             <p className="muted-copy">
-              Wybrane preparation albo source `board` nie jest juz dostepne. Wroc do
-              poprzedniego kroku i wybierz zrodlo ponownie.
+              Wybrane przygotowanie albo zrodlo plansz nie jest juz dostepne.
+              Wroc do poprzedniego kroku i wybierz zrodlo ponownie.
             </p>
           ) : null}
           {boardFiles.httpStatus === 400 ? (
@@ -131,20 +131,20 @@ export function Uc18BoardFilesPanel({
       {currentPreparationName && currentSourceName ? (
         <div className="uc18-summary">
           <span className="uc17-stat-chip">
-            Preparation: <code>{currentPreparationName}</code>
+            Przygotowanie: <code>{currentPreparationName}</code>
           </span>
           <span className="uc17-stat-chip">
-            Source: <code>{currentSourceName}</code>
+            Zrodlo: <code>{currentSourceName}</code>
           </span>
           <span className="uc17-stat-chip">Strona: {boardFiles.page}</span>
-          <span className="uc17-stat-chip">Page size: {boardFiles.pageSize}</span>
+          <span className="uc17-stat-chip">Rozmiar strony: {boardFiles.pageSize}</span>
           <span className="uc17-stat-chip">Liczba plansz: {boardFiles.totalCount}</span>
         </div>
       ) : null}
 
       {boardFiles.status === "success" && boardFiles.totalCount === 0 && currentSourceName ? (
         <p className="status-banner status-loading">
-          To zrodlo `board` nie zawiera jeszcze zadnych plansz.
+          To zrodlo plansz nie zawiera jeszcze zadnych plansz.
         </p>
       ) : null}
 
@@ -170,25 +170,28 @@ export function Uc18BoardFilesPanel({
                     <div className="uc18-board-file-copy">
                       <strong>{item.boardFolderName}</strong>
                       <p className="muted-copy">
-                        Folder logicznej planszy gotowy do review i ewentualnego usuniecia
-                        bez lokalnego zgadywania nowej paginacji po stronie klienta.
+                        Folder logicznej planszy gotowy do przegladu i ewentualnego
+                        usuniecia bez lokalnego zgadywania nowej paginacji po stronie
+                        klienta.
                       </p>
-                      <Uc18BoardFileDeleteAction
-                        boardFolderName={item.boardFolderName}
-                        isDeleting={isDeletingCurrentItem}
-                        isDisabled={isDeleteActionDisabled}
-                        error={deleteErrorForCurrentItem}
-                        onConfirm={() => {
-                          void deleteBoardFile.deleteBoardFile(item);
-                        }}
-                        onCancel={deleteBoardFile.clearDeleteFeedback}
-                      />
                     </div>
                     <Uc18BoardImagePreview
                       apiBaseUrl={apiBaseUrl}
                       boardFile={item}
                       accessToken={accessToken}
                       onUnauthorized={onUnauthorized}
+                      deleteAction={
+                        <Uc18BoardFileDeleteAction
+                          boardFolderName={item.boardFolderName}
+                          isDeleting={isDeletingCurrentItem}
+                          isDisabled={isDeleteActionDisabled}
+                          error={deleteErrorForCurrentItem}
+                          onConfirm={() => {
+                            void deleteBoardFile.deleteBoardFile(item);
+                          }}
+                          onCancel={deleteBoardFile.clearDeleteFeedback}
+                        />
+                      }
                     />
                   </article>
                 </li>

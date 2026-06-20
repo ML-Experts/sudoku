@@ -48,7 +48,7 @@ export function useUc18DeleteBoardFile({
           type: "deleteFailed",
           boardFileKey: boardFile.key,
           boardFolderName: boardFile.boardFolderName,
-          error: "Brak aktywnego preparation albo source do usuniecia planszy.",
+          error: "Brak aktywnego przygotowania albo zrodla do usuniecia planszy.",
           errorType: null,
           httpStatus: null,
         });

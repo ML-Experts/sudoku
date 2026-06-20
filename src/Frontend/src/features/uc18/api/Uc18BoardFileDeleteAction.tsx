@@ -25,53 +25,56 @@ export function Uc18BoardFileDeleteAction({
     }
   }, [isDeleting, isDisabled]);
 
-  if (isConfirming) {
-    return (
-      <div className="uc18-board-file-delete-confirmation">
-        <p className="uc18-board-file-delete-warning">
-          Usuniesz caly folder planszy <code>{boardFolderName}</code> z aktualnego
-          preparation.
-        </p>
-        <div className="uc18-board-file-delete-actions">
-          <button
-            className="danger-button"
-            type="button"
-            onClick={() => {
-              setIsConfirming(false);
-              onConfirm();
-            }}
-            disabled={isDisabled || isDeleting}
-          >
-            {isDeleting ? "Usuwanie..." : "Potwierdz usuniecie"}
-          </button>
-          <button
-            className="secondary-button"
-            type="button"
-            onClick={() => {
-              setIsConfirming(false);
-              onCancel();
-            }}
-            disabled={isDeleting}
-          >
-            Anuluj
-          </button>
-        </div>
-        {error ? <p className="uc18-board-file-delete-error">{error}</p> : null}
-      </div>
-    );
-  }
-
   return (
     <div className="uc18-board-file-delete-slot">
       <button
-        className="danger-button"
+        className="uc18-board-file-delete-icon"
         type="button"
         onClick={() => setIsConfirming(true)}
         disabled={isDisabled || isDeleting}
+        aria-label={`Usun plansze ${boardFolderName}`}
+        title="Usun plansze"
       >
-        {isDeleting ? "Usuwanie..." : "Usun plansze"}
+        x
       </button>
-      {error ? <p className="uc18-board-file-delete-error">{error}</p> : null}
+
+      {isConfirming ? (
+        <div className="uc18-board-file-delete-confirmation">
+          <p className="uc18-board-file-delete-warning">
+            Usunac folder planszy <code>{boardFolderName}</code> z biezacego
+            przygotowania?
+          </p>
+          <div className="uc18-board-file-delete-actions">
+            <button
+              className="danger-button"
+              type="button"
+              onClick={() => {
+                setIsConfirming(false);
+                onConfirm();
+              }}
+              disabled={isDisabled || isDeleting}
+            >
+              {isDeleting ? "Usuwanie..." : "Usun"}
+            </button>
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() => {
+                setIsConfirming(false);
+                onCancel();
+              }}
+              disabled={isDeleting}
+            >
+              Anuluj
+            </button>
+          </div>
+          {error ? <p className="uc18-board-file-delete-error">{error}</p> : null}
+        </div>
+      ) : null}
+
+      {!isConfirming && error ? (
+        <p className="uc18-board-file-delete-error">{error}</p>
+      ) : null}
     </div>
   );
 }

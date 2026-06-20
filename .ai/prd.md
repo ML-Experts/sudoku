@@ -53,6 +53,7 @@ W zakresie MVP sa cztery glowne capability systemu:
 - wczytanie obrazu Sudoku,
 - wykrycie planszy i podzial na komorki,
 - rozpoznanie cyfr i pustych pol,
+- stabilna detekcja pustej komorki przed inferencja cyfry,
 - rozwiazanie gridu,
 - prezentacja wyniku w UI.
 
@@ -64,6 +65,7 @@ W zakresie MVP sa cztery glowne capability systemu:
 - przeglad surowych zrodel danych,
 - utworzenie przygotowania datasetu,
 - przeglad i czyszczenie danych przygotowanych,
+- wspolne czyszczenie komorki do kanonicznej probki modelowej,
 - budowa finalnego `.npz`,
 - uruchomienie treningu na gotowym secie.
 
@@ -106,7 +108,7 @@ Zasady architektoniczne:
 #### P1. Rozwiaz Sudoku z obrazu
 1. Uzytkownik wybiera obraz Sudoku z biblioteki przykladow albo bezposrednio z lokalnego pliku.
 2. System wykrywa plansze i przygotowuje dane wejsciowe.
-3. System rozpoznaje grid 9x9.
+3. System dzieli plansze na `raw cells`, wykrywa puste komorki i tylko dla komorek niepustych uruchamia czyszczenie pod model oraz rozpoznanie cyfry.
 4. System rozwiazuje Sudoku.
 5. UI pokazuje wynik jako grid i/lub obraz z naniesionym rozwiazaniem.
 
@@ -118,8 +120,9 @@ Zasady architektoniczne:
 #### P3. Przygotuj dane do treningu
 1. Admin przeglada dostepne surowe datasety.
 2. Tworzy przygotowanie datasetu jako trwaly etap posredni.
-3. Przeglada i usuwa niechciane elementy przygotowania.
-4. Buduje finalny dataset `.npz` z przygotowanych danych.
+3. Dla danych `board` system zapisuje do `cells/` tylko komorki z labelem `1..9`, po wspolnym czyszczeniu do kanonicznej probki modelowej.
+4. Przeglada i usuwa niechciane elementy przygotowania.
+5. Buduje finalny dataset `.npz` z przygotowanych danych.
 
 #### P4. Trenuj i wybierz model
 1. Admin wybiera gotowy dataset treningowy.
@@ -151,6 +154,10 @@ Ponizej utrzymujemy tylko skrotowa mape historyjek. Szczegoly nalezy czytac w do
 - **UC-05 - Rozpoznaj cyfry, rozwiaz Sudoku i pokaz wynik**  
   Glowna wartosc produktu dla uzytkownika koncowego.
 
+- **UC-22 - Usprawnij detekcje pustej komorki i cleaning runtime**  
+  Stabilizuje `UC-05` przez rozdzielenie `empty detection` od czyszczenia probki pod model oraz przez wdrozenie diagnostyki opartej o `center composite`, segmenty Hough i metryki foreground, bez zmiany kontraktu odpowiedzi solve.  
+  Dodatkowo rozszerza panel parametrow `FE` o sterowanie minimalna dlugoscia segmentu oraz progiem liczby odfiltrowanych segmentow potrzebnych do uznania komorki za niepusta, obok istniejacej oceny opartej o foreground pixels / ratio.
+
 #### 9.2. Admin, trening i modele
 - **UC-06 - Uruchom trening na przygotowanym zestawie `.npz`**  
   Start procesu treningowego na gotowym secie danych.
@@ -181,6 +188,9 @@ Ponizej utrzymujemy tylko skrotowa mape historyjek. Szczegoly nalezy czytac w do
   Tworzy trwaly etap posredni pomiedzy `raw` a finalnym `.npz`.  
   Szczegoly: `.ai/feature/uc-17-overview.md`
 
+- **UC-21 - Oczysc komorke podczas przygotowania danych**  
+  Uporzadkowuje etap przygotowania komorki dla `UC-17` przez wspolny `cell cleaning` zgodny z runtime inferencji i treningiem, a oczyszczona probka staje sie zawartoscia `cells/`; o zapisie nadal decyduje label, a nie algorytm detekcji pustosci.
+
 - **UC-18 - Przegladaj i usuwaj elementy z przygotowania datasetu**  
   Pozwala oczyscic dane po przygotowaniu, bez ponownego preprocessingu.  
   Szczegoly: `.ai/feature/uc-18-overview.md`
@@ -207,6 +217,20 @@ Te pozycje nie sa glownymi capability produktu. Sa wspierajace, przejsciowe albo
 - **UC-16 - Przegladaj zapisany dataset i artefakty preview po przygotowaniu**  
   Podejscie zwiazane z poprzednim workflow datasetowym. Nie jest glowna osia docelowego modelu pracy z danymi.
 
+### 9.5. Stabilizacja pipeline'u komorek
+Aktualny kierunek refaktoryzacji rozdziela dwa rozne etapy pracy na pojedynczej komorce Sudoku:
+
+1. `Empty cell detection`  
+   Decyduje, czy komorka jest pusta. Pracuje na `raw cell`, po binaryzacji i lekkim cleanupie, korzysta z centralnego `center composite`, filtrowania krotkich segmentow Hough oraz metryk foreground pixels.
+2. `Cell cleaning for classification/training`  
+   Przygotowuje kanoniczna probke pod model i uruchamia sie dopiero wtedy, gdy komorka ma byc traktowana jako niepusta albo ma zostac zapisana jako probka treningowa.
+
+Konsekwencje biznesowe:
+- w `UC-05` obowiazuje kolejnosc `raw cell -> empty detection -> cleaning -> digit inference`,
+- w `UC-17` i `UC-21` o zapisie do `cells/` decyduje label `1..9`, a nie runtime'owy algorytm pustosci,
+- obrazy typu `center composite`, overlaye segmentow i numeracja planszy pozostaja artefaktami diagnostycznymi, a nie probkami produkcyjnymi,
+- kontrakty odpowiedzi dla solve i dataset workflow pozostaja bez zmian; rozszerzeniu ulega tylko zestaw parametrow sterujacych przekazywanych do runtime `UC-05`.
+
 ### 10) Docelowy model danych i workflow
 W aktualnym kierunku projektu za docelowy uznajemy workflow:
 
@@ -217,6 +241,8 @@ raw -> przygotowanie datasetu -> czyszczenie -> build .npz -> trening -> wybor a
 Konsekwencje tej decyzji:
 - etap ciezkiego preprocessingu nie powinien byc powtarzany przy kazdej przebudowie datasetu,
 - czyszczenie danych powinno dzialac na trwalym etapie posrednim,
+- czyszczenie komorki pod model powinno byc wspolne dla runtime solve i dataset preparation,
+- diagnostyka pustej komorki nie moze byc mylona z kanoniczna probka zapisywana do `cells/` ani wysylana do inferencji cyfry,
 - finalny `.npz` jest artefaktem koncowym do treningu, a nie miejscem wykonywania calego workflow od zera,
 - stare sciezki bezposredniego budowania `.npz` z `raw` traktujemy jako migracyjne albo wygaszane.
 
@@ -239,14 +265,16 @@ Konsekwencje tej decyzji:
 - **R2**: mieszanie warstwy produktowej z detalami technicznymi w dokumentacji,
 - **R3**: dublowanie zrodla prawdy miedzy `Backendem` i `ML`,
 - **R4**: utrzymywanie starych i nowych workflow datasetowych jednoczesnie bez jasnego statusu migracji,
-- **R5**: zbyt duza liczba parametrow i detali technicznych eksponowanych na poziomie PRD.
+- **R5**: zbyt duza liczba parametrow i detali technicznych eksponowanych na poziomie PRD,
+- **R6**: pomieszanie artefaktow diagnostycznych pustej komorki z produkcyjna probka do inferencji albo do `cells/`.
 
 ### 14) Kamienie milowe
 - **M1**: dzialajaca sciezka solve dla Sudoku z obrazu,
 - **M2**: podstawowy trening modelu oraz rejestr modeli,
 - **M3**: spojny administracyjny workflow datasetowy,
 - **M4**: docelowe przejscie na workflow `UC-17 -> UC-18 -> UC-19`,
-- **M5**: ustabilizowanie wyboru aktywnego modelu i porownywania wynikow.
+- **M5**: ustabilizowanie wyboru aktywnego modelu i porownywania wynikow,
+- **M6**: wspolny pipeline czyszczenia komorki oraz stabilna detekcja pustosci dla runtime i przygotowania danych.
 
 ### 15) Jak czytac ten dokument
 Ten PRD ma pomagac odpowiedziec na pytania:

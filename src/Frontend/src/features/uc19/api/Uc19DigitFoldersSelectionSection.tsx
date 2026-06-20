@@ -16,10 +16,10 @@ export function Uc19DigitFoldersSelectionSection({
     <article className="uc17-panel">
       <div className="uc17-panel-header">
         <div>
-          <h3>Krok 4 - Zrodla `digit` do builda</h3>
+          <h3>Krok 4 - Zrodla cyfr do budowy datasetu</h3>
           <p className="muted-copy">
-            Ten krok pobiera tylko logiczne nazwy folderow `digit` i pozwala
-            przypisac im lokalne splity do finalnego builda `.npz`.
+            Ten krok pobiera tylko logiczne nazwy folderow cyfr i pozwala
+            przypisac im lokalne splity do finalnego datasetu `.npz`.
           </p>
         </div>
         <button
@@ -28,26 +28,29 @@ export function Uc19DigitFoldersSelectionSection({
           onClick={() => void digitFolders.retryLoadDigitFolders()}
           disabled={!canLoadDigitFolders || digitFolders.status === "loading"}
         >
-          {digitFolders.status === "loading" ? "Odswiezanie..." : "Odswiez liste digit"}
+          {digitFolders.status === "loading"
+            ? "Odswiezanie..."
+            : "Odswiez liste zrodel cyfr"}
         </button>
       </div>
 
       {!selectedPreparationName ? (
         <p className="muted-copy">
-          Najpierw wybierz preparation, aby odblokowac konfiguracje zrodel `digit`.
+          Najpierw wybierz przygotowanie datasetu, aby odblokowac konfiguracje
+          zrodel cyfr.
         </p>
       ) : null}
 
       {selectedPreparationName && !canLoadDigitFolders ? (
         <p className="status-banner status-loading">
-          Krok `digit/folders` pozostaje zablokowany, dopoki wybrane preparation nie
-          przejdzie walidacji w kroku 2.
+          Krok zrodel cyfr pozostaje zablokowany, dopoki wybrane przygotowanie
+          nie przejdzie walidacji w kroku 2.
         </p>
       ) : null}
 
       {digitFolders.status === "loading" ? (
         <p className="status-banner status-loading">
-          Pobieranie zrodel `digit` dla preparation{" "}
+          Pobieranie zrodel cyfr dla przygotowania{" "}
           <code>{digitFolders.preparationName ?? selectedPreparationName}</code>...
         </p>
       ) : null}
@@ -62,8 +65,8 @@ export function Uc19DigitFoldersSelectionSection({
           ) : null}
           {digitFolders.httpStatus === 404 ? (
             <p className="muted-copy">
-              Wybrane preparation nie jest juz dostepne. Odswiez liste i wybierz inny
-              rekord.
+              Wybrane przygotowanie nie jest juz dostepne. Odswiez liste i wybierz
+              inny rekord.
             </p>
           ) : null}
         </>
@@ -72,9 +75,9 @@ export function Uc19DigitFoldersSelectionSection({
       {digitFolders.preparationName ? (
         <div className="uc18-summary">
           <span className="uc17-stat-chip">
-            Preparation: <code>{digitFolders.preparationName}</code>
+            Przygotowanie: <code>{digitFolders.preparationName}</code>
           </span>
-          <span className="uc17-stat-chip">Liczba zrodel digit: {digitFolders.totalCount}</span>
+          <span className="uc17-stat-chip">Liczba zrodel cyfr: {digitFolders.totalCount}</span>
           <span className="uc17-stat-chip">Wybrane zrodla: {digitFolders.selectedCount}</span>
           <span className="uc17-stat-chip">
             Niepoprawne wybory: {digitFolders.invalidSelectedCount}
@@ -84,13 +87,13 @@ export function Uc19DigitFoldersSelectionSection({
 
       {digitFolders.selectedCount > 0 && digitFolders.invalidSelectedCount > 0 ? (
         <p className="status-banner status-error">
-          Co najmniej jedno aktywne zrodlo `digit` ma niepoprawna konfiguracje splitow.
+          Co najmniej jedno aktywne zrodlo cyfr ma niepoprawna konfiguracje splitow.
         </p>
       ) : null}
 
       {digitFolders.status === "success" && digitFolders.totalCount === 0 ? (
         <p className="status-banner status-loading">
-          To preparation nie ma jeszcze zadnych zrodel `digit`.
+          To przygotowanie nie ma jeszcze zadnych zrodel cyfr.
         </p>
       ) : null}
 
@@ -109,7 +112,7 @@ export function Uc19DigitFoldersSelectionSection({
 
       {digitFolders.selectedCount === 0 && digitFolders.drafts.length > 0 ? (
         <p className="muted-copy">
-          Zaznacz wybrane foldery `digit`, aby przygotowac ich mapowanie do
+          Zaznacz wybrane foldery cyfr, aby przygotowac ich mapowanie do
           <code> sources[].name</code> i lokalnych splitow.
         </p>
       ) : null}
