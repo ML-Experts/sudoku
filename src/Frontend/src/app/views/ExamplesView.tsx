@@ -1,10 +1,13 @@
 import type { RefObject } from "react";
 
 import { Uc05WorkflowSection } from "../../features/uc05/api";
+import { Uc20LocalImageWorkflowSection } from "../../features/uc20/api";
+import type { UseUc20LocalImageFlowResult } from "../../features/uc20/application/useUc20LocalImageFlow";
 import type { Uc14ActiveParameterContext } from "../../features/uc14/domain/uc14ParameterContext";
 import { toImageDataUrl } from "../../shared/images/toImageDataUrl";
 import type { ExampleFileApiResponse } from "../../types/api";
 import type {
+  CellsGridApiResponse,
   SolveSudokuParametersApiEntry,
   SudokuCellInferenceParametersApiEntry,
 } from "../../types/api";
@@ -16,6 +19,7 @@ import type {
 import { formatBytes, formatTimestamp } from "../utils";
 
 type ExamplesViewProps = {
+  activeCellsGrid: CellsGridApiResponse | null;
   apiBaseUrl: string;
   boardStageState: ImageStageState;
   canSubmitUpload: boolean;
@@ -35,6 +39,7 @@ type ExamplesViewProps = {
   examplesListState: ExamplesListState;
   examplesUploadEndpoint: string;
   fileInputRef: RefObject<HTMLInputElement>;
+  hasSelectedSource: boolean;
   isAdminMode: boolean;
   isUploadBusy: boolean;
   onDownload: (fileName: string) => void;
@@ -46,6 +51,7 @@ type ExamplesViewProps = {
   previewStageState: ImageStageState;
   runUc04Flow: (fileName: string) => void;
   selectedProcessName: string | null;
+  selectedSourceLabel: string | null;
   sessionExamples: ExampleFileApiResponse[];
   solveCellInferenceParameters: SudokuCellInferenceParametersApiEntry | null;
   solveCellInferenceParametersValid: boolean;
@@ -55,9 +61,11 @@ type ExamplesViewProps = {
   solveLiveParametersValid: boolean;
   solveLiveParameterErrorCount: number;
   solveLiveOverrideCount: number;
+  uc20LocalImageFlow: UseUc20LocalImageFlowResult;
 };
 
 export function ExamplesView({
+  activeCellsGrid,
   apiBaseUrl,
   boardStageState,
   canSubmitUpload,
@@ -67,6 +75,7 @@ export function ExamplesView({
   examplesListState,
   examplesUploadEndpoint,
   fileInputRef,
+  hasSelectedSource,
   isAdminMode,
   isUploadBusy,
   onDownload,
@@ -78,6 +87,7 @@ export function ExamplesView({
   previewStageState,
   runUc04Flow,
   selectedProcessName,
+  selectedSourceLabel,
   sessionExamples,
   solveCellInferenceParameters,
   solveCellInferenceParametersValid,
@@ -87,6 +97,7 @@ export function ExamplesView({
   solveLiveParametersValid,
   solveLiveParameterErrorCount,
   solveLiveOverrideCount,
+  uc20LocalImageFlow,
 }: ExamplesViewProps) {
   return (
     <>
@@ -239,111 +250,113 @@ export function ExamplesView({
         ) : null}
       </section>
 
+      <Uc20LocalImageWorkflowSection flow={uc20LocalImageFlow} />
+
       {selectedProcessName ? (
-        <>
-          <section className="result-card uc04-flow-section" aria-live="polite">
-            <p className="eyebrow">UC-04 — Przetwarzanie przykladu</p>
-            <h2>Pipeline preprocessingu</h2>
-            <p className="muted-copy">
-              Wybrany plik: <code>{selectedProcessName}</code>
-            </p>
+        <section className="result-card uc04-flow-section" aria-live="polite">
+          <p className="eyebrow">UC-04 — Przetwarzanie przykladu</p>
+          <h2>Pipeline preprocessingu</h2>
+          <p className="muted-copy">
+            Wybrany plik: <code>{selectedProcessName}</code>
+          </p>
 
-            <div className="examples-row-actions">
-              <button
-                className="secondary-button"
-                type="button"
-                onClick={() => runUc04Flow(selectedProcessName)}
-                disabled={
-                  previewStageState.kind === "loading" ||
-                  boardStageState.kind === "loading" ||
-                  cellsStageState.kind === "loading"
-                }
-              >
-                Uruchom ponownie
-              </button>
-              <button
-                className="secondary-button"
-                type="button"
-                onClick={() => onSelectProcessName(null)}
-              >
-                Wyczysc wybor
-              </button>
-            </div>
+          <div className="examples-row-actions">
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() => runUc04Flow(selectedProcessName)}
+              disabled={
+                previewStageState.kind === "loading" ||
+                boardStageState.kind === "loading" ||
+                cellsStageState.kind === "loading"
+              }
+            >
+              Uruchom ponownie
+            </button>
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() => onSelectProcessName(null)}
+            >
+              Wyczysc wybor
+            </button>
+          </div>
 
-            <div className="uc04-stage-grid">
-              <article className="uc04-stage-card">
-                <h3>Etap 0 — Podglad wejscia</h3>
-                <StageImageCard
-                  imageState={previewStageState}
-                  loadingLabel="Pobieranie obrazu wejsciowego..."
-                  alt={`Podglad ${selectedProcessName}`}
-                />
-              </article>
-
-              <article className="uc04-stage-card">
-                <h3>Etap 1 — Preprocess board</h3>
-                <StageImageCard
-                  imageState={boardStageState}
-                  loadingLabel="Przetwarzanie boarda..."
-                  alt="Wynik etapu preprocess board"
-                />
-              </article>
-            </div>
+          <div className="uc04-stage-grid">
+            <article className="uc04-stage-card">
+              <h3>Etap 0 — Podglad wejscia</h3>
+              <StageImageCard
+                imageState={previewStageState}
+                loadingLabel="Pobieranie obrazu wejsciowego..."
+                alt={`Podglad ${selectedProcessName}`}
+              />
+            </article>
 
             <article className="uc04-stage-card">
-              <h3>Etap 2 — Siatka komorek 9x9</h3>
-              {cellsStageState.kind === "loading" ? (
-                <p className="status-banner status-loading">
-                  Dzielenie boarda na komorki...
-                </p>
-              ) : null}
-              {cellsStageState.kind === "error" ? (
-                <>
-                  <p className="status-banner status-error">{cellsStageState.error}</p>
-                  {cellsStageState.errorType ? (
-                    <p className="muted-copy">
-                      Typ bledu: {cellsStageState.errorType}
-                    </p>
-                  ) : null}
-                  {cellsStageState.httpStatus !== null ? (
-                    <p className="muted-copy">
-                      HTTP status: {cellsStageState.httpStatus}
-                    </p>
-                  ) : null}
-                </>
-              ) : null}
-              {cellsStageState.kind === "success" ? (
-                <div className="uc04-cells-grid">
-                  {cellsStageState.cells.cells.map((row, rowIndex) =>
-                    row.map((cell, cellIndex) => (
-                      <img
-                        key={`${rowIndex}-${cellIndex}`}
-                        className="uc04-cell-image"
-                        src={toImageDataUrl(cell)}
-                        alt={`Komorka ${rowIndex + 1}-${cellIndex + 1}`}
-                      />
-                    )),
-                  )}
-                </div>
-              ) : null}
+              <h3>Etap 1 — Preprocess board</h3>
+              <StageImageCard
+                imageState={boardStageState}
+                loadingLabel="Przetwarzanie boarda..."
+                alt="Wynik etapu preprocess board"
+              />
             </article>
-          </section>
+          </div>
 
-          <Uc05WorkflowSection
-            apiBaseUrl={apiBaseUrl}
-            cellsGrid={cellsStageState.kind === "success" ? cellsStageState.cells : null}
-            onParameterContextChange={onUc14ContextChange}
-            selectedProcessName={selectedProcessName}
-            solveCellInferenceParameters={solveCellInferenceParameters}
-            solveCellInferenceParametersValid={solveCellInferenceParametersValid}
-            solveCellInferenceParameterErrorCount={solveCellInferenceParameterErrorCount}
-            solveCellInferenceOverrideCount={solveCellInferenceOverrideCount}
-            solveLiveParameters={solveLiveParameters}
-            solveLiveParametersValid={solveLiveParametersValid}
-            solveLiveParameterErrorCount={solveLiveParameterErrorCount}
-            solveLiveOverrideCount={solveLiveOverrideCount}
-          />
-        </>
+          <article className="uc04-stage-card">
+            <h3>Etap 2 — Siatka komorek 9x9</h3>
+            {cellsStageState.kind === "loading" ? (
+              <p className="status-banner status-loading">
+                Dzielenie boarda na komorki...
+              </p>
+            ) : null}
+            {cellsStageState.kind === "error" ? (
+              <>
+                <p className="status-banner status-error">{cellsStageState.error}</p>
+                {cellsStageState.errorType ? (
+                  <p className="muted-copy">
+                    Typ bledu: {cellsStageState.errorType}
+                  </p>
+                ) : null}
+                {cellsStageState.httpStatus !== null ? (
+                  <p className="muted-copy">
+                    HTTP status: {cellsStageState.httpStatus}
+                  </p>
+                ) : null}
+              </>
+            ) : null}
+            {cellsStageState.kind === "success" ? (
+              <div className="uc04-cells-grid">
+                {cellsStageState.cells.cells.map((row, rowIndex) =>
+                  row.map((cell, cellIndex) => (
+                    <img
+                      key={`${rowIndex}-${cellIndex}`}
+                      className="uc04-cell-image"
+                      src={toImageDataUrl(cell)}
+                      alt={`Komorka ${rowIndex + 1}-${cellIndex + 1}`}
+                    />
+                  )),
+                )}
+              </div>
+            ) : null}
+          </article>
+        </section>
+      ) : null}
+
+      {hasSelectedSource ? (
+        <Uc05WorkflowSection
+          apiBaseUrl={apiBaseUrl}
+          cellsGrid={activeCellsGrid}
+          onParameterContextChange={onUc14ContextChange}
+          selectedSourceLabel={selectedSourceLabel}
+          solveCellInferenceParameters={solveCellInferenceParameters}
+          solveCellInferenceParametersValid={solveCellInferenceParametersValid}
+          solveCellInferenceParameterErrorCount={solveCellInferenceParameterErrorCount}
+          solveCellInferenceOverrideCount={solveCellInferenceOverrideCount}
+          solveLiveParameters={solveLiveParameters}
+          solveLiveParametersValid={solveLiveParametersValid}
+          solveLiveParameterErrorCount={solveLiveParameterErrorCount}
+          solveLiveOverrideCount={solveLiveOverrideCount}
+        />
       ) : null}
     </>
   );

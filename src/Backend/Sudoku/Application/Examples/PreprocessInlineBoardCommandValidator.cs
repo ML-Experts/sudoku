@@ -3,9 +3,9 @@ using Microsoft.Extensions.Options;
 
 namespace Sudoku.Application.Examples;
 
-public sealed class PreprocessExampleCellsCommandValidator : AbstractValidator<PreprocessExampleCellsCommand>
+public sealed class PreprocessInlineBoardCommandValidator : AbstractValidator<PreprocessInlineBoardCommand>
 {
-    public PreprocessExampleCellsCommandValidator(IOptions<ExamplesPreprocessOptions> options)
+    public PreprocessInlineBoardCommandValidator(IOptions<ExamplesPreprocessOptions> options)
     {
         var preprocessOptions = options.Value;
 
@@ -16,9 +16,9 @@ public sealed class PreprocessExampleCellsCommandValidator : AbstractValidator<P
                     command.MimeType,
                     command.Base64,
                     preprocessOptions.MaxInlineImageSizeBytes,
-                    nameof(PreprocessExampleCellsCommand.MimeType),
-                    nameof(PreprocessExampleCellsCommand.Base64),
-                    PreprocessExampleCellsErrorTypes.InvalidRequest);
+                    nameof(PreprocessInlineBoardCommand.MimeType),
+                    nameof(PreprocessInlineBoardCommand.Base64),
+                    PreprocessInlineBoardErrorTypes.InvalidRequest);
 
                 foreach (var failure in failures)
                 {

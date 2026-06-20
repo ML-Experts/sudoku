@@ -6,6 +6,8 @@ import type {
   ImageApiEntry,
   ImageApiResponse,
 } from "../types/api";
+import { fetchJson } from "./shared/fetchJson";
+import { isImageApiResponse } from "./shared/isImageApiResponse";
 
 export class ExampleUploadApiError extends Error {
   readonly status: number;
@@ -94,17 +96,6 @@ function isExamplesListApiResponse(
   }
 
   return record.items.every((item) => isExampleFileApiResponse(item));
-}
-
-function isImageApiResponse(value: unknown): value is ImageApiResponse {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-
-  const record = value as Record<string, unknown>;
-  return (
-    typeof record.mimeType === "string" && typeof record.base64 === "string"
-  );
 }
 
 function isCellsGridApiResponse(value: unknown): value is CellsGridApiResponse {
@@ -287,6 +278,31 @@ export async function putPreprocessBoard(
       : `Backend zwrócił odpowiedź HTTP ${response.status} bez treści.`,
     response.status
   );
+}
+
+export async function putPreprocessBoardFromImage(
+  apiBaseUrl: string,
+  entry: ImageApiEntry,
+  signal?: AbortSignal
+): Promise<ImageApiResponse> {
+  return fetchJson({
+    url: `${apiBaseUrl}/examples/preprocess/board`,
+    init: {
+      method: "PUT",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(entry),
+      signal,
+    },
+    expectedStatus: 200,
+    validateResponse: isImageApiResponse,
+    invalidResponseMessage:
+      "Backend zwrócił niepoprawny kształt ImageApiResponse.",
+    errorFactory: (message, status, errorType) =>
+      new ExamplesApiError(message, status, errorType),
+  });
 }
 
 export async function putPreprocessCells(
