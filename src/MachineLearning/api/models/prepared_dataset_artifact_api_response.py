@@ -14,6 +14,9 @@ from application.features.datasets.commands.prepare_dataset_artifact.prepare_dat
 class PreparedDatasetArtifactApiResponse(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
+    dataset_name: str = Field(alias="datasetName")
+    file_name: str = Field(alias="fileName")
+    preprocessing_profile: str = Field(alias="preprocessingProfile")
     sample_counts: SplitSampleCountsApiResponse = Field(alias="sampleCounts")
     sources: list[PreparedDatasetSourceReportApiResponse]
     warnings: list[str]
@@ -23,6 +26,9 @@ class PreparedDatasetArtifactApiResponse(BaseModel):
         cls, command_result: PrepareDatasetArtifactCommandResultDto
     ) -> "PreparedDatasetArtifactApiResponse":
         return cls(
+            dataset_name=command_result.dataset_name,
+            file_name=command_result.file_name,
+            preprocessing_profile=command_result.preprocessing_profile,
             sample_counts=SplitSampleCountsApiResponse.from_dto(
                 command_result.sample_counts
             ),

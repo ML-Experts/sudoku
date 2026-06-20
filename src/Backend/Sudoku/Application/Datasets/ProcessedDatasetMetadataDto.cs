@@ -2,6 +2,7 @@ namespace Sudoku.Application.Datasets;
 
 public sealed record ProcessedDatasetMetadataDto(
     string Name,
+    string PreparationName,
     string FileName,
     string PreprocessingProfile,
     DateTimeOffset CreatedAtUtc,

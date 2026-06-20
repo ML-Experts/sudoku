@@ -10,6 +10,9 @@ from application.features.datasets.dto.split_sample_counts_dto import (
 
 @dataclass(frozen=True)
 class PrepareDatasetArtifactCommandResultDto:
+    dataset_name: str
+    file_name: str
+    preprocessing_profile: str
     sample_counts: SplitSampleCountsDto
     sources: tuple[PreparedDatasetSourceReportDto, ...]
     warnings: tuple[str, ...]

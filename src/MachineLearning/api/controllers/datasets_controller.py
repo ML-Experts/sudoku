@@ -94,26 +94,28 @@ async def prepare_dataset_artifact(
     ),
 ) -> PreparedDatasetArtifactApiResponse | JSONResponse:
     LOGGER.info(
-        "Received dataset prepare request: dataset=%s source_count=%s",
+        "Received dataset prepare request: preparation=%s dataset=%s source_count=%s",
+        entry.preparation_name,
         entry.dataset_name,
         len(entry.sources),
     )
     command = PrepareDatasetArtifactCommand(
+        preparation_name=entry.preparation_name,
         dataset_name=entry.dataset_name,
-        preprocessing_profile=entry.preprocessing_profile,
+        split_policy=DatasetSplitPolicyDto(
+            mode=entry.split_policy.mode,
+            group_by=entry.split_policy.group_by,
+            ratios=SplitRatiosDto(
+                train=entry.split_policy.ratios.train,
+                val=entry.split_policy.ratios.val,
+                test=entry.split_policy.ratios.test,
+            ),
+        ),
         sources=tuple(
             PrepareDatasetSourceDto(
                 name=source.name,
                 type=source.type,
-                split_policy=DatasetSplitPolicyDto(
-                    mode=source.split_policy.mode,
-                    group_by=source.split_policy.group_by,
-                    ratios=SplitRatiosDto(
-                        train=source.split_policy.ratios.train,
-                        val=source.split_policy.ratios.val,
-                        test=source.split_policy.ratios.test,
-                    ),
-                ),
+                splits=tuple(source.splits),
             )
             for source in entry.sources
         ),
@@ -128,6 +130,11 @@ async def prepare_dataset_artifact(
             error.error_type,
             error.message,
         )
+        if error.error_type == "dataset_artifact_write_failed":
+            return _server_error_response(
+                error_type=error.error_type,
+                message=error.message,
+            )
         return _unprocessable_content_response(
             error_type=error.error_type,
             message=error.message,

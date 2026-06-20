@@ -172,15 +172,16 @@ export type DeleteDatasetPreparationBoardFileApiResponse = {
   remainingItemsCount: number;
 };
 
-export type SelectedRawDatasetSourceApiEntry = {
+export type SelectedPreparedDatasetSourceApiEntry = {
   name: string;
   type: string;
   splits: string[];
 };
 
 export type CreateProcessedDatasetApiEntry = {
+  preparationName: string;
   name: string;
-  sources: SelectedRawDatasetSourceApiEntry[];
+  sources: SelectedPreparedDatasetSourceApiEntry[];
 };
 
 export type SplitSampleCountsApiResponse = {
@@ -204,7 +205,7 @@ export type ProcessedDatasetApiResponse = {
   fileName: string;
   preprocessingProfile: string;
   createdAtUtc: string;
-  sources: SelectedRawDatasetSourceApiEntry[];
+  sources: SelectedPreparedDatasetSourceApiEntry[];
   sampleCounts: SplitSampleCountsApiResponse;
   sourceReports: ProcessedDatasetSourceReportApiResponse[];
   warnings: string[];

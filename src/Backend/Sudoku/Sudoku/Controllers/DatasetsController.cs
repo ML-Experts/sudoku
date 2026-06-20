@@ -738,6 +738,7 @@ public sealed class DatasetsController : ControllerBase
         CancellationToken cancellationToken)
     {
         var command = new CreateProcessedDatasetCommand(
+            PreparationName: entry?.PreparationName,
             Name: entry?.Name,
             Sources: entry?.Sources
                 ?.Select(source => new SelectedRawDatasetSourceDto(
@@ -746,41 +747,106 @@ public sealed class DatasetsController : ControllerBase
                     Splits: source.Splits))
                 .ToArray());
 
+        _logger.LogInformation(
+            "Rozpoczęto budowę processed datasetu. DatasetName={DatasetName}, PreparationName={PreparationName}, SourcesCount={SourcesCount}.",
+            command.Name,
+            command.PreparationName,
+            command.Sources?.Count ?? 0);
+
         try
         {
             var result = await _sender.Send(command, cancellationToken);
+
+            _logger.LogInformation(
+                "Zakończono budowę processed datasetu. DatasetName={DatasetName}, PreparationName={PreparationName}, Train={Train}, Val={Val}, Test={Test}, WarningsCount={WarningsCount}.",
+                result.Name,
+                command.PreparationName,
+                result.SampleCounts.Train,
+                result.SampleCounts.Val,
+                result.SampleCounts.Test,
+                result.Warnings.Count);
+
             return StatusCode(StatusCodes.Status201Created, ToProcessedDatasetApiResponse(result));
         }
         catch (ValidationException exception)
         {
             return MapValidationError(exception);
         }
-        catch (RawDatasetNotFoundException exception)
+        catch (DatasetPreparationNotFoundException exception)
         {
+            _logger.LogWarning(
+                exception,
+                "Nie znaleziono preparation dla budowy processed datasetu. DatasetName={DatasetName}, PreparationName={PreparationName}, ErrorType={ErrorType}.",
+                command.Name,
+                command.PreparationName,
+                CreateProcessedDatasetErrorTypes.DatasetPreparationNotFound);
+
             return NotFound(new ErrorApiResponse(
-                ErrorType: CreateProcessedDatasetErrorTypes.RawDatasetNotFound,
+                ErrorType: CreateProcessedDatasetErrorTypes.DatasetPreparationNotFound,
                 Message: exception.Message));
         }
-        catch (RawDatasetTypeMismatchException exception)
+        catch (DatasetPreparationSourceNotFoundException exception)
         {
-            return UnprocessableEntity(new ErrorApiResponse(
-                ErrorType: CreateProcessedDatasetErrorTypes.RawDatasetTypeMismatch,
+            _logger.LogWarning(
+                exception,
+                "Nie znaleziono źródła w preparation dla budowy processed datasetu. DatasetName={DatasetName}, PreparationName={PreparationName}, ErrorType={ErrorType}.",
+                command.Name,
+                command.PreparationName,
+                CreateProcessedDatasetErrorTypes.DatasetPreparationSourceNotFound);
+
+            return NotFound(new ErrorApiResponse(
+                ErrorType: CreateProcessedDatasetErrorTypes.DatasetPreparationSourceNotFound,
+                Message: exception.Message));
+        }
+        catch (DatasetPreparationArtifactsNotReadyException exception)
+        {
+            _logger.LogWarning(
+                exception,
+                "Preparation nie jest gotowe do budowy processed datasetu. DatasetName={DatasetName}, PreparationName={PreparationName}, Status={Status}, ErrorType={ErrorType}.",
+                command.Name,
+                command.PreparationName,
+                exception.Status,
+                CreateProcessedDatasetErrorTypes.DatasetPreparationArtifactsNotReady);
+
+            return Conflict(new ErrorApiResponse(
+                ErrorType: CreateProcessedDatasetErrorTypes.DatasetPreparationArtifactsNotReady,
                 Message: exception.Message));
         }
         catch (NoSamplesPreparedException exception)
         {
+            _logger.LogWarning(
+                exception,
+                "Budowa processed datasetu zakończyła się bez próbek. DatasetName={DatasetName}, PreparationName={PreparationName}, ErrorType={ErrorType}.",
+                command.Name,
+                command.PreparationName,
+                CreateProcessedDatasetErrorTypes.NoSamplesPrepared);
+
             return UnprocessableEntity(new ErrorApiResponse(
                 ErrorType: CreateProcessedDatasetErrorTypes.NoSamplesPrepared,
                 Message: exception.Message));
         }
         catch (FileStorageConflictException exception)
         {
+            _logger.LogWarning(
+                exception,
+                "Nazwa processed datasetu już istnieje. DatasetName={DatasetName}, PreparationName={PreparationName}, ErrorType={ErrorType}.",
+                command.Name,
+                command.PreparationName,
+                CreateProcessedDatasetErrorTypes.ProcessedDatasetNameConflict);
+
             return Conflict(new ErrorApiResponse(
                 ErrorType: CreateProcessedDatasetErrorTypes.ProcessedDatasetNameConflict,
                 Message: exception.Message));
         }
         catch (FileStorageItemNotFoundException exception)
         {
+            _logger.LogError(
+                exception,
+                "Nie udało się wypromować artefaktu processed datasetu. DatasetName={DatasetName}, PreparationName={PreparationName}, ErrorType={ErrorType}.",
+                command.Name,
+                command.PreparationName,
+                CreateProcessedDatasetErrorTypes.ArtifactPromotionFailed);
+
             return StatusCode(
                 StatusCodes.Status503ServiceUnavailable,
                 new ErrorApiResponse(
@@ -789,12 +855,26 @@ public sealed class DatasetsController : ControllerBase
         }
         catch (MlOperationFailedException exception)
         {
+            _logger.LogWarning(
+                exception,
+                "Serwis ML odrzucił budowę processed datasetu. DatasetName={DatasetName}, PreparationName={PreparationName}, ErrorType={ErrorType}.",
+                command.Name,
+                command.PreparationName,
+                exception.ErrorType);
+
             return UnprocessableEntity(new ErrorApiResponse(
                 ErrorType: exception.ErrorType,
                 Message: exception.Message));
         }
         catch (MlServiceUnavailableException exception)
         {
+            _logger.LogError(
+                exception,
+                "Serwis ML jest niedostępny podczas budowy processed datasetu. DatasetName={DatasetName}, PreparationName={PreparationName}, ErrorType={ErrorType}.",
+                command.Name,
+                command.PreparationName,
+                CreateProcessedDatasetErrorTypes.MlUnavailable);
+
             return StatusCode(
                 StatusCodes.Status503ServiceUnavailable,
                 new ErrorApiResponse(
@@ -803,11 +883,33 @@ public sealed class DatasetsController : ControllerBase
         }
         catch (MlServiceTimeoutException exception)
         {
+            _logger.LogError(
+                exception,
+                "Serwis ML przekroczył timeout podczas budowy processed datasetu. DatasetName={DatasetName}, PreparationName={PreparationName}, ErrorType={ErrorType}.",
+                command.Name,
+                command.PreparationName,
+                CreateProcessedDatasetErrorTypes.MlTimeout);
+
             return StatusCode(
                 StatusCodes.Status504GatewayTimeout,
                 new ErrorApiResponse(
                     ErrorType: CreateProcessedDatasetErrorTypes.MlTimeout,
                     Message: exception.Message));
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogError(
+                exception,
+                "Wystąpił błąd storage podczas budowy processed datasetu. DatasetName={DatasetName}, PreparationName={PreparationName}, ErrorType={ErrorType}.",
+                command.Name,
+                command.PreparationName,
+                CreateProcessedDatasetErrorTypes.ArtifactPromotionFailed);
+
+            return StatusCode(
+                StatusCodes.Status503ServiceUnavailable,
+                new ErrorApiResponse(
+                    ErrorType: CreateProcessedDatasetErrorTypes.ArtifactPromotionFailed,
+                    Message: "Nie udało się zapisać lub wypromować artefaktów processed datasetu."));
         }
     }
 

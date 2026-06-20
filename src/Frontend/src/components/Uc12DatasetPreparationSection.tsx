@@ -4,10 +4,8 @@ import {
   DatasetsApiError,
   getProcessedDatasets,
   getRawDatasetCandidates,
-  postCreateProcessedDataset,
 } from "../api/datasets";
 import type {
-  ProcessedDatasetApiResponse,
   ProcessedDatasetListItemApiResponse,
   RawDatasetCandidateApiResponse,
 } from "../types/api";
@@ -42,36 +40,6 @@ type LoadableState<T> =
       httpStatus: number | null;
     };
 
-type RequestState =
-  | {
-      kind: "idle";
-      response: ProcessedDatasetApiResponse | null;
-      error: null;
-      errorType: null;
-      httpStatus: null;
-    }
-  | {
-      kind: "loading";
-      response: ProcessedDatasetApiResponse | null;
-      error: null;
-      errorType: null;
-      httpStatus: null;
-    }
-  | {
-      kind: "success";
-      response: ProcessedDatasetApiResponse;
-      error: null;
-      errorType: null;
-      httpStatus: number;
-    }
-  | {
-      kind: "error";
-      response: ProcessedDatasetApiResponse | null;
-      error: string;
-      errorType: string | null;
-      httpStatus: number | null;
-    };
-
 type SelectedSource = {
   candidate: RawDatasetCandidateApiResponse;
   splits: string[];
@@ -96,14 +64,6 @@ const defaultProcessedDatasetsState: LoadableState<
 > = {
   kind: "idle",
   data: null,
-  error: null,
-  errorType: null,
-  httpStatus: null,
-};
-
-const defaultCreateState: RequestState = {
-  kind: "idle",
-  response: null,
   error: null,
   errorType: null,
   httpStatus: null,
@@ -136,24 +96,6 @@ function normalizeSplitSelection(previousSplits: string[], split: string): strin
   return [...withoutMix, split];
 }
 
-function toStatusCopy(status: number | null): string | null {
-  if (status === null) {
-    return null;
-  }
-
-  const map: Record<number, string> = {
-    400: "Sprawdz formularz: nazwa oraz wybory splitow.",
-    401: "Sesja administracyjna wygasla. Zaloguj sie ponownie.",
-    404: "Jedno ze zrodel nie jest juz dostepne.",
-    409: "Dataset o tej nazwie juz istnieje.",
-    422: "Dane zrodlowe nie przechodza walidacji technicznej.",
-    503: "Serwis ML jest chwilowo niedostepny.",
-    504: "Przygotowanie datasetu przekroczylo limit czasu.",
-  };
-
-  return map[status] ?? null;
-}
-
 export function Uc12DatasetPreparationSection({
   apiBaseUrl,
   accessToken,
@@ -167,7 +109,6 @@ export function Uc12DatasetPreparationSection({
   const [processedDatasetsState, setProcessedDatasetsState] = useState(
     defaultProcessedDatasetsState
   );
-  const [createState, setCreateState] = useState(defaultCreateState);
   const [formError, setFormError] = useState<string | null>(null);
 
   const loadCandidates = useCallback(async () => {
@@ -314,72 +255,20 @@ export function Uc12DatasetPreparationSection({
     return null;
   }, [datasetName, selectedSourcesArray]);
 
-  const handleCreateDataset = useCallback(async () => {
+  const handleCreateDataset = useCallback(() => {
     setFormError(null);
     const validationError = validateForm();
     if (validationError) {
       setFormError(validationError);
       return;
     }
-
-    setCreateState((previous) => ({
-      kind: "loading",
-      response: previous.response,
-      error: null,
-      errorType: null,
-      httpStatus: null,
-    }));
-
-    try {
-      const response = await postCreateProcessedDataset(
-        apiBaseUrl,
-        {
-          name: datasetName.trim(),
-          sources: selectedSourcesArray.map((source) => ({
-            name: source.candidate.name,
-            type: source.candidate.type,
-            splits: source.splits,
-          })),
-        },
-        accessToken
-      );
-
-      setCreateState({
-        kind: "success",
-        response,
-        error: null,
-        errorType: null,
-        httpStatus: 201,
-      });
-      await loadProcessedDatasets();
-    } catch (error) {
-      if (error instanceof DatasetsApiError && error.status === 401) {
-        onUnauthorized?.();
-      }
-
-      setCreateState((previous) => ({
-        kind: "error",
-        response: previous.response,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Nie udalo sie utworzyc datasetu processed.",
-        errorType: error instanceof DatasetsApiError ? error.errorType ?? null : null,
-        httpStatus: error instanceof DatasetsApiError ? error.status : null,
-      }));
-    }
+    setFormError(
+      "Build finalnego datasetu zostal przeniesiony do UC-19. Ten legacy widok nie wysyla juz starego payloadu raw -> processed."
+    );
   }, [
-    accessToken,
-    apiBaseUrl,
     datasetName,
-    loadProcessedDatasets,
-    onUnauthorized,
-    selectedSourcesArray,
     validateForm,
   ]);
-
-  const statusHint =
-    createState.kind === "error" ? toStatusCopy(createState.httpStatus) : null;
 
   return (
     <section className="hero-card uc12-section">
@@ -436,6 +325,10 @@ export function Uc12DatasetPreparationSection({
 
       <article className="uc12-panel">
         <h3>Krok 2 — Konfiguracja splitow i nazwa</h3>
+        <p className="status-banner status-loading">
+          Legacy guard: tworzenie datasetu z danych <code>raw</code> zostalo
+          zastapione nowym flow <code>preparation -&gt; .npz</code> w `UC-19`.
+        </p>
         <label className="uc12-field">
           <span>Nazwa datasetu (bez .npz)</span>
           <input
@@ -479,72 +372,10 @@ export function Uc12DatasetPreparationSection({
           className="primary-button"
           type="button"
           onClick={() => void handleCreateDataset()}
-          disabled={createState.kind === "loading"}
         >
-          {createState.kind === "loading"
-            ? "Tworzenie datasetu..."
-            : "Utworz dataset processed"}
+          Build przeniesiony do UC-19
         </button>
       </article>
-
-      {createState.kind === "error" ? (
-        <article className="uc12-panel">
-          <h3>Blad tworzenia</h3>
-          <p className="status-banner status-error">{createState.error}</p>
-          {statusHint ? <p className="muted-copy">{statusHint}</p> : null}
-        </article>
-      ) : null}
-
-      {createState.kind === "success" ? (
-        <article className="uc12-panel">
-          <h3>Raport utworzonego datasetu</h3>
-          <p className="status-banner status-success">
-            Dataset <code>{createState.response.fileName}</code> zostal utworzony.
-          </p>
-          <p className="muted-copy">
-            Profil: <code>{createState.response.preprocessingProfile}</code> | Utworzono:{" "}
-            {formatTimestamp(createState.response.createdAtUtc)}
-          </p>
-          <p className="muted-copy">
-            Sample counts: train {createState.response.sampleCounts.train}, val{" "}
-            {createState.response.sampleCounts.val}, test{" "}
-            {createState.response.sampleCounts.test}
-          </p>
-
-          <div className="uc12-source-config-list">
-            {createState.response.sourceReports.map((report) => (
-              <div key={`${report.type}-${report.name}`} className="uc12-source-config">
-                <p>
-                  <strong>{report.name}</strong> ({report.type})
-                </p>
-                <p className="muted-copy">
-                  processed: {report.processedSampleCount}, included:{" "}
-                  {report.includedSampleCount}, empty: {report.emptyCellCount}, rejected:{" "}
-                  {report.rejectedSampleCount}
-                </p>
-                {report.warnings.length > 0 ? (
-                  <ul className="uc12-warnings-list">
-                    {report.warnings.map((warning, index) => (
-                      <li key={`${report.name}-warning-${index}`}>{warning}</li>
-                    ))}
-                  </ul>
-                ) : null}
-              </div>
-            ))}
-          </div>
-
-          {createState.response.warnings.length > 0 ? (
-            <>
-              <h4>Ostrzezenia globalne</h4>
-              <ul className="uc12-warnings-list">
-                {createState.response.warnings.map((warning, index) => (
-                  <li key={`global-warning-${index}`}>{warning}</li>
-                ))}
-              </ul>
-            </>
-          ) : null}
-        </article>
-      ) : null}
 
       <article className="uc12-panel">
         <h3>Lista gotowych datasetow (UC-12 -&gt; UC-06)</h3>

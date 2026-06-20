@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 
+import { getDatasetPreparationStatusPresentation } from "../../../shared/datasets/getDatasetPreparationStatusPresentation";
 import { groupRawCandidatesByType } from "../domain/groupRawCandidatesByType";
 import {
   MAX_PREPARATION_NAME_LENGTH,
@@ -27,29 +28,6 @@ function formatTimestamp(timestampUtc: string): string {
     timeStyle: "medium",
     timeZone: "UTC",
   }).format(parsedDate);
-}
-
-function getPreparationStatusLabel(status: string): string {
-  const labels: Record<string, string> = {
-    queued: "W kolejce",
-    running: "W trakcie",
-    completed: "Gotowe",
-    failed: "Niepowodzenie",
-  };
-
-  return labels[status] ?? status;
-}
-
-function getPreparationStatusClassName(status: string): string {
-  return status === "completed"
-    ? "is-completed"
-    : status === "failed"
-      ? "is-failed"
-      : status === "running"
-        ? "is-running"
-        : status === "queued"
-          ? "is-queued"
-          : "is-unknown";
 }
 
 export function Uc17RawCandidatesSection({
@@ -86,6 +64,9 @@ export function Uc17RawCandidatesSection({
       ),
     [preparationName, rawCandidates.sourceDrafts]
   );
+  const selectedPreparationStatusPresentation = datasetPreparations.detailsState.data
+    ? getDatasetPreparationStatusPresentation(datasetPreparations.detailsState.data.status)
+    : null;
 
   async function handleCreatePreparation() {
     const validationError = validatePreparationRequest({
@@ -316,6 +297,9 @@ export function Uc17RawCandidatesSection({
                 datasetPreparations.selectedPreparationName === item.preparationName;
               const isRefreshingActiveDetails =
                 isActive && datasetPreparations.detailsState.kind === "loading";
+              const statusPresentation = getDatasetPreparationStatusPresentation(
+                item.status
+              );
 
               return (
                 <li
@@ -334,9 +318,9 @@ export function Uc17RawCandidatesSection({
                   </div>
                   <div className="uc17-preparation-actions">
                     <span
-                      className={`uc17-status-badge ${getPreparationStatusClassName(item.status)}`}
+                      className={`uc17-status-badge ${statusPresentation.className}`}
                     >
-                      {getPreparationStatusLabel(item.status)}
+                      {statusPresentation.label}
                     </span>
                     <button
                       className="secondary-button"
@@ -424,11 +408,10 @@ export function Uc17RawCandidatesSection({
                 </p>
               </div>
               <span
-                className={`uc17-status-badge ${getPreparationStatusClassName(
-                  datasetPreparations.detailsState.data.status
-                )}`}
+                className={`uc17-status-badge ${selectedPreparationStatusPresentation?.className ?? "is-unknown"}`}
               >
-                {getPreparationStatusLabel(datasetPreparations.detailsState.data.status)}
+                {selectedPreparationStatusPresentation?.label ??
+                  datasetPreparations.detailsState.data.status}
               </span>
             </div>
 
