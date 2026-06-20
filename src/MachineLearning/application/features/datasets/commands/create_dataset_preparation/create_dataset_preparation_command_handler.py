@@ -41,6 +41,7 @@ from application.features.datasets.ports.dataset_preparation_ports import (
     IdxDatasetLoaderPort,
     UtcClockPort,
 )
+from models.board_grid_label import BoardGridLabel
 from models.cells_grid import CellsGrid
 from models.dataset_preparation_status import DatasetPreparationStatus
 from models.dataset_source_type import DatasetSourceType
@@ -299,6 +300,7 @@ class CreateDatasetPreparationCommandHandler:
         prepared_items_count = 0
         rejected_items_count = 0
         empty_cell_count = 0
+        valid_board_count = 0
 
         for board_pair in board_pairs:
             LOGGER.info(
@@ -307,7 +309,12 @@ class CreateDatasetPreparationCommandHandler:
                 board_pair.board_name,
             )
             try:
-                prepared_board = self._prepare_single_board(board_pair, board_folder_names)
+                prepared_board = self._prepare_single_board(
+                    board_pair,
+                    board_folder_names,
+                )
+            except CreateDatasetPreparationCommandError:
+                raise
             except (OSError, ValueError) as error:
                 rejected_items_count += 1
                 warning_message = (
@@ -342,6 +349,7 @@ class CreateDatasetPreparationCommandHandler:
                     continue
                 raise
 
+            valid_board_count += 1
             if not prepared_board.index_entries:
                 warnings.append(
                     f"Plansza {prepared_board.board_folder_name} nie dała żadnej zapisanej komórki 1..9."
@@ -381,7 +389,7 @@ class CreateDatasetPreparationCommandHandler:
             prepared_items_count += len(prepared_board.index_entries)
             empty_cell_count += 81 - len(prepared_board.index_entries)
 
-        if not board_folder_names:
+        if valid_board_count == 0:
             raise BoardNotFoundError()
 
         try:
@@ -419,8 +427,8 @@ class CreateDatasetPreparationCommandHandler:
         self,
         board_pair: object,
         already_used_folder_names: list[str],
-    ) -> object:
-        board_grid_label = self._board_dat_parser.parse(board_pair.label_path)
+    ) -> _PreparedBoardArtifact:
+        board_grid_label = self._parse_board_grid_label(board_pair.label_path)
         board_image = self._load_board_image(board_pair.image_path)
         corrected_board, cells_grid = self._board_dataset_cell_extractor.extract(
             board_image
@@ -428,7 +436,12 @@ class CreateDatasetPreparationCommandHandler:
         flattened_cells = self._flatten_cells_grid(cells_grid)
         flattened_labels = board_grid_label.flatten()
         if len(flattened_cells) != len(flattened_labels):
-            raise ValueError("Liczba wyciętych komórek nie zgadza się z etykietami planszy.")
+            raise CreateDatasetPreparationCommandError(
+                error_type="dataset_source_invalid",
+                message=(
+                    "Liczba wyciętych komórek nie zgadza się z etykietami planszy."
+                ),
+            )
 
         board_folder_name = self._board_folder_name_resolver.resolve(
             board_name=board_pair.board_name,
@@ -440,13 +453,9 @@ class CreateDatasetPreparationCommandHandler:
         cell_images: list[NDArray[np.uint8]] = []
         for cell_index, cell_image in enumerate(flattened_cells):
             label = flattened_labels[cell_index]
-            if label == 0:
+            if not self._should_save_board_cell(label):
                 continue
-            if label < 1 or label > 9:
-                raise ValueError(
-                    "Etykieta planszy Sudoku musi należeć do zakresu 0..9."
-                )
-            processed_cell = self._cell_preprocessing_pipeline.run_uint8(cell_image)
+            processed_cell = self._clean_labeled_board_cell(cell_image)
             file_name = f"{len(index_entries):03d}.png"
             index_entries.append(
                 DatasetPreparationItemIndexEntryDto(
@@ -607,6 +616,31 @@ class CreateDatasetPreparationCommandHandler:
         for row in cells_grid.cells:
             flattened_cells.extend(row)
         return tuple(flattened_cells)
+
+    def _parse_board_grid_label(self, label_path: Path) -> BoardGridLabel:
+        try:
+            return self._board_dat_parser.parse(label_path)
+        except ValueError as error:
+            raise CreateDatasetPreparationCommandError(
+                error_type="dataset_source_invalid",
+                message=str(error),
+            ) from error
+
+    def _should_save_board_cell(self, label: int) -> bool:
+        if label == 0:
+            return False
+        if 1 <= label <= 9:
+            return True
+        raise CreateDatasetPreparationCommandError(
+            error_type="dataset_source_invalid",
+            message="Źródło board zawiera etykietę spoza zakresu 0..9.",
+        )
+
+    def _clean_labeled_board_cell(
+        self,
+        cell_image: NDArray[np.uint8],
+    ) -> NDArray[np.uint8]:
+        return self._cell_preprocessing_pipeline.run_uint8(cell_image)
 
     def _is_valid_path_component(self, value: str) -> bool:
         stripped_value = value.strip()

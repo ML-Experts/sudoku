@@ -32,6 +32,29 @@ class CellPreprocessingPipelineTests(unittest.TestCase):
 
         self.assertEqual(int(np.max(preview_image)), 0)
 
+    def test_run_uint8_should_keep_binary_output_after_downscaling(self) -> None:
+        pipeline = CellPreprocessingPipeline(output_size=28)
+        image = np.full((64, 64), 255, dtype=np.uint8)
+        image[10:54, 28:36] = 0
+        image[12:20, 20:44] = 0
+
+        preview_image = pipeline.run_uint8(image)
+
+        unique_values = set(np.unique(preview_image).tolist())
+        self.assertTrue(unique_values.issubset({0, 255}))
+        self.assertIn(255, unique_values)
+
+    def test_run_uint8_should_remove_small_isolated_noise_components(self) -> None:
+        pipeline = CellPreprocessingPipeline(output_size=28)
+        image = np.full((64, 64), 255, dtype=np.uint8)
+        image[14:50, 28:36] = 0
+        image[0:2, 0:2] = 0
+
+        preview_image = pipeline.run_uint8(image)
+
+        self.assertEqual(int(preview_image[0:4, 0:4].max()), 0)
+        self.assertGreater(int(preview_image.max()), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

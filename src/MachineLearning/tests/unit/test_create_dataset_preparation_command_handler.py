@@ -289,6 +289,112 @@ class CreateDatasetPreparationCommandHandlerTests(unittest.TestCase):
             self.assertEqual(raised_error.exception.error_type, "board_not_found")
             self.assertFalse((preparation_root / "boards-prep").exists())
 
+    def test_handle_should_skip_zero_labeled_board_cells_without_cleaning(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_directory:
+            root_path = Path(temp_directory)
+            preparation_root = root_path / "preparations"
+            source_root = root_path / "boards" / "v1_training"
+            source_root.mkdir(parents=True)
+            board_image_path = source_root / "Image1.jpg"
+            board_label_path = source_root / "Image1.dat"
+            cv2.imwrite(
+                str(board_image_path),
+                np.full((32, 32, 3), 255, dtype=np.uint8),
+            )
+            board_label_path.write_text("unused", encoding="utf-8")
+            counting_pipeline = _CountingCellPreprocessingPipeline()
+            handler = self._create_handler(
+                preparation_root=preparation_root,
+                dataset_source_resolver=_BoardSourceResolver(source_root),
+                board_dataset_scanner=_BoardDatasetScanner(
+                    (
+                        BoardDatasetPair(
+                            group_key="Image1.jpg",
+                            board_name="Image1",
+                            image_path=board_image_path,
+                            label_path=board_label_path,
+                        ),
+                    )
+                ),
+                board_dat_parser=_BoardDatParser([[0] * 9 for _ in range(9)]),
+                board_dataset_cell_extractor=_BoardDatasetCellExtractor(
+                    _digit_like_image()
+                ),
+                cell_preprocessing_pipeline=counting_pipeline,
+            )
+
+            with self.assertRaises(CreateDatasetPreparationCommandError) as raised_error:
+                handler.handle(
+                    CreateDatasetPreparationCommand(
+                        preparation_name="boards-prep",
+                        sources=(
+                            CreateDatasetPreparationSourceDto(
+                                name="v1_training",
+                                type="board",
+                            ),
+                        ),
+                    )
+                )
+
+            self.assertEqual(raised_error.exception.error_type, "no_items_prepared")
+            self.assertEqual(counting_pipeline.run_uint8_call_count, 0)
+            self.assertFalse((preparation_root / "boards-prep").exists())
+
+    def test_handle_should_raise_dataset_source_invalid_for_board_label_out_of_range(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_directory:
+            root_path = Path(temp_directory)
+            preparation_root = root_path / "preparations"
+            source_root = root_path / "boards" / "v1_training"
+            source_root.mkdir(parents=True)
+            board_image_path = source_root / "Image1.jpg"
+            board_label_path = source_root / "Image1.dat"
+            cv2.imwrite(
+                str(board_image_path),
+                np.full((32, 32, 3), 255, dtype=np.uint8),
+            )
+            board_label_path.write_text("unused", encoding="utf-8")
+            label_rows = [[0] * 9 for _ in range(9)]
+            label_rows[0][0] = 12
+            handler = self._create_handler(
+                preparation_root=preparation_root,
+                dataset_source_resolver=_BoardSourceResolver(source_root),
+                board_dataset_scanner=_BoardDatasetScanner(
+                    (
+                        BoardDatasetPair(
+                            group_key="Image1.jpg",
+                            board_name="Image1",
+                            image_path=board_image_path,
+                            label_path=board_label_path,
+                        ),
+                    )
+                ),
+                board_dat_parser=_BoardDatParser(label_rows),
+                board_dataset_cell_extractor=_BoardDatasetCellExtractor(
+                    _digit_like_image()
+                ),
+            )
+
+            with self.assertRaises(CreateDatasetPreparationCommandError) as raised_error:
+                handler.handle(
+                    CreateDatasetPreparationCommand(
+                        preparation_name="boards-prep",
+                        sources=(
+                            CreateDatasetPreparationSourceDto(
+                                name="v1_training",
+                                type="board",
+                            ),
+                        ),
+                    )
+                )
+
+            self.assertEqual(
+                raised_error.exception.error_type,
+                "dataset_source_invalid",
+            )
+            self.assertFalse((preparation_root / "boards-prep").exists())
+
     def test_handle_should_cleanup_stage_directory_when_write_fails(self) -> None:
         with tempfile.TemporaryDirectory() as temp_directory:
             preparation_root = Path(temp_directory) / "preparations"
@@ -334,6 +440,7 @@ class CreateDatasetPreparationCommandHandlerTests(unittest.TestCase):
         board_dat_parser: object | None = None,
         idx_dataset_loader: object | None = None,
         board_dataset_cell_extractor: object | None = None,
+        cell_preprocessing_pipeline: object | None = None,
         image_writer: object | None = None,
     ) -> CreateDatasetPreparationCommandHandler:
         path_provider = DatasetPreparationsPathProvider(str(preparation_root))
@@ -347,7 +454,8 @@ class CreateDatasetPreparationCommandHandlerTests(unittest.TestCase):
             idx_dataset_loader=idx_dataset_loader or _IdxDatasetLoader(tuple()),
             board_dataset_cell_extractor=board_dataset_cell_extractor
             or _UnusedBoardDependency(),
-            cell_preprocessing_pipeline=CellPreprocessingPipeline(output_size=28),
+            cell_preprocessing_pipeline=cell_preprocessing_pipeline
+            or CellPreprocessingPipeline(output_size=28),
             artifact_writer=DatasetPreparationArtifactWriter(
                 path_provider=path_provider,
                 image_artifact_writer=image_writer
@@ -451,6 +559,15 @@ class _FailingBoardDatasetCellExtractor:
 
 class _BoardExtractionError(Exception):
     error_type = "cells_extraction_failed"
+
+
+class _CountingCellPreprocessingPipeline:
+    def __init__(self) -> None:
+        self.run_uint8_call_count = 0
+
+    def run_uint8(self, cell_image: np.ndarray) -> np.ndarray:
+        self.run_uint8_call_count += 1
+        return cell_image
 
 
 class _FailingImageArtifactWriter:
