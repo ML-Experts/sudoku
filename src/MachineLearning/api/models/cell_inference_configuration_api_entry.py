@@ -14,12 +14,20 @@ class CellInferenceConfigurationApiEntry(BaseModel):
     center_area_ratio: float = Field(
         alias="centerAreaRatio"
     )
-    min_component_area_ratio: float= Field(
+    min_component_area_ratio: float = Field(
         alias="minComponentAreaRatio"
     )
-    line_artifact_min_span_ratio: float= Field(
+    line_artifact_min_span_ratio: float = Field(
         alias="lineArtifactMinSpanRatio"
     )
-    line_artifact_max_thickness_ratio: float= Field(
+    line_artifact_max_thickness_ratio: float = Field(
         alias="lineArtifactMaxThicknessRatio"
+    )
+    empty_cell_min_segment_length_px: int = Field(
+        alias="emptyCellMinSegmentLengthPx",
+        gt=0,
+    )
+    empty_cell_filtered_segment_count_threshold: int = Field(
+        alias="emptyCellFilteredSegmentCountThreshold",
+        gt=0,
     )

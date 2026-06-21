@@ -5,18 +5,25 @@ import numpy as np
 
 DEFAULT_OUTPUT_SIZE_PX = 28
 DEFAULT_BORDER_CLEARANCE_PX = 0
-DEFAULT_MIN_COMPONENT_AREA_RATIO = 0.0
+DEFAULT_MIN_COMPONENT_AREA_RATIO = 0.00008
+DEFAULT_MIN_COMPONENT_AREA_FLOOR_PX = 16
+DEFAULT_MEDIAN_KERNEL_SIZE = 5
+DEFAULT_SOFT_CLEANUP_AREA_MULTIPLIER = 0.35
 
 
 def build_foreground_mask(
     cell_image: np.ndarray,
+    median_kernel_size: int,
     adaptive_block_size: int,
     adaptive_c: int,
 ) -> np.ndarray:
     grayscale_image = _to_grayscale(cell_image)
-    sharpened_image = _sharpen_image(grayscale_image)
+    denoised_image = _apply_median_denoise(
+        grayscale_image,
+        median_kernel_size,
+    )
     return cv2.adaptiveThreshold(
-        sharpened_image,
+        denoised_image,
         255,
         cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
         cv2.THRESH_BINARY_INV,
@@ -30,11 +37,15 @@ def preprocess_cell_for_ml(
     adaptive_block_size: int,
     adaptive_c: int,
     output_size_px: int = DEFAULT_OUTPUT_SIZE_PX,
+    median_kernel_size: int = DEFAULT_MEDIAN_KERNEL_SIZE,
     border_clearance_px: int = DEFAULT_BORDER_CLEARANCE_PX,
     min_component_area_ratio: float = DEFAULT_MIN_COMPONENT_AREA_RATIO,
+    min_component_area_floor_px: int = DEFAULT_MIN_COMPONENT_AREA_FLOOR_PX,
+    soft_cleanup_area_multiplier: float = DEFAULT_SOFT_CLEANUP_AREA_MULTIPLIER,
 ) -> np.ndarray:
     foreground_mask = build_foreground_mask(
         cell_image=cell_image,
+        median_kernel_size=median_kernel_size,
         adaptive_block_size=adaptive_block_size,
         adaptive_c=adaptive_c,
     )
@@ -42,6 +53,8 @@ def preprocess_cell_for_ml(
         foreground_mask,
         border_clearance_px=border_clearance_px,
         min_component_area_ratio=min_component_area_ratio,
+        min_component_area_floor_px=min_component_area_floor_px,
+        soft_cleanup_area_multiplier=soft_cleanup_area_multiplier,
         output_size_px=output_size_px,
     )
 
@@ -51,8 +64,11 @@ def preprocess_cells_grid_for_ml(
     adaptive_block_size: int,
     adaptive_c: int,
     output_size_px: int = DEFAULT_OUTPUT_SIZE_PX,
+    median_kernel_size: int = DEFAULT_MEDIAN_KERNEL_SIZE,
     border_clearance_px: int = DEFAULT_BORDER_CLEARANCE_PX,
     min_component_area_ratio: float = DEFAULT_MIN_COMPONENT_AREA_RATIO,
+    min_component_area_floor_px: int = DEFAULT_MIN_COMPONENT_AREA_FLOOR_PX,
+    soft_cleanup_area_multiplier: float = DEFAULT_SOFT_CLEANUP_AREA_MULTIPLIER,
 ) -> tuple[tuple[np.ndarray, ...], ...]:
     if not cells or not cells[0]:
         raise ValueError("Cells grid cannot be empty.")
@@ -65,8 +81,11 @@ def preprocess_cells_grid_for_ml(
                 adaptive_block_size=adaptive_block_size,
                 adaptive_c=adaptive_c,
                 output_size_px=output_size_px,
+                median_kernel_size=median_kernel_size,
                 border_clearance_px=border_clearance_px,
                 min_component_area_ratio=min_component_area_ratio,
+                min_component_area_floor_px=min_component_area_floor_px,
+                soft_cleanup_area_multiplier=soft_cleanup_area_multiplier,
             )
             for cell_image in row
         )
@@ -80,6 +99,8 @@ def clean_cell_binary(
     *,
     border_clearance_px: int,
     min_component_area_ratio: float,
+    min_component_area_floor_px: int,
+    soft_cleanup_area_multiplier: float,
     output_size_px: int,
 ) -> np.ndarray:
     filtered_binary = cell_binary.copy()
@@ -91,10 +112,19 @@ def clean_cell_binary(
         if np.any(border_cleaned):
             filtered_binary = border_cleaned
 
-    if min_component_area_ratio > 0.0:
+    minimum_dimension = min(filtered_binary.shape[:2])
+    min_component_area_px = max(
+        min_component_area_floor_px,
+        int(round(minimum_dimension * minimum_dimension * min_component_area_ratio)),
+    )
+    soft_min_component_area_px = max(
+        0,
+        int(round(min_component_area_px * soft_cleanup_area_multiplier)),
+    )
+    if soft_min_component_area_px > 0:
         component_filtered = _remove_small_components(
             filtered_binary,
-            min_component_area_ratio,
+            soft_min_component_area_px,
         )
         if np.any(component_filtered):
             filtered_binary = component_filtered
@@ -112,12 +142,13 @@ def _to_grayscale(cell_image: np.ndarray) -> np.ndarray:
     raise ValueError("Unsupported cell image dimensions.")
 
 
-def _sharpen_image(image: np.ndarray) -> np.ndarray:
-    sharpen_kernel = np.array(
-        [[0, -1, 0], [-1, 5, -1], [0, -1, 0]],
-        dtype=np.float32,
-    )
-    return cv2.filter2D(image, -1, sharpen_kernel)
+def _apply_median_denoise(
+    image: np.ndarray,
+    median_kernel_size: int,
+) -> np.ndarray:
+    if median_kernel_size <= 1 or median_kernel_size % 2 == 0:
+        raise ValueError("Median kernel size must be an odd value > 1.")
+    return cv2.medianBlur(image, median_kernel_size)
 
 
 def _remove_components_touching_border(
@@ -149,30 +180,19 @@ def _remove_components_touching_border(
 
 def _remove_small_components(
     binary_image: np.ndarray,
-    min_component_area_ratio: float,
+    min_area_px: int,
 ) -> np.ndarray:
-    if not 0.0 <= min_component_area_ratio <= 1.0:
-        raise ValueError("Minimum component area ratio must be in range [0, 1].")
-    if min_component_area_ratio == 0.0:
+    if min_area_px < 0:
+        raise ValueError("Minimum component area in pixels cannot be negative.")
+    if min_area_px == 0:
         return binary_image.copy()
-
-    minimum_area = max(
-        1,
-        int(
-            round(
-                binary_image.shape[0]
-                * binary_image.shape[1]
-                * min_component_area_ratio
-            )
-        ),
-    )
     component_count, component_labels, component_stats, _ = (
         cv2.connectedComponentsWithStats(binary_image, connectivity=8)
     )
     cleaned_image = np.zeros_like(binary_image)
     for component_index in range(1, component_count):
         area = int(component_stats[component_index, cv2.CC_STAT_AREA])
-        if area >= minimum_area:
+        if area >= min_area_px:
             cleaned_image[component_labels == component_index] = 255
     return cleaned_image
 
@@ -206,6 +226,12 @@ def _center_foreground(
         cropped_foreground,
         (resized_width, resized_height),
         interpolation=interpolation,
+    )
+    _, resized_foreground = cv2.threshold(
+        resized_foreground,
+        127,
+        255,
+        cv2.THRESH_BINARY,
     )
     offset_x = (output_size_px - resized_width) // 2
     offset_y = (output_size_px - resized_height) // 2

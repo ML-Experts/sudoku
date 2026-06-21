@@ -62,16 +62,31 @@ async def infer_cell_digit(
             input_profile=entry.active_model.input_profile,
         ),
         resolved_configuration=InferenceRuntimeConfigurationDto(
-            inference_profile_name=
-                entry.resolved_configuration.inference_profile_name,
-            empty_cell_inner_margin_ratio=
-                entry.resolved_configuration.empty_cell_inner_margin_ratio,
-            empty_cell_dark_pixel_ratio_threshold=
-                entry.resolved_configuration.empty_cell_dark_pixel_ratio_threshold,
+            inference_profile_name=(
+                entry.resolved_configuration.inference_profile_name
+            ),
+            empty_cell_inner_margin_ratio=(
+                entry.resolved_configuration.empty_cell_inner_margin_ratio
+            ),
+            empty_cell_dark_pixel_ratio_threshold=(
+                entry.resolved_configuration.empty_cell_dark_pixel_ratio_threshold
+            ),
             center_area_ratio=entry.resolved_configuration.center_area_ratio,
-            min_component_area_ratio=entry.resolved_configuration.min_component_area_ratio,
-            line_artifact_min_span_ratio=entry.resolved_configuration.line_artifact_min_span_ratio,
-            line_artifact_max_thickness_ratio=entry.resolved_configuration.line_artifact_max_thickness_ratio
+            min_component_area_ratio=(
+                entry.resolved_configuration.min_component_area_ratio
+            ),
+            line_artifact_min_span_ratio=(
+                entry.resolved_configuration.line_artifact_min_span_ratio
+            ),
+            line_artifact_max_thickness_ratio=(
+                entry.resolved_configuration.line_artifact_max_thickness_ratio
+            ),
+            empty_cell_min_segment_length_px=(
+                entry.resolved_configuration.empty_cell_min_segment_length_px
+            ),
+            empty_cell_filtered_segment_count_threshold=(
+                entry.resolved_configuration.empty_cell_filtered_segment_count_threshold
+            ),
         ),
     )
 

@@ -25,6 +25,9 @@ export function toSudokuCellInferenceParametersApiEntry(
   const minComponentAreaField = contextState.minComponentAreaRatio;
   const lineArtifactMinSpanField = contextState.lineArtifactMinSpanRatio;
   const lineArtifactMaxThicknessField = contextState.lineArtifactMaxThicknessRatio;
+  const minSegmentLengthField = contextState.emptyCellMinSegmentLengthPx;
+  const filteredSegmentCountThresholdField =
+    contextState.emptyCellFilteredSegmentCountThreshold;
 
   if (thresholdField.parsedValue === null) {
     throw new Uc14LocalParametersValidationError(
@@ -62,6 +65,18 @@ export function toSudokuCellInferenceParametersApiEntry(
     );
   }
 
+  if (minSegmentLengthField.parsedValue === null) {
+    throw new Uc14LocalParametersValidationError(
+      "Brakuje poprawnej wartosci emptyCellMinSegmentLengthPx.",
+    );
+  }
+
+  if (filteredSegmentCountThresholdField.parsedValue === null) {
+    throw new Uc14LocalParametersValidationError(
+      "Brakuje poprawnej wartosci emptyCellFilteredSegmentCountThreshold.",
+    );
+  }
+
   return {
     emptyCellDarkPixelRatioThreshold: thresholdField.parsedValue,
     emptyCellInnerMarginRatio: marginField.parsedValue,
@@ -69,5 +84,8 @@ export function toSudokuCellInferenceParametersApiEntry(
     minComponentAreaRatio: minComponentAreaField.parsedValue,
     lineArtifactMinSpanRatio: lineArtifactMinSpanField.parsedValue,
     lineArtifactMaxThicknessRatio: lineArtifactMaxThicknessField.parsedValue,
+    emptyCellMinSegmentLengthPx: minSegmentLengthField.parsedValue,
+    emptyCellFilteredSegmentCountThreshold:
+      filteredSegmentCountThresholdField.parsedValue,
   };
 }

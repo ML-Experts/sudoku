@@ -43,6 +43,8 @@ export type DigitInferenceApiEntry = {
   minComponentAreaRatio: number;
   lineArtifactMinSpanRatio: number;
   lineArtifactMaxThicknessRatio: number;
+  emptyCellMinSegmentLengthPx: number;
+  emptyCellFilteredSegmentCountThreshold: number;
 };
 
 export type SudokuCellInferenceParametersApiEntry = Pick<
@@ -53,6 +55,8 @@ export type SudokuCellInferenceParametersApiEntry = Pick<
   | "minComponentAreaRatio"
   | "lineArtifactMinSpanRatio"
   | "lineArtifactMaxThicknessRatio"
+  | "emptyCellMinSegmentLengthPx"
+  | "emptyCellFilteredSegmentCountThreshold"
 >;
 
 export type SolveSudokuApiEntry = {

@@ -25,7 +25,9 @@ public sealed class SudokuCellsControllerTests
                 CenterAreaRatio = 0.5,
                 MinComponentAreaRatio = 0.055,
                 LineArtifactMinSpanRatio = 0.4,
-                LineArtifactMaxThicknessRatio = 0.08
+                LineArtifactMaxThicknessRatio = 0.08,
+                EmptyCellMinSegmentLengthPx = 8,
+                EmptyCellFilteredSegmentCountThreshold = 2
             },
             CancellationToken.None);
 
@@ -35,6 +37,8 @@ public sealed class SudokuCellsControllerTests
         var command = Assert.IsType<InferSudokuCellDigitCommand>(sender.LastRequest);
         Assert.Equal(0.02, command.EmptyCellDarkPixelRatioThreshold);
         Assert.Equal(0.12, command.EmptyCellInnerMarginRatio);
+        Assert.Equal(8, command.EmptyCellMinSegmentLengthPx);
+        Assert.Equal(2, command.EmptyCellFilteredSegmentCountThreshold);
     }
 
     private static SudokuCellsController CreateController(ISender sender)

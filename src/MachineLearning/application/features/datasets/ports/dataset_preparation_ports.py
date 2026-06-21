@@ -44,6 +44,13 @@ class CellPreprocessingPipelinePort(Protocol):
     def run_uint8(self, cell_image: NDArray[np.uint8]) -> NDArray[np.uint8]: ...
 
 
+class DigitSamplePreparationPort(Protocol):
+    def prepare_uint8(
+        self,
+        sample_image: NDArray[np.uint8],
+    ) -> NDArray[np.uint8]: ...
+
+
 class DatasetPreparationArtifactWriterPort(Protocol):
     def write_corrected_board(
         self,

@@ -43,24 +43,21 @@ class ImageCodec(Protocol):
 
 
 class CellPreprocessingPipeline(Protocol):
-    def build_foreground_mask(
-        self,
-        cell_image: NDArray[np.uint8],
-    ) -> NDArray[np.uint8]: ...
-
     def run(self, cell_image: NDArray[np.uint8]) -> NDArray[np.float32]: ...
 
 
 class CellOccupancyDetector(Protocol):
     def detect(
         self,
-        image: NDArray[np.float32],
+        image: NDArray[np.uint8],
         inner_margin_ratio: float,
         dark_pixel_ratio_threshold: float,
         center_area_ratio: float,
         min_component_area_ratio: float,
         line_artifact_min_span_ratio: float,
-        line_artifact_max_thickness_ratio: float
+        line_artifact_max_thickness_ratio: float,
+        empty_cell_min_segment_length_px: int,
+        empty_cell_filtered_segment_count_threshold: int,
     ) -> object: ...
 
 
@@ -103,9 +100,16 @@ class InferCellDigitCommandHandler:
         self._validate_command(command, runtime_configuration)
 
         decoded_image = self._decode_image(command)
-        foreground_mask = self._build_foreground_mask(decoded_image)
-        occupancy = self._detect_occupancy(foreground_mask, runtime_configuration)
+        occupancy = self._detect_occupancy(decoded_image, runtime_configuration)
+        self._log_occupancy_result(command, runtime_configuration, occupancy)
         if getattr(occupancy, "is_empty", False):
+            LOGGER.info(
+                "Cell inference finished without model execution: model_name=%s "
+                "input_profile=%s inference_profile=%s digit=null",
+                command.active_model.name,
+                command.active_model.input_profile,
+                runtime_configuration.inference_profile_name,
+            )
             return self._to_command_result(CellDigitInferenceResult(digit=None))
         preprocessed_image = self._preprocess_cell_image(decoded_image)
 
@@ -169,9 +173,6 @@ class InferCellDigitCommandHandler:
 
         return self._to_command_result(inference_result)
 
-    def _map_sudoku_class_index_to_digit(self, class_index: int) -> int:
-        return class_index + 1
-
     def _build_runtime_configuration(
         self,
         command: InferCellDigitCommand,
@@ -199,12 +200,21 @@ class InferCellDigitCommandHandler:
                 line_artifact_max_thickness_ratio=(
                     command.resolved_configuration.line_artifact_max_thickness_ratio
                 ),
+                empty_cell_min_segment_length_px=(
+                    command.resolved_configuration.empty_cell_min_segment_length_px
+                ),
+                empty_cell_filtered_segment_count_threshold=(
+                    command.resolved_configuration.empty_cell_filtered_segment_count_threshold
+                ),
             )
         except ValueError as error:
             raise CellDigitInferenceValidationError(
                 "invalid_request",
                 str(error),
             ) from error
+
+    def _map_sudoku_class_index_to_digit(self, class_index: int) -> int:
+        return class_index + 1
 
     def _validate_command(
         self,
@@ -291,29 +301,6 @@ class InferCellDigitCommandHandler:
                 INVALID_IMAGE_PAYLOAD_MESSAGE,
             ) from error
 
-    def _build_foreground_mask(
-        self,
-        decoded_image: NDArray[np.uint8],
-    ) -> NDArray[np.float32]:
-        try:
-            foreground_mask = self._cell_preprocessing_pipeline.build_foreground_mask(
-                decoded_image
-            )
-            return foreground_mask.astype(np.float32) / 255.0
-        except ValueError as error:
-            LOGGER.warning(
-                "Cell inference foreground mask build failed: image_shape=%s "
-                "image_dtype=%s reason=%s",
-                decoded_image.shape,
-                decoded_image.dtype,
-                error,
-                exc_info=True,
-            )
-            raise CellDigitInferenceValidationError(
-                "cell_image_not_processable",
-                CELL_IMAGE_NOT_PROCESSABLE_MESSAGE,
-            ) from error
-
     def _preprocess_cell_image(
         self,
         decoded_image: NDArray[np.uint8],
@@ -336,18 +323,34 @@ class InferCellDigitCommandHandler:
 
     def _detect_occupancy(
         self,
-        occupancy_image: NDArray[np.float32],
+        occupancy_image: NDArray[np.uint8],
         runtime_configuration: InferenceRuntimeConfiguration,
     ) -> object:
         try:
             return self._cell_occupancy_detector.detect(
                 image=occupancy_image,
-                inner_margin_ratio=(runtime_configuration.empty_cell_inner_margin_ratio),
-                dark_pixel_ratio_threshold=(runtime_configuration.empty_cell_dark_pixel_ratio_threshold),
-                center_area_ratio = (runtime_configuration.center_area_ratio),
-                min_component_area_ratio = (runtime_configuration.min_component_area_ratio),
-                line_artifact_min_span_ratio = (runtime_configuration.line_artifact_min_span_ratio),
-                line_artifact_max_thickness_ratio = (runtime_configuration.line_artifact_max_thickness_ratio)
+                inner_margin_ratio=(
+                    runtime_configuration.empty_cell_inner_margin_ratio
+                ),
+                dark_pixel_ratio_threshold=(
+                    runtime_configuration.empty_cell_dark_pixel_ratio_threshold
+                ),
+                center_area_ratio=runtime_configuration.center_area_ratio,
+                min_component_area_ratio=(
+                    runtime_configuration.min_component_area_ratio
+                ),
+                line_artifact_min_span_ratio=(
+                    runtime_configuration.line_artifact_min_span_ratio
+                ),
+                line_artifact_max_thickness_ratio=(
+                    runtime_configuration.line_artifact_max_thickness_ratio
+                ),
+                empty_cell_min_segment_length_px=(
+                    runtime_configuration.empty_cell_min_segment_length_px
+                ),
+                empty_cell_filtered_segment_count_threshold=(
+                    runtime_configuration.empty_cell_filtered_segment_count_threshold
+                ),
             )
         except ValueError as error:
             LOGGER.warning(
@@ -355,7 +358,9 @@ class InferCellDigitCommandHandler:
                 "inner_margin_ratio=%s dark_pixel_ratio_threshold=%s "
                 "center_area_ratio=%s min_component_area_ratio=%s "
                 "line_artifact_min_span_ratio=%s "
-                "line_artifact_max_thickness_ratio=%s reason=%s",
+                "line_artifact_max_thickness_ratio=%s "
+                "empty_cell_min_segment_length_px=%s "
+                "empty_cell_filtered_segment_count_threshold=%s reason=%s",
                 occupancy_image.shape,
                 runtime_configuration.empty_cell_inner_margin_ratio,
                 runtime_configuration.empty_cell_dark_pixel_ratio_threshold,
@@ -363,6 +368,8 @@ class InferCellDigitCommandHandler:
                 runtime_configuration.min_component_area_ratio,
                 runtime_configuration.line_artifact_min_span_ratio,
                 runtime_configuration.line_artifact_max_thickness_ratio,
+                runtime_configuration.empty_cell_min_segment_length_px,
+                runtime_configuration.empty_cell_filtered_segment_count_threshold,
                 error,
                 exc_info=True,
             )
@@ -370,6 +377,28 @@ class InferCellDigitCommandHandler:
                 "cell_image_not_processable",
                 CELL_IMAGE_NOT_PROCESSABLE_MESSAGE,
             ) from error
+
+    def _log_occupancy_result(
+        self,
+        command: InferCellDigitCommand,
+        runtime_configuration: InferenceRuntimeConfiguration,
+        occupancy: object,
+    ) -> None:
+        LOGGER.info(
+            "Cell occupancy detection finished: model_name=%s input_profile=%s "
+            "inference_profile=%s is_empty=%s foreground_pixel_count=%s "
+            "foreground_pixel_ratio=%s filtered_segment_count=%s "
+            "accept_by_pixels=%s accept_by_segments=%s",
+            command.active_model.name,
+            command.active_model.input_profile,
+            runtime_configuration.inference_profile_name,
+            getattr(occupancy, "is_empty", None),
+            getattr(occupancy, "foreground_pixel_count", None),
+            getattr(occupancy, "foreground_pixel_ratio", None),
+            getattr(occupancy, "filtered_segment_count", None),
+            getattr(occupancy, "accept_by_pixels", None),
+            getattr(occupancy, "accept_by_segments", None),
+        )
 
     def _to_command_result(
         self,
