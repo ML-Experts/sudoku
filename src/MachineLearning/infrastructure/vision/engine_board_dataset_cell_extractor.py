@@ -21,7 +21,7 @@ class EngineBoardDatasetCellExtractor:
     def extract(
         self, board_image: NDArray[np.uint8]
     ) -> tuple[NDArray[np.uint8], CellsGrid]:
-        LOGGER.info(
+        LOGGER.debug(
             "EngineBoardDatasetCellExtractor using preprocess-and-extract dataset flow."
         )
         pipeline_result = self._pipeline.preprocess_and_extract_cells(board_image)

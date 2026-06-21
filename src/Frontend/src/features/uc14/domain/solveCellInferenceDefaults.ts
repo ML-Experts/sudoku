@@ -10,12 +10,12 @@ export type SolveCellInferenceDefaults = {
 };
 
 export const solveCellInferenceDefaults: SolveCellInferenceDefaults = {
-  emptyCellDarkPixelRatioThreshold: 0.02,
+  emptyCellDarkPixelRatioThreshold: 0.15,
   emptyCellInnerMarginRatio: 0.12,
   centerAreaRatio: 0.5,
   minComponentAreaRatio: 0.055,
   lineArtifactMinSpanRatio: 0.4,
   lineArtifactMaxThicknessRatio: 0.08,
-  emptyCellMinSegmentLengthPx: 8,
-  emptyCellFilteredSegmentCountThreshold: 2,
+  emptyCellMinSegmentLengthPx: 18,
+  emptyCellFilteredSegmentCountThreshold: 5,
 };
