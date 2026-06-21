@@ -8,19 +8,40 @@ if TYPE_CHECKING:
 
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
+RUNTIME_ROOT_MARKERS = (
+    "api",
+    "application",
+    "infrastructure",
+    "models",
+    "requirements.txt",
+)
 
 
-def find_repo_root(start_path: Path | None = None) -> Path:
+def _looks_like_runtime_root(candidate: Path) -> bool:
+    return all((candidate / marker).exists() for marker in RUNTIME_ROOT_MARKERS)
+
+
+def find_runtime_root(start_path: Path | None = None) -> Path:
     current_path = (start_path or Path.cwd()).resolve()
+    if current_path.is_file():
+        current_path = current_path.parent
+
     for candidate in [current_path, *current_path.parents]:
-        if (candidate / ".git").exists() or (candidate / ".ai").exists():
+        if _looks_like_runtime_root(candidate):
             return candidate
+
+        nested_runtime_root = candidate / "src" / "MachineLearning"
+        if _looks_like_runtime_root(nested_runtime_root):
+            return nested_runtime_root
+
     raise FileNotFoundError(
-        "Could not locate repository root from the current working directory."
+        "Could not locate MachineLearning runtime root from the current working directory."
     )
 
 
-REPO_ROOT = find_repo_root(Path(__file__).resolve().parent)
+PROJECT_ROOT = find_runtime_root(Path(__file__).resolve().parent)
+# Backwards-compatible alias kept for older draft tooling.
+REPO_ROOT = PROJECT_ROOT
 
 
 def discover_dataset_images(dataset_root: Path) -> list[Path]:
@@ -44,7 +65,11 @@ def path_for_display(path: Path, base_path: Path) -> str:
 def resolve_active_image_path(
     config: "ExperimentConfig",
 ) -> tuple[Path, list[Path]]:
-    dataset_images = discover_dataset_images(config.dataset_root)
+    dataset_images = (
+        []
+        if config.dataset_root is None
+        else discover_dataset_images(config.dataset_root)
+    )
 
     if config.image_path is not None:
         image_path = config.image_path.resolve()
@@ -66,9 +91,15 @@ def resolve_active_image_path(
 
 __all__ = [
     "IMAGE_EXTENSIONS",
+    "PROJECT_ROOT",
     "REPO_ROOT",
     "discover_dataset_images",
     "find_repo_root",
+    "find_runtime_root",
     "path_for_display",
     "resolve_active_image_path",
 ]
+
+
+def find_repo_root(start_path: Path | None = None) -> Path:
+    return find_runtime_root(start_path)
