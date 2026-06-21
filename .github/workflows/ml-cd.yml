@@ -228,6 +228,58 @@ jobs:
           )
           PY
 
+      - name: Validate ML release runtime-root independence
+        shell: bash
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import os
+          import shutil
+          import tempfile
+          from pathlib import Path
+
+          release_dir = Path(os.environ["ML_RELEASE_DIR"]).resolve()
+
+          with tempfile.TemporaryDirectory() as temp_directory:
+              runtime_root = Path(temp_directory) / "ml"
+              shutil.copytree(release_dir, runtime_root)
+
+              paths_module_path = (
+                  runtime_root
+                  / "infrastructure"
+                  / "vision"
+                  / "engine"
+                  / "paths.py"
+              )
+              if not paths_module_path.exists():
+                  raise SystemExit(
+                      f"Missing engine paths module in staged release: {paths_module_path}"
+                  )
+
+              spec = importlib.util.spec_from_file_location(
+                  "runtime_engine_paths",
+                  paths_module_path,
+              )
+              if spec is None or spec.loader is None:
+                  raise SystemExit(
+                      "Could not create import spec for ML runtime paths validation."
+                  )
+
+              module = importlib.util.module_from_spec(spec)
+              spec.loader.exec_module(module)
+
+              resolved_root = module.find_runtime_root(paths_module_path.parent)
+              if resolved_root != runtime_root:
+                  raise SystemExit(
+                      "ML release runtime root validation failed. "
+                      f"Expected {runtime_root}, got {resolved_root}."
+                  )
+
+              print(
+                  f"Validated ML runtime root resolution outside repo layout: {resolved_root}"
+              )
+          PY
+
       - name: Validate ML release layout
         shell: bash
         run: |
