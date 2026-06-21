@@ -5,13 +5,13 @@ from enum import Enum
 import math
 from pathlib import Path
 
-from .paths import REPO_ROOT
+from .paths import PROJECT_ROOT
 
 
 @dataclass(slots=True)
 class ExperimentConfig:
-    dataset_root: Path = REPO_ROOT / "data" / "raw" / "boards"
-    image_path: Path = Path("/home/wojtek/projects/sudoku/data/RemoveData/image1083.jpg")
+    dataset_root: Path | None = PROJECT_ROOT / "data" / "raw" / "boards"
+    image_path: Path | None = None
     selected_dataset_index: int = 0
     preview_limit: int = 20
     max_display_size: int = 1600
