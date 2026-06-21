@@ -12,7 +12,7 @@ type Uc05aRecognitionSectionProps = {
   inferenceParametersValid?: boolean;
   inferenceParameterErrorCount?: number;
   inferenceParameterOverrideCount?: number;
-  selectedProcessName: string | null;
+  selectedSourceLabel: string | null;
 };
 
 export function Uc05aRecognitionSection({
@@ -22,7 +22,7 @@ export function Uc05aRecognitionSection({
   inferenceParametersValid = true,
   inferenceParameterErrorCount = 0,
   inferenceParameterOverrideCount = 0,
-  selectedProcessName,
+  selectedSourceLabel,
 }: Uc05aRecognitionSectionProps) {
   const {
     state,
@@ -42,7 +42,7 @@ export function Uc05aRecognitionSection({
 
   return (
     <Uc05aRecognitionPanel
-      selectedProcessName={selectedProcessName}
+      selectedSourceLabel={selectedSourceLabel}
       cellsGridAvailable={cellsGrid !== null}
       parameterOverrideCount={inferenceParameterOverrideCount}
       parametersValid={inferenceParametersValid}

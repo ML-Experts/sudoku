@@ -1,8 +1,7 @@
+import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
 
-import cv2
 import numpy as np
 from numpy.typing import NDArray
 
@@ -17,440 +16,514 @@ from application.features.datasets.dto.canonical_prepared_sample_dto import (
 )
 from application.features.datasets.dto.dataset_split_policy_dto import (
     DatasetSplitPolicyDto,
+    SplitRatiosDto,
 )
 from application.features.datasets.dto.prepared_dataset_source_report_dto import (
     PreparedDatasetSourceReportDto,
+)
+from application.features.datasets.dto.prepare_dataset_source_dto import (
+    PrepareDatasetSourceDto,
 )
 from application.features.datasets.dto.split_sample_counts_dto import (
     SplitSampleCountsDto,
 )
 from application.features.datasets.errors.dataset_preparation_errors import (
+    DatasetSourceInvalidError,
     PrepareDatasetArtifactCommandError,
-    UnsupportedPreprocessingProfileError,
 )
-from infrastructure.datasets.board_dataset_scanner import BoardDatasetPair
-from infrastructure.datasets.idx_dataset_loader import DigitDatasetRecord
-from models.board_grid_label import BoardGridLabel
-from models.cells_grid import CellsGrid
+from application.features.datasets.ports.processed_dataset_artifact_ports import (
+    DatasetPreparationImageReaderPort,
+    DatasetPreparationManifestReaderPort,
+    DatasetPreparationSourceReaderPort,
+    NpzDatasetArtifactWriterPort,
+    PreparationReportBuilderPort,
+    ProcessedDatasetArtifactCleanupPort,
+    SampleSplitAssignerPort,
+    TempDatasetPathProviderPort,
+)
 from models.dataset_source_type import DatasetSourceType
 from models.dataset_split import DatasetSplit
 
+LOGGER = logging.getLogger(__name__)
+_SUPPORTED_SOURCE_TYPES = {
+    DatasetSourceType.BOARD.value,
+    DatasetSourceType.DIGIT.value,
+}
+_SUPPORTED_SPLITS = {
+    DatasetSplit.TRAIN.value,
+    DatasetSplit.VAL.value,
+    DatasetSplit.TEST.value,
+}
+_DEFAULT_PREPROCESSING_PROFILE = "default-28x28-v1"
+
 
 @dataclass(frozen=True)
-class ResolvedDatasetSourceDto:
-    name: str
-    requested_type: str
-    detected_type: str
-    path: Path
-    images_path: Path | None
-    labels_path: Path | None
-
-
-class DatasetSourceResolver(Protocol):
-    def resolve(self, source_name: str, requested_type: str) -> object: ...
-
-
-class BoardDatasetScanner(Protocol):
-    def scan_pairs(self, source_directory: Path) -> tuple[BoardDatasetPair, ...]: ...
-
-
-class BoardDatParser(Protocol):
-    def parse(self, dat_file_path: Path) -> BoardGridLabel: ...
-
-
-class IdxDatasetLoader(Protocol):
-    def load(
-        self, images_path: Path, labels_path: Path
-    ) -> tuple[DigitDatasetRecord, ...]: ...
-
-
-class SampleSplitAssigner(Protocol):
-    def assign_split(
-        self, split_policy: DatasetSplitPolicyDto, stable_key: str
-    ) -> DatasetSplit: ...
-
-
-class CellPreprocessingPipeline(Protocol):
-    def run(self, cell_image: NDArray[np.uint8]) -> NDArray[np.float32]: ...
-
-
-class NpzDatasetArtifactWriter(Protocol):
-    def write(
-        self,
-        output_path: Path,
-        x_train: NDArray[np.float32],
-        y_train: NDArray[np.int64],
-        x_val: NDArray[np.float32],
-        y_val: NDArray[np.int64],
-        x_test: NDArray[np.float32],
-        y_test: NDArray[np.int64],
-    ) -> None: ...
-
-
-class TempDatasetPathProvider(Protocol):
-    def for_name(self, dataset_name: str) -> Path: ...
-
-
-class PreparationReportBuilder(Protocol):
-    def build_source_report(
-        self,
-        name: str,
-        requested_type: str,
-        detected_type: str,
-        processed_sample_count: int,
-        included_sample_count: int,
-        empty_cell_count: int,
-        rejected_sample_count: int,
-        warnings: list[str] | tuple[str, ...],
-    ) -> PreparedDatasetSourceReportDto: ...
-
-
-class GrayscaleBlurPreprocessor(Protocol):
-    def preprocess(self, image: NDArray[np.uint8]) -> NDArray[np.uint8]: ...
-
-
-class AdaptiveThresholdBinarizer(Protocol):
-    def binarize(self, image: NDArray[np.uint8]) -> NDArray[np.uint8]: ...
-
-
-class BoardQuadDetector(Protocol):
-    def detect(self, image: NDArray[np.uint8]) -> object: ...
-
-
-class PerspectiveTransformer(Protocol):
-    def transform(
-        self, image: NDArray[np.uint8], board_quad: object
-    ) -> NDArray[np.uint8]: ...
-
-
-class BoardCellsExtractor(Protocol):
-    def extract(self, board_image: NDArray[np.uint8]) -> CellsGrid: ...
+class _PreparedSourceResult:
+    samples: tuple[CanonicalPreparedSampleDto, ...]
+    report: PreparedDatasetSourceReportDto
 
 
 class PrepareDatasetArtifactCommandHandler:
     def __init__(
         self,
-        dataset_source_resolver: DatasetSourceResolver,
-        board_dataset_scanner: BoardDatasetScanner,
-        board_dat_parser: BoardDatParser,
-        idx_dataset_loader: IdxDatasetLoader,
-        sample_split_assigner: SampleSplitAssigner,
-        cell_preprocessing_pipeline: CellPreprocessingPipeline,
-        npz_dataset_artifact_writer: NpzDatasetArtifactWriter,
-        temp_dataset_path_provider: TempDatasetPathProvider,
-        preparation_report_builder: PreparationReportBuilder,
-        grayscale_blur_preprocessor: GrayscaleBlurPreprocessor,
-        adaptive_threshold_binarizer: AdaptiveThresholdBinarizer,
-        board_quad_detector: BoardQuadDetector,
-        perspective_transformer: PerspectiveTransformer,
-        board_cells_extractor: BoardCellsExtractor,
+        source_reader: DatasetPreparationSourceReaderPort,
+        manifest_reader: DatasetPreparationManifestReaderPort,
+        image_reader: DatasetPreparationImageReaderPort,
+        sample_split_assigner: SampleSplitAssignerPort,
+        npz_dataset_artifact_writer: NpzDatasetArtifactWriterPort,
+        temp_dataset_path_provider: TempDatasetPathProviderPort,
+        artifact_cleanup: ProcessedDatasetArtifactCleanupPort,
+        preparation_report_builder: PreparationReportBuilderPort,
     ) -> None:
-        self._dataset_source_resolver = dataset_source_resolver
-        self._board_dataset_scanner = board_dataset_scanner
-        self._board_dat_parser = board_dat_parser
-        self._idx_dataset_loader = idx_dataset_loader
+        self._source_reader = source_reader
+        self._manifest_reader = manifest_reader
+        self._image_reader = image_reader
         self._sample_split_assigner = sample_split_assigner
-        self._cell_preprocessing_pipeline = cell_preprocessing_pipeline
         self._npz_dataset_artifact_writer = npz_dataset_artifact_writer
         self._temp_dataset_path_provider = temp_dataset_path_provider
+        self._artifact_cleanup = artifact_cleanup
         self._preparation_report_builder = preparation_report_builder
-        self._grayscale_blur_preprocessor = grayscale_blur_preprocessor
-        self._adaptive_threshold_binarizer = adaptive_threshold_binarizer
-        self._board_quad_detector = board_quad_detector
-        self._perspective_transformer = perspective_transformer
-        self._board_cells_extractor = board_cells_extractor
 
     def handle(
-        self, command: PrepareDatasetArtifactCommand
+        self,
+        command: PrepareDatasetArtifactCommand,
     ) -> PrepareDatasetArtifactCommandResultDto:
         self._validate_command(command)
 
         all_samples: list[CanonicalPreparedSampleDto] = []
         source_reports: list[PreparedDatasetSourceReportDto] = []
-        global_warnings: list[str] = []
+        warnings: list[str] = []
+        target_path = self._temp_dataset_path_provider.for_name(command.dataset_name)
+        LOGGER.info(
+            "Dataset preparation started: preparation=%s dataset=%s source_count=%s target_path=%s",
+            command.preparation_name,
+            command.dataset_name,
+            len(command.sources),
+            target_path,
+        )
 
-        for source in command.sources:
-            resolved_source = self._resolve_source(
-                source_name=source.name,
-                requested_type=source.type,
-            )
-            if resolved_source.detected_type != source.type:
+        try:
+            for source in command.sources:
+                LOGGER.info(
+                    "Preparing dataset source: preparation=%s dataset=%s source=%s type=%s",
+                    command.preparation_name,
+                    command.dataset_name,
+                    source.name,
+                    source.type,
+                )
+                source_type = DatasetSourceType(source.type.strip().lower())
+                source_root = self._source_reader.resolve_source_root(
+                    preparation_name=command.preparation_name,
+                    source_name=source.name,
+                    source_type=source_type,
+                )
+                if source_type == DatasetSourceType.BOARD:
+                    source_result = self._prepare_board_source(
+                        source=source,
+                        source_root=source_root,
+                        split_policy=command.split_policy,
+                    )
+                else:
+                    source_result = self._prepare_digit_source(
+                        source=source,
+                        source_root=source_root,
+                        split_policy=command.split_policy,
+                    )
+
+                all_samples.extend(source_result.samples)
+                source_reports.append(source_result.report)
+                warnings.extend(source_result.report.warnings)
+                LOGGER.info(
+                    "Dataset source prepared: dataset=%s source=%s included_samples=%s rejected_samples=%s",
+                    command.dataset_name,
+                    source.name,
+                    source_result.report.included_sample_count,
+                    source_result.report.rejected_sample_count,
+                )
+
+            if not all_samples:
                 raise PrepareDatasetArtifactCommandError(
-                    error_type="raw_dataset_type_mismatch",
+                    error_type="no_samples_prepared",
                     message=(
-                        f"Źródło {source.name} zostało wykryte jako "
-                        f"{resolved_source.detected_type} i nie pasuje "
-                        f"do deklaracji {source.type}."
+                        "Po złożeniu datasetu nie pozostały żadne próbki nadzorowane."
                     ),
                 )
 
-            if resolved_source.detected_type == "board":
-                prepared, source_report = self._prepare_board_source(
-                    source_name=source.name,
-                    split_policy=source.split_policy,
-                    source_path=resolved_source.path,
+            split_arrays = self._build_split_arrays(all_samples)
+            try:
+                self._npz_dataset_artifact_writer.write(
+                    output_path=target_path,
+                    x_train=split_arrays["x_train"],
+                    y_train=split_arrays["y_train"],
+                    x_val=split_arrays["x_val"],
+                    y_val=split_arrays["y_val"],
+                    x_test=split_arrays["x_test"],
+                    y_test=split_arrays["y_test"],
+                    class_names=self._build_class_names(),
                 )
-            else:
-                prepared, source_report = self._prepare_digit_source(
-                    source_name=source.name,
-                    split_policy=source.split_policy,
-                    images_path=resolved_source.images_path,
-                    labels_path=resolved_source.labels_path,
-                )
-
-            all_samples.extend(prepared)
-            source_reports.append(source_report)
-            global_warnings.extend(source_report.warnings)
-
-        supervised_samples = [sample for sample in all_samples if sample.label is not None]
-        if not supervised_samples:
-            raise PrepareDatasetArtifactCommandError(
-                error_type="no_samples_prepared",
-                message="Nie przygotowano żadnych próbek nadzorowanych.",
+            except OSError as error:
+                raise PrepareDatasetArtifactCommandError(
+                    error_type="dataset_artifact_write_failed",
+                    message="Nie udało się zapisać artefaktu datasetu.",
+                ) from error
+        except Exception as error:
+            LOGGER.exception(
+                "Dataset preparation failed: preparation=%s dataset=%s error_type=%s",
+                command.preparation_name,
+                command.dataset_name,
+                getattr(error, "error_type", type(error).__name__),
             )
-
-        split_arrays = self._build_split_arrays(supervised_samples)
-        target_path = self._temp_dataset_path_provider.for_name(command.dataset_name)
-        try:
-            self._npz_dataset_artifact_writer.write(
-                output_path=target_path,
-                x_train=split_arrays["x_train"],
-                y_train=split_arrays["y_train"],
-                x_val=split_arrays["x_val"],
-                y_val=split_arrays["y_val"],
-                x_test=split_arrays["x_test"],
-                y_test=split_arrays["y_test"],
-            )
-        except OSError as error:
-            raise PrepareDatasetArtifactCommandError(
-                error_type="dataset_artifact_write_failed",
-                message="Nie udało się zapisać artefaktu datasetu.",
-            ) from error
+            self._cleanup_partial_artifact(target_path)
+            raise
 
         sample_counts = SplitSampleCountsDto(
             train=int(split_arrays["x_train"].shape[0]),
             val=int(split_arrays["x_val"].shape[0]),
             test=int(split_arrays["x_test"].shape[0]),
         )
-
+        LOGGER.info(
+            "Dataset preparation succeeded: dataset=%s train=%s val=%s test=%s",
+            command.dataset_name,
+            sample_counts.train,
+            sample_counts.val,
+            sample_counts.test,
+        )
         return PrepareDatasetArtifactCommandResultDto(
+            dataset_name=command.dataset_name,
+            file_name=f"{command.dataset_name}.npz",
+            preprocessing_profile=_DEFAULT_PREPROCESSING_PROFILE,
             sample_counts=sample_counts,
             sources=tuple(source_reports),
-            warnings=tuple(global_warnings),
+            warnings=tuple(warnings),
         )
 
     def _validate_command(self, command: PrepareDatasetArtifactCommand) -> None:
-        if not command.dataset_name.strip():
+        if not self._is_valid_path_component(command.preparation_name):
             raise PrepareDatasetArtifactCommandError(
                 error_type="invalid_request",
-                message="Pole datasetName jest wymagane.",
+                message=(
+                    "Pole preparationName jest wymagane i musi być poprawną nazwą katalogu."
+                ),
+            )
+        if not self._is_valid_path_component(command.dataset_name):
+            raise PrepareDatasetArtifactCommandError(
+                error_type="invalid_request",
+                message=(
+                    "Pole datasetName jest wymagane i musi być poprawną nazwą pliku."
+                ),
             )
         if not command.sources:
             raise PrepareDatasetArtifactCommandError(
                 error_type="invalid_request",
                 message="Pole sources musi zawierać co najmniej jedno źródło.",
             )
-        if command.preprocessing_profile != "default-28x28-v1":
-            raise UnsupportedPreprocessingProfileError(
-                command.preprocessing_profile
-            )
 
-    def _resolve_source(
-        self, source_name: str, requested_type: str
-    ) -> ResolvedDatasetSourceDto:
-        try:
-            resolved_source = self._dataset_source_resolver.resolve(
-                source_name=source_name,
-                requested_type=requested_type,
-            )
-        except ValueError as error:
+        self._validate_split_policy(command.split_policy)
+
+        seen_sources: set[tuple[str, str]] = set()
+        for source in command.sources:
+            normalized_type = source.type.strip().lower()
+            if normalized_type not in _SUPPORTED_SOURCE_TYPES:
+                raise PrepareDatasetArtifactCommandError(
+                    error_type="invalid_request",
+                    message=f"Typ źródła {source.type} nie jest obsługiwany.",
+                )
+            if not self._is_valid_path_component(source.name):
+                raise PrepareDatasetArtifactCommandError(
+                    error_type="invalid_request",
+                    message=(
+                        "Każde źródło musi zawierać poprawną nazwę bez separatorów ścieżek."
+                    ),
+                )
+            self._normalize_source_splits(source.splits)
+            source_key = (source.name, normalized_type)
+            if source_key in seen_sources:
+                raise PrepareDatasetArtifactCommandError(
+                    error_type="invalid_request",
+                    message="Lista sources zawiera duplikaty.",
+                )
+            seen_sources.add(source_key)
+
+    def _validate_split_policy(self, split_policy: DatasetSplitPolicyDto) -> None:
+        if split_policy.mode.strip().lower() != "ratio":
             raise PrepareDatasetArtifactCommandError(
-                error_type="raw_dataset_not_found",
-                message=str(error),
-            ) from error
+                error_type="invalid_request",
+                message="Pole splitPolicy.mode musi mieć wartość ratio.",
+            )
+        if split_policy.group_by.strip() != "sourceType":
+            raise PrepareDatasetArtifactCommandError(
+                error_type="invalid_request",
+                message=(
+                    "Pole splitPolicy.groupBy musi mieć wartość sourceType."
+                ),
+            )
 
-        return ResolvedDatasetSourceDto(
-            name=source_name,
-            requested_type=requested_type,
-            detected_type=resolved_source.detected_type,
-            path=resolved_source.path,
-            images_path=resolved_source.images_path,
-            labels_path=resolved_source.labels_path,
-        )
+        ratios = split_policy.ratios
+        if min(ratios.train, ratios.val, ratios.test) < 0:
+            raise PrepareDatasetArtifactCommandError(
+                error_type="invalid_request",
+                message="Pola splitPolicy.ratios nie mogą być ujemne.",
+            )
+
+        total = ratios.train + ratios.val + ratios.test
+        if not np.isclose(total, 1.0, atol=1e-6):
+            raise PrepareDatasetArtifactCommandError(
+                error_type="invalid_request",
+                message="Suma splitPolicy.ratios musi wynosić 1.0.",
+            )
 
     def _prepare_board_source(
         self,
-        source_name: str,
+        source: PrepareDatasetSourceDto,
+        source_root: Path,
         split_policy: DatasetSplitPolicyDto,
-        source_path: Path,
-    ) -> tuple[list[CanonicalPreparedSampleDto], PreparedDatasetSourceReportDto]:
-        try:
-            board_pairs = self._board_dataset_scanner.scan_pairs(source_path)
-        except ValueError as error:
-            raise PrepareDatasetArtifactCommandError(
-                error_type="dataset_source_invalid",
-                message=str(error),
-            ) from error
-
+    ) -> _PreparedSourceResult:
+        board_manifest = self._manifest_reader.read_board_manifest(source_root)
         prepared_samples: list[CanonicalPreparedSampleDto] = []
-        rejected_sample_count = 0
+        warnings: list[str] = []
+        processed_sample_count = 0
+        included_sample_count = 0
         empty_cell_count = 0
-        source_warnings: list[str] = []
+        rejected_sample_count = 0
 
-        for board_pair in board_pairs:
-            split = self._sample_split_assigner.assign_split(
+        for board_folder_name in board_manifest.board_folder_names:
+            board_root = source_root / board_folder_name
+            split = self._resolve_split(
+                stable_key=board_folder_name,
+                allowed_splits=source.splits,
                 split_policy=split_policy,
-                stable_key=board_pair.group_key,
             )
-            try:
-                board_grid_label = self._board_dat_parser.parse(
-                    board_pair.label_path
-                )
-                board_image = self._load_board_image(board_pair.image_path)
-                board_cells = self._extract_board_cells(board_image)
-            except (ValueError, OSError) as error:
-                rejected_sample_count += 81
-                source_warnings.append(
-                    f"Pominięto planszę {board_pair.board_name}: {error}."
-                )
-                continue
+            index_entries = self._manifest_reader.read_board_cells_index(board_root)
+            processed_sample_count += 81
+            empty_cell_count += 81 - len(index_entries)
 
-            flattened_labels = board_grid_label.flatten()
-            for cell_index, cell_image in enumerate(board_cells):
-                raw_label = flattened_labels[cell_index]
-                normalized_label = None if raw_label == 0 else raw_label
-                if normalized_label is None:
-                    empty_cell_count += 1
-
+            for cell_index, index_entry in enumerate(index_entries):
                 try:
-                    processed_image = self._cell_preprocessing_pipeline.run(
-                        cell_image
+                    image = self._image_reader.read_board_cell(
+                        board_root=board_root,
+                        file_name=index_entry.file_name,
                     )
-                except ValueError:
+                except DatasetSourceInvalidError as error:
                     rejected_sample_count += 1
+                    warning_message = (
+                        f"Pominięto komórkę {index_entry.file_name} "
+                        f"w planszy {board_folder_name}: {error.message}"
+                    )
+                    warnings.append(warning_message)
+                    LOGGER.warning(
+                        "Board cell skipped: source=%s board=%s file=%s message=%s",
+                        source.name,
+                        board_folder_name,
+                        index_entry.file_name,
+                        error.message,
+                    )
                     continue
 
                 prepared_samples.append(
                     CanonicalPreparedSampleDto(
                         split=split.value,
-                        label=normalized_label,
-                        source_type=DatasetSourceType.BOARD_DERIVED.value,
-                        source_dataset_name=source_name,
-                        source_board_name=board_pair.board_name,
+                        label=self._normalize_label(index_entry.label),
+                        source_type=DatasetSourceType.BOARD.value,
+                        source_dataset_name=source.name,
+                        source_board_name=board_folder_name,
+                        source_sample_key=index_entry.file_name,
                         cell_index=cell_index,
-                        image_28x28=processed_image,
+                        image_28x28=self._to_training_image(image),
                     )
                 )
+                included_sample_count += 1
 
-        source_report = self._preparation_report_builder.build_source_report(
-            name=source_name,
-            requested_type="board",
-            detected_type="board",
-            processed_sample_count=len(prepared_samples) + rejected_sample_count,
-            included_sample_count=sum(
-                1 for sample in prepared_samples if sample.label is not None
+        return _PreparedSourceResult(
+            samples=tuple(prepared_samples),
+            report=self._preparation_report_builder.build_source_report(
+                name=source.name,
+                requested_type=DatasetSourceType.BOARD.value,
+                detected_type=DatasetSourceType.BOARD.value,
+                processed_sample_count=processed_sample_count,
+                included_sample_count=included_sample_count,
+                empty_cell_count=empty_cell_count,
+                rejected_sample_count=rejected_sample_count,
+                warnings=warnings,
             ),
-            empty_cell_count=empty_cell_count,
-            rejected_sample_count=rejected_sample_count,
-            warnings=source_warnings,
         )
-        return prepared_samples, source_report
 
     def _prepare_digit_source(
         self,
-        source_name: str,
+        source: PrepareDatasetSourceDto,
+        source_root: Path,
         split_policy: DatasetSplitPolicyDto,
-        images_path: Path | None,
-        labels_path: Path | None,
-    ) -> tuple[list[CanonicalPreparedSampleDto], PreparedDatasetSourceReportDto]:
-        if images_path is None or labels_path is None:
-            raise PrepareDatasetArtifactCommandError(
-                error_type="dataset_source_invalid",
-                message=f"Źródło {source_name} nie zawiera kompletnej pary IDX.",
-            )
-
-        try:
-            records = self._idx_dataset_loader.load(images_path, labels_path)
-        except ValueError as error:
-            raise PrepareDatasetArtifactCommandError(
-                error_type="dataset_source_invalid",
-                message=str(error),
-            ) from error
-
+    ) -> _PreparedSourceResult:
+        index_entries = self._manifest_reader.read_digit_index(source_root)
         prepared_samples: list[CanonicalPreparedSampleDto] = []
+        warnings: list[str] = []
+        processed_sample_count = len(index_entries)
+        included_sample_count = 0
         rejected_sample_count = 0
-        for record in records:
-            split = self._sample_split_assigner.assign_split(
+
+        for index_entry in index_entries:
+            split = self._resolve_split(
+                stable_key=index_entry.file_name,
+                allowed_splits=source.splits,
                 split_policy=split_policy,
-                stable_key=record.sample_key,
             )
             try:
-                processed_image = self._cell_preprocessing_pipeline.run(
-                    record.image
+                image = self._image_reader.read_digit_sample(
+                    source_root=source_root,
+                    file_name=index_entry.file_name,
                 )
-            except ValueError:
+            except DatasetSourceInvalidError as error:
                 rejected_sample_count += 1
+                warning_message = (
+                    f"Pominięto próbkę {index_entry.file_name} "
+                    f"w źródle {source.name}: {error.message}"
+                )
+                warnings.append(warning_message)
+                LOGGER.warning(
+                    "Digit sample skipped: source=%s file=%s message=%s",
+                    source.name,
+                    index_entry.file_name,
+                    error.message,
+                )
                 continue
 
             prepared_samples.append(
                 CanonicalPreparedSampleDto(
                     split=split.value,
-                    label=record.label,
+                    label=self._normalize_label(index_entry.label),
                     source_type=DatasetSourceType.DIGIT.value,
-                    source_dataset_name=source_name,
+                    source_dataset_name=source.name,
                     source_board_name=None,
+                    source_sample_key=index_entry.file_name,
                     cell_index=None,
-                    image_28x28=processed_image,
+                    image_28x28=self._to_training_image(image),
                 )
             )
+            included_sample_count += 1
 
-        source_report = self._preparation_report_builder.build_source_report(
-            name=source_name,
-            requested_type="digit",
-            detected_type="digit",
-            processed_sample_count=len(prepared_samples) + rejected_sample_count,
-            included_sample_count=len(prepared_samples),
-            empty_cell_count=0,
-            rejected_sample_count=rejected_sample_count,
-            warnings=[],
+        return _PreparedSourceResult(
+            samples=tuple(prepared_samples),
+            report=self._preparation_report_builder.build_source_report(
+                name=source.name,
+                requested_type=DatasetSourceType.DIGIT.value,
+                detected_type=DatasetSourceType.DIGIT.value,
+                processed_sample_count=processed_sample_count,
+                included_sample_count=included_sample_count,
+                empty_cell_count=0,
+                rejected_sample_count=rejected_sample_count,
+                warnings=warnings,
+            ),
         )
-        return prepared_samples, source_report
 
-    def _load_board_image(self, image_path: Path) -> NDArray[np.uint8]:
-        board_image = cv2.imread(str(image_path), cv2.IMREAD_COLOR)
-        if board_image is None:
-            raise ValueError(f"Nie udało się odczytać obrazu {image_path.name}.")
-        return board_image
+    def _resolve_split(
+        self,
+        stable_key: str,
+        allowed_splits: tuple[str, ...],
+        split_policy: DatasetSplitPolicyDto,
+    ) -> DatasetSplit:
+        normalized_splits = self._normalize_source_splits(allowed_splits)
+        if normalized_splits == ("mix",):
+            return self._sample_split_assigner.assign_split(
+                split_policy=split_policy,
+                stable_key=stable_key,
+            )
 
-    def _extract_board_cells(
-        self, board_image: NDArray[np.uint8]
-    ) -> tuple[NDArray[np.uint8], ...]:
-        preprocessed = self._grayscale_blur_preprocessor.preprocess(board_image)
-        binary = self._adaptive_threshold_binarizer.binarize(preprocessed)
-        board_quad = self._board_quad_detector.detect(binary)
-        corrected_board = self._perspective_transformer.transform(
-            board_image, board_quad
+        explicit_splits = tuple(
+            DatasetSplit(split_name) for split_name in normalized_splits
         )
-        cells_grid = self._board_cells_extractor.extract(corrected_board)
-        cells_grid.validate_dimensions(expected_rows=9, expected_cols=9)
+        if len(explicit_splits) == 1:
+            return explicit_splits[0]
 
-        flattened_cells: list[NDArray[np.uint8]] = []
-        for row in cells_grid.cells:
-            flattened_cells.extend(row)
-        return tuple(flattened_cells)
+        effective_policy = self._build_subset_split_policy(
+            split_policy=split_policy,
+            allowed_splits=explicit_splits,
+        )
+        return self._sample_split_assigner.assign_split(
+            split_policy=effective_policy,
+            stable_key=stable_key,
+        )
+
+    def _normalize_source_splits(
+        self,
+        splits: tuple[str, ...] | list[str],
+    ) -> tuple[str, ...]:
+        normalized = tuple(split.strip().lower() for split in splits)
+        if not normalized or any(not split for split in normalized):
+            raise PrepareDatasetArtifactCommandError(
+                error_type="invalid_request",
+                message="Pole sources[].splits musi zawierać co najmniej jedną wartość.",
+            )
+        if "mix" in normalized:
+            if normalized != ("mix",):
+                raise PrepareDatasetArtifactCommandError(
+                    error_type="invalid_request",
+                    message=(
+                        "Wartość mix nie może występować razem z innymi splitami."
+                    ),
+                )
+            return normalized
+        if any(split not in _SUPPORTED_SPLITS for split in normalized):
+            raise PrepareDatasetArtifactCommandError(
+                error_type="invalid_request",
+                message="Pole sources[].splits zawiera nieobsługiwane wartości.",
+            )
+        if len(set(normalized)) != len(normalized):
+            raise PrepareDatasetArtifactCommandError(
+                error_type="invalid_request",
+                message="Pole sources[].splits zawiera duplikaty.",
+            )
+        return normalized
+
+    def _build_subset_split_policy(
+        self,
+        split_policy: DatasetSplitPolicyDto,
+        allowed_splits: tuple[DatasetSplit, ...],
+    ) -> DatasetSplitPolicyDto:
+        weights = {
+            DatasetSplit.TRAIN: split_policy.ratios.train,
+            DatasetSplit.VAL: split_policy.ratios.val,
+            DatasetSplit.TEST: split_policy.ratios.test,
+        }
+        total = sum(weights[split_name] for split_name in allowed_splits)
+        if total <= 0:
+            raise PrepareDatasetArtifactCommandError(
+                error_type="invalid_request",
+                message=(
+                    "Nie można wyznaczyć splitu dla wybranych sources[].splits przy zerowych ratio."
+                ),
+            )
+
+        return DatasetSplitPolicyDto(
+            mode=split_policy.mode,
+            group_by=split_policy.group_by,
+            ratios=SplitRatiosDto(
+                train=(
+                    weights.get(DatasetSplit.TRAIN, 0.0) / total
+                    if DatasetSplit.TRAIN in allowed_splits
+                    else 0.0
+                ),
+                val=(
+                    weights.get(DatasetSplit.VAL, 0.0) / total
+                    if DatasetSplit.VAL in allowed_splits
+                    else 0.0
+                ),
+                test=(
+                    weights.get(DatasetSplit.TEST, 0.0) / total
+                    if DatasetSplit.TEST in allowed_splits
+                    else 0.0
+                ),
+            ),
+        )
 
     def _build_split_arrays(
-        self, supervised_samples: list[CanonicalPreparedSampleDto]
+        self,
+        samples: list[CanonicalPreparedSampleDto],
     ) -> dict[str, NDArray[np.float32] | NDArray[np.int64]]:
         by_split: dict[str, list[CanonicalPreparedSampleDto]] = {
             DatasetSplit.TRAIN.value: [],
             DatasetSplit.VAL.value: [],
             DatasetSplit.TEST.value: [],
         }
-
-        for sample in supervised_samples:
-            if sample.split not in by_split:
-                continue
+        for sample in samples:
             by_split[sample.split].append(sample)
 
         return {
@@ -463,17 +536,46 @@ class PrepareDatasetArtifactCommandHandler:
         }
 
     def _build_images_array(
-        self, samples: list[CanonicalPreparedSampleDto]
+        self,
+        samples: list[CanonicalPreparedSampleDto],
     ) -> NDArray[np.float32]:
         if not samples:
             return np.empty((0, 28, 28), dtype=np.float32)
-        images = [sample.image_28x28 for sample in samples]
-        return np.stack(images).astype(np.float32)
+        return np.stack([sample.image_28x28 for sample in samples]).astype(
+            np.float32
+        )
 
     def _build_labels_array(
-        self, samples: list[CanonicalPreparedSampleDto]
+        self,
+        samples: list[CanonicalPreparedSampleDto],
     ) -> NDArray[np.int64]:
         if not samples:
             return np.empty((0,), dtype=np.int64)
-        labels = [int(sample.label) for sample in samples if sample.label is not None]
-        return np.array(labels, dtype=np.int64)
+        return np.array([int(sample.label) for sample in samples], dtype=np.int64)
+
+    def _build_class_names(self) -> tuple[str, ...]:
+        return tuple(str(digit) for digit in range(1, 10))
+
+    def _to_training_image(self, image: NDArray[np.uint8]) -> NDArray[np.float32]:
+        return image.astype(np.float32) / 255.0
+
+    def _normalize_label(self, label: int) -> int:
+        return label - 1
+
+    def _cleanup_partial_artifact(
+        self,
+        dataset_artifact_path: Path | None,
+    ) -> None:
+        try:
+            self._artifact_cleanup.cleanup(dataset_artifact_path)
+        except OSError:
+            LOGGER.warning(
+                "Nie udało się wyczyścić częściowego artefaktu datasetu.",
+                extra={"datasetArtifactPath": str(dataset_artifact_path)},
+            )
+
+    def _is_valid_path_component(self, value: str) -> bool:
+        stripped_value = value.strip()
+        if not stripped_value or stripped_value in {".", ".."}:
+            return False
+        return "/" not in stripped_value and "\\" not in stripped_value

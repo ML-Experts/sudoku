@@ -14,17 +14,26 @@ class NpzDatasetArtifactWriter:
         y_val: NDArray[np.int64],
         x_test: NDArray[np.float32],
         y_test: NDArray[np.int64],
+        class_names: tuple[str, ...],
     ) -> None:
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        np.savez_compressed(
-            output_path,
-            x_train=x_train,
-            y_train=y_train,
-            x_val=x_val,
-            y_val=y_val,
-            x_test=x_test,
-            y_test=y_test,
-            class_names=np.array(
-                ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
-            ),
+        temporary_path = output_path.with_suffix(f"{output_path.suffix}.tmp")
+        saved_temp_path = temporary_path.with_suffix(
+            f"{temporary_path.suffix}.npz"
         )
+        try:
+            np.savez_compressed(
+                temporary_path,
+                x_train=x_train,
+                y_train=y_train,
+                x_val=x_val,
+                y_val=y_val,
+                x_test=x_test,
+                y_test=y_test,
+                class_names=np.array(class_names),
+            )
+            saved_temp_path.replace(output_path)
+        except Exception:
+            if saved_temp_path.exists():
+                saved_temp_path.unlink()
+            raise

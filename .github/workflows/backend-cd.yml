@@ -47,6 +47,7 @@ jobs:
       BE_ML_CELL_INFERENCE_PATH: ${{ vars.BE_ML_CELL_INFERENCE_PATH }}
       BE_ML_SUDOKU_OVERLAY_CELLS_PATH: ${{ vars.BE_ML_SUDOKU_OVERLAY_CELLS_PATH }}
       BE_ML_PREPARE_DATASET_PATH: ${{ vars.BE_ML_PREPARE_DATASET_PATH }}
+      BE_ML_DATASET_PREPARATIONS_PATH: ${{ vars.BE_ML_DATASET_PREPARATIONS_PATH }}
       BE_ML_TIMEOUT_SECONDS: ${{ vars.BE_ML_TIMEOUT_SECONDS }}
       BE_SUDOKU_CELLS_INFERENCE_MAX_INLINE_IMAGE_SIZE_BYTES: ${{ vars.BE_SUDOKU_CELLS_INFERENCE_MAX_INLINE_IMAGE_SIZE_BYTES }}
       BE_SUDOKU_CELLS_INFERENCE_PROFILE_NAME: ${{ vars.BE_SUDOKU_CELLS_INFERENCE_PROFILE_NAME }}
@@ -55,6 +56,7 @@ jobs:
       BE_RAW_DATASETS_DIGITS_SUBDIRECTORY: ${{ vars.BE_RAW_DATASETS_DIGITS_SUBDIRECTORY }}
       BE_DATASETS_PREP_BOARDS_SUBDIRECTORY: ${{ vars.BE_DATASETS_PREP_BOARDS_SUBDIRECTORY }}
       BE_DATASETS_PREP_DIGITS_SUBDIRECTORY: ${{ vars.BE_DATASETS_PREP_DIGITS_SUBDIRECTORY }}
+      BE_DATASETS_PREP_PREPARATIONS_DIRECTORY_PATH: ${{ vars.BE_DATASETS_PREP_PREPARATIONS_DIRECTORY_PATH }}
       BE_DATASETS_PREP_PROCESSED_DIRECTORY_PATH: ${{ vars.BE_DATASETS_PREP_PROCESSED_DIRECTORY_PATH }}
       BE_DATASETS_PREP_TEMPORARY_ARTIFACTS_DIRECTORY_PATH: ${{ vars.BE_DATASETS_PREP_TEMPORARY_ARTIFACTS_DIRECTORY_PATH }}
       BE_DATASETS_PREP_DEFAULT_PREPROCESSING_PROFILE: ${{ vars.BE_DATASETS_PREP_DEFAULT_PREPROCESSING_PROFILE }}
@@ -118,6 +120,11 @@ jobs:
             exit 1
           fi
 
+          if [ -z "$BE_ML_DATASET_PREPARATIONS_PATH" ]; then
+            echo "Missing BE_ML_DATASET_PREPARATIONS_PATH variable for the selected GitHub environment."
+            exit 1
+          fi
+
           if [ -z "$BE_ML_TIMEOUT_SECONDS" ]; then
             echo "Missing BE_ML_TIMEOUT_SECONDS variable for the selected GitHub environment."
             exit 1
@@ -155,6 +162,11 @@ jobs:
 
           if [ -z "$BE_DATASETS_PREP_DIGITS_SUBDIRECTORY" ]; then
             echo "Missing BE_DATASETS_PREP_DIGITS_SUBDIRECTORY variable for the selected GitHub environment."
+            exit 1
+          fi
+
+          if [ -z "$BE_DATASETS_PREP_PREPARATIONS_DIRECTORY_PATH" ]; then
+            echo "Missing BE_DATASETS_PREP_PREPARATIONS_DIRECTORY_PATH variable for the selected GitHub environment."
             exit 1
           fi
 
@@ -285,6 +297,7 @@ jobs:
               "BE_ML_CELL_INFERENCE_PATH",
               "BE_ML_SUDOKU_OVERLAY_CELLS_PATH",
               "BE_ML_PREPARE_DATASET_PATH",
+              "BE_ML_DATASET_PREPARATIONS_PATH",
               "BE_ML_TIMEOUT_SECONDS",
               "BE_SUDOKU_CELLS_INFERENCE_MAX_INLINE_IMAGE_SIZE_BYTES",
               "BE_SUDOKU_CELLS_INFERENCE_PROFILE_NAME",
@@ -293,6 +306,7 @@ jobs:
               "BE_RAW_DATASETS_DIGITS_SUBDIRECTORY",
               "BE_DATASETS_PREP_BOARDS_SUBDIRECTORY",
               "BE_DATASETS_PREP_DIGITS_SUBDIRECTORY",
+              "BE_DATASETS_PREP_PREPARATIONS_DIRECTORY_PATH",
               "BE_DATASETS_PREP_PROCESSED_DIRECTORY_PATH",
               "BE_DATASETS_PREP_TEMPORARY_ARTIFACTS_DIRECTORY_PATH",
               "BE_DATASETS_PREP_DEFAULT_PREPROCESSING_PROFILE",
@@ -371,6 +385,7 @@ jobs:
           ml_service["CellInferencePath"] = os.environ["BE_ML_CELL_INFERENCE_PATH"]
           ml_service["SudokuOverlayCellsPath"] = os.environ["BE_ML_SUDOKU_OVERLAY_CELLS_PATH"]
           ml_service["PrepareDatasetPath"] = os.environ["BE_ML_PREPARE_DATASET_PATH"]
+          ml_service["DatasetPreparationsPath"] = os.environ["BE_ML_DATASET_PREPARATIONS_PATH"]
           ml_service["StartTrainingPath"] = "/ml/trainings"
           ml_service["CancelTrainingPathTemplate"] = "/ml/trainings/{runName}/cancel"
           ml_service["TrainingEventsPathTemplate"] = "/internal/ml/trainings/{runName}/events"
@@ -390,6 +405,7 @@ jobs:
           datasets_preparation = config.setdefault("DatasetsPreparation", {})
           datasets_preparation["BoardsSubdirectory"] = os.environ["BE_DATASETS_PREP_BOARDS_SUBDIRECTORY"]
           datasets_preparation["DigitsSubdirectory"] = os.environ["BE_DATASETS_PREP_DIGITS_SUBDIRECTORY"]
+          datasets_preparation["PreparationsDirectoryPath"] = os.environ["BE_DATASETS_PREP_PREPARATIONS_DIRECTORY_PATH"]
           datasets_preparation["ProcessedDatasetsDirectoryPath"] = os.environ["BE_DATASETS_PREP_PROCESSED_DIRECTORY_PATH"]
           datasets_preparation["TemporaryArtifactsDirectoryPath"] = os.environ["BE_DATASETS_PREP_TEMPORARY_ARTIFACTS_DIRECTORY_PATH"]
           datasets_preparation["DefaultPreprocessingProfile"] = os.environ["BE_DATASETS_PREP_DEFAULT_PREPROCESSING_PROFILE"]
@@ -413,14 +429,6 @@ jobs:
 
           models_active_storage = config.setdefault("ModelsActiveStorage", {})
           models_active_storage["ActiveDirectoryPath"] = os.environ["BE_MODELS_ACTIVE_DIRECTORY_PATH"]
-
-          training_defaults = config.setdefault("TrainingDefaults", {})
-          training_defaults["RunNamePrefix"] = "train"
-          training_defaults["TrainingMode"] = "fineTuning"
-          training_defaults["TrainingProfileName"] = "cnn-default-v1"
-          training_defaults["AugmentationProfileName"] = "digits-light-v1"
-          training_defaults["BenchmarkName"] = "sudoku-benchmark-v1"
-          training_defaults["Seed"] = 1234
 
           admin_auth = config.setdefault("AdminAuth", {})
           admin_auth["SharedPassword"] = os.environ["BE_ADMIN_SHARED_PASSWORD"]

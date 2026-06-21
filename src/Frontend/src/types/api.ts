@@ -43,6 +43,8 @@ export type DigitInferenceApiEntry = {
   minComponentAreaRatio: number;
   lineArtifactMinSpanRatio: number;
   lineArtifactMaxThicknessRatio: number;
+  emptyCellMinSegmentLengthPx: number;
+  emptyCellFilteredSegmentCountThreshold: number;
 };
 
 export type SudokuCellInferenceParametersApiEntry = Pick<
@@ -53,6 +55,8 @@ export type SudokuCellInferenceParametersApiEntry = Pick<
   | "minComponentAreaRatio"
   | "lineArtifactMinSpanRatio"
   | "lineArtifactMaxThicknessRatio"
+  | "emptyCellMinSegmentLengthPx"
+  | "emptyCellFilteredSegmentCountThreshold"
 >;
 
 export type SolveSudokuApiEntry = {
@@ -106,15 +110,82 @@ export type RawDatasetCandidateApiResponse = {
   type: string;
 };
 
-export type SelectedRawDatasetSourceApiEntry = {
+export type CreateDatasetPreparationSourceApiEntry = {
+  name: string;
+  type: string;
+};
+
+export type CreateDatasetPreparationApiEntry = {
+  preparationName: string;
+  sources: CreateDatasetPreparationSourceApiEntry[];
+};
+
+export type DatasetPreparationSourceApiResponse = {
+  name: string;
+  type: string;
+  preparedItemsCount: number;
+};
+
+export type DatasetPreparationApiResponse = {
+  preparationName: string;
+  createdAtUtc: string;
+  status: string;
+  sources: DatasetPreparationSourceApiResponse[];
+  warnings: string[];
+};
+
+export type DatasetPreparationListItemApiResponse = {
+  preparationName: string;
+  createdAtUtc: string;
+  status: string;
+  boardSourcesCount: number;
+  digitSourcesCount: number;
+};
+
+export type DatasetPreparationsListApiResponse = {
+  items: DatasetPreparationListItemApiResponse[];
+  totalCount: number;
+};
+
+export type DatasetPreparationFoldersApiResponse = {
+  preparationName: string;
+  type: string;
+  items: string[];
+  totalCount: number;
+};
+
+export type DatasetPreparationBoardFileListItemApiResponse = {
+  boardFolderName: string;
+  imageEndpoint: string;
+};
+
+export type DatasetPreparationBoardFilesApiResponse = {
+  preparationName: string;
+  sourceName: string;
+  items: DatasetPreparationBoardFileListItemApiResponse[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+};
+
+export type DeleteDatasetPreparationBoardFileApiResponse = {
+  preparationName: string;
+  sourceName: string;
+  boardFolderName: string;
+  deleted: boolean;
+  remainingItemsCount: number;
+};
+
+export type SelectedPreparedDatasetSourceApiEntry = {
   name: string;
   type: string;
   splits: string[];
 };
 
 export type CreateProcessedDatasetApiEntry = {
+  preparationName: string;
   name: string;
-  sources: SelectedRawDatasetSourceApiEntry[];
+  sources: SelectedPreparedDatasetSourceApiEntry[];
 };
 
 export type SplitSampleCountsApiResponse = {
@@ -138,7 +209,7 @@ export type ProcessedDatasetApiResponse = {
   fileName: string;
   preprocessingProfile: string;
   createdAtUtc: string;
-  sources: SelectedRawDatasetSourceApiEntry[];
+  sources: SelectedPreparedDatasetSourceApiEntry[];
   sampleCounts: SplitSampleCountsApiResponse;
   sourceReports: ProcessedDatasetSourceReportApiResponse[];
   warnings: string[];

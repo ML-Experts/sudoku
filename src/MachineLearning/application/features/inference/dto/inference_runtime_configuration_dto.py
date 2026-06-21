@@ -10,4 +10,6 @@ class InferenceRuntimeConfigurationDto:
     min_component_area_ratio: float
     line_artifact_min_span_ratio: float
     line_artifact_max_thickness_ratio: float
+    empty_cell_min_segment_length_px: int
+    empty_cell_filtered_segment_count_threshold: int
 

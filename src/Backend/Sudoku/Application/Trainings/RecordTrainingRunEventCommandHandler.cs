@@ -271,9 +271,17 @@ public sealed class RecordTrainingRunEventCommandHandler
     {
         if (string.Equals(currentStatus, nextStatus, StringComparison.Ordinal)
             || string.Equals(currentStatus, TrainingRunStatus.Starting, StringComparison.Ordinal)
-                && nextStatus is TrainingRunStatus.Queued or TrainingRunStatus.Running
+                && nextStatus is TrainingRunStatus.Queued
+                    or TrainingRunStatus.Running
+                    or TrainingRunStatus.Succeeded
+                    or TrainingRunStatus.Failed
+                    or TrainingRunStatus.Cancelled
             || string.Equals(currentStatus, TrainingRunStatus.Queued, StringComparison.Ordinal)
-                && nextStatus is TrainingRunStatus.Running or TrainingRunStatus.Cancelling
+                && nextStatus is TrainingRunStatus.Running
+                    or TrainingRunStatus.Cancelling
+                    or TrainingRunStatus.Succeeded
+                    or TrainingRunStatus.Failed
+                    or TrainingRunStatus.Cancelled
             || string.Equals(currentStatus, TrainingRunStatus.Running, StringComparison.Ordinal)
                 && nextStatus is TrainingRunStatus.Cancelling
                     or TrainingRunStatus.Succeeded

@@ -3,7 +3,7 @@ import type { RecognitionProgress } from "../domain/recognitionProgress";
 import { RecognitionProgressPanel } from "./RecognitionProgressPanel";
 
 type Uc05aRecognitionPanelProps = {
-  selectedProcessName: string | null;
+  selectedSourceLabel: string | null;
   cellsGridAvailable: boolean;
   parameterOverrideCount: number;
   parametersValid: boolean;
@@ -19,7 +19,7 @@ type Uc05aRecognitionPanelProps = {
 };
 
 export function Uc05aRecognitionPanel({
-  selectedProcessName,
+  selectedSourceLabel,
   cellsGridAvailable,
   parameterOverrideCount,
   parametersValid,
@@ -33,13 +33,23 @@ export function Uc05aRecognitionPanel({
   onRetryRecognition,
   onCancelRecognition,
 }: Uc05aRecognitionPanelProps) {
+  const startButtonLabel =
+    state.status === "running"
+      ? "Trwa rozpoznawanie..."
+      : state.status === "completed" ||
+          state.status === "failed" ||
+          state.status === "cancelled"
+        ? "Start od nowa"
+        : "Start rozpoznania";
+
   return (
     <section className="result-card uc05a-section" aria-live="polite">
       <p className="eyebrow">UC-05A — Rozpoznanie pojedynczych komorek</p>
       <h2>Inferencja 81 komorek i budowa recognizedGrid</h2>
       <p className="muted-copy">
-        Frontend buduje lokalny `recognizedGrid` na podstawie siatki z `UC-04`
-        i wysyla pojedyncze komorki do <code>PUT /api/sudoku/cells/inference</code>.
+        Frontend buduje lokalny `recognizedGrid` na podstawie siatki komorek z
+        aktywnego obrazu i wysyla pojedyncze komorki do{" "}
+        <code>PUT /api/sudoku/cells/inference</code>.
       </p>
 
       <p className="muted-copy">
@@ -48,15 +58,15 @@ export function Uc05aRecognitionPanel({
           : "Biezace rozpoznanie wysle domyslny snapshot parametrow UC-14."}
       </p>
 
-      {selectedProcessName ? (
+      {selectedSourceLabel ? (
         <p className="muted-copy">
-          Aktywny przyklad: <code>{selectedProcessName}</code>
+          Aktywny obraz: <code>{selectedSourceLabel}</code>
         </p>
       ) : null}
 
       {!cellsGridAvailable ? (
         <p className="status-banner status-loading">
-          Najpierw zakoncz `UC-04`, aby uzyskac siatke komorek 9x9.
+          Najpierw zakoncz preprocessing obrazu, aby uzyskac siatke komorek 9x9.
         </p>
       ) : null}
 
@@ -74,7 +84,7 @@ export function Uc05aRecognitionPanel({
           disabled={!canStartRecognition}
           onClick={() => void onStartRecognition()}
         >
-          {state.status === "running" ? "Trwa rozpoznawanie..." : "Start rozpoznania"}
+          {startButtonLabel}
         </button>
         <button
           className="secondary-button"

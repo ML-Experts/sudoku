@@ -1,6 +1,5 @@
 import unittest
 
-import cv2
 import numpy as np
 from numpy.typing import NDArray
 
@@ -11,14 +10,7 @@ from application.features.preprocessing.commands.preprocess_board.preprocess_boa
     PreprocessBoardCommandError,
     PreprocessBoardCommandHandler,
 )
-from models.board_quad import BoardQuad
 from models.preprocessing_image import PreprocessingImage
-from infrastructure.vision.opencv_largest_contour_detector import (
-    OpenCvBoardEdgeDetector,
-)
-from infrastructure.vision.opencv_perspective_transformer import (
-    OpenCvPerspectiveTransformer,
-)
 
 
 class FakeImageCodec:
@@ -56,67 +48,41 @@ class RecordingImageCodec(FakeImageCodec):
         return super().encode_image(image, mime_type)
 
 
-class FakeGrayscaleBlurPreprocessor:
-    def preprocess(self, image: NDArray[np.uint8]) -> NDArray[np.uint8]:
-        return np.zeros((10, 10), dtype=np.uint8)
+class DistinctSourceImageCodec(FakeImageCodec):
+    def decode_image(self, image: PreprocessingImage) -> NDArray[np.uint8]:
+        return np.full((10, 10, 3), 7, dtype=np.uint8)
 
 
-class FakeAdaptiveThresholdBinarizer:
-    def binarize(self, image: NDArray[np.uint8]) -> NDArray[np.uint8]:
-        return np.ones((10, 10), dtype=np.uint8)
-
-
-class FakeBoardQuadDetector:
-    def detect(self, image: NDArray[np.uint8]) -> BoardQuad:
-        return BoardQuad(
-            top_left=(0.0, 0.0),
-            top_right=(10.0, 0.0),
-            bottom_right=(10.0, 10.0),
-            bottom_left=(0.0, 10.0),
+class FakeBoardPreprocessor:
+    def __init__(
+        self,
+        result: NDArray[np.uint8] | None = None,
+        error: Exception | None = None,
+    ) -> None:
+        self._result = (
+            result if result is not None else np.zeros((20, 20, 3), dtype=np.uint8)
         )
+        self._error = error
+        self.inputs: list[NDArray[np.uint8]] = []
+
+    def preprocess(self, image: NDArray[np.uint8]) -> NDArray[np.uint8]:
+        self.inputs.append(np.copy(image))
+        if self._error is not None:
+            raise self._error
+        return self._result
 
 
-class SequentialBoardQuadDetector:
-    def __init__(self, responses: list[object]) -> None:
-        self._responses = responses
-        self.calls = 0
-
-    def detect(self, image: NDArray[np.uint8]) -> BoardQuad:
-        self.calls += 1
-        response = self._responses[
-            min(self.calls - 1, len(self._responses) - 1)
-        ]
-        if isinstance(response, Exception):
-            raise response
-        return response
-
-
-class FakePerspectiveTransformer:
-    def transform(
-        self, image: NDArray[np.uint8], board_quad: BoardQuad
-    ) -> NDArray[np.uint8]:
-        return np.zeros((20, 20, 3), dtype=np.uint8)
-
-
-class TrackingPerspectiveTransformer:
-    def __init__(self) -> None:
-        self.calls = 0
-
-    def transform(
-        self, image: NDArray[np.uint8], board_quad: BoardQuad
-    ) -> NDArray[np.uint8]:
-        self.calls += 1
-        return np.full((20, 20, 3), self.calls, dtype=np.uint8)
+class FakeEngineError(Exception):
+    def __init__(self, error_type: str) -> None:
+        super().__init__(error_type)
+        self.error_type = error_type
 
 
 class PreprocessBoardCommandHandlerTests(unittest.TestCase):
     def test_handle_should_return_preprocessed_board_image(self) -> None:
         handler = PreprocessBoardCommandHandler(
             image_codec=FakeImageCodec(),
-            grayscale_blur_preprocessor=FakeGrayscaleBlurPreprocessor(),
-            adaptive_threshold_binarizer=FakeAdaptiveThresholdBinarizer(),
-            board_quad_detector=FakeBoardQuadDetector(),
-            perspective_transformer=FakePerspectiveTransformer(),
+            board_preprocessor=FakeBoardPreprocessor(),
             allowed_input_mime_types=("image/jpeg", "image/png"),
             output_mime_type="image/png",
         )
@@ -129,210 +95,124 @@ class PreprocessBoardCommandHandlerTests(unittest.TestCase):
         self.assertEqual(result.mime_type, "image/png")
         self.assertEqual(result.base64, "ZW5jb2RlZA==")
 
+    def test_handle_should_preprocess_source_image(self) -> None:
+        board_preprocessor = FakeBoardPreprocessor()
+        handler = PreprocessBoardCommandHandler(
+            image_codec=DistinctSourceImageCodec(),
+            board_preprocessor=board_preprocessor,
+            allowed_input_mime_types=("image/jpeg", "image/png"),
+            output_mime_type="image/png",
+        )
+
+        handler.handle(
+            PreprocessBoardCommand(
+                mime_type="image/jpeg",
+                base64_image="aW5wdXQ=",
+            )
+        )
+
+        self.assertEqual(len(board_preprocessor.inputs), 1)
+        self.assertEqual(board_preprocessor.inputs[0].shape, (10, 10, 3))
+        self.assertEqual(int(np.max(board_preprocessor.inputs[0])), 7)
+
     def test_handle_should_raise_error_for_not_allowed_mime_type(self) -> None:
         handler = PreprocessBoardCommandHandler(
             image_codec=FakeImageCodec(),
-            grayscale_blur_preprocessor=FakeGrayscaleBlurPreprocessor(),
-            adaptive_threshold_binarizer=FakeAdaptiveThresholdBinarizer(),
-            board_quad_detector=FakeBoardQuadDetector(),
-            perspective_transformer=FakePerspectiveTransformer(),
+            board_preprocessor=FakeBoardPreprocessor(),
             allowed_input_mime_types=("image/png",),
             output_mime_type="image/png",
         )
-        command = PreprocessBoardCommand(
-            mime_type="text/plain", base64_image="aW5wdXQ="
-        )
 
         with self.assertRaises(PreprocessBoardCommandError) as raised_error:
-            handler.handle(command)
+            handler.handle(
+                PreprocessBoardCommand(
+                    mime_type="text/plain",
+                    base64_image="aW5wdXQ=",
+                )
+            )
 
         self.assertEqual(raised_error.exception.error_type, "invalid_image_payload")
 
-    def test_handle_should_apply_single_refinement_pass_when_enabled(self) -> None:
-        image_codec = RecordingImageCodec()
-        board_quad = BoardQuad(
-            top_left=(0.0, 0.0),
-            top_right=(10.0, 0.0),
-            bottom_right=(10.0, 10.0),
-            bottom_left=(0.0, 10.0),
-        )
-        board_quad_detector = SequentialBoardQuadDetector(
-            [board_quad, board_quad]
-        )
-        perspective_transformer = TrackingPerspectiveTransformer()
+    def test_handle_should_map_board_not_found_error(self) -> None:
         handler = PreprocessBoardCommandHandler(
-            image_codec=image_codec,
-            grayscale_blur_preprocessor=FakeGrayscaleBlurPreprocessor(),
-            adaptive_threshold_binarizer=FakeAdaptiveThresholdBinarizer(),
-            board_quad_detector=board_quad_detector,
-            perspective_transformer=perspective_transformer,
+            image_codec=FakeImageCodec(),
+            board_preprocessor=FakeBoardPreprocessor(
+                error=FakeEngineError("board_not_found")
+            ),
             allowed_input_mime_types=("image/jpeg", "image/png"),
             output_mime_type="image/png",
-            board_refinement_passes=1,
-        )
-        command = PreprocessBoardCommand(
-            mime_type="image/jpeg", base64_image="aW5wdXQ="
         )
 
-        result = handler.handle(command)
+        with self.assertRaises(PreprocessBoardCommandError) as raised_error:
+            handler.handle(
+                PreprocessBoardCommand(
+                    mime_type="image/png",
+                    base64_image="aW5wdXQ=",
+                )
+            )
 
-        self.assertEqual(result.mime_type, "image/png")
-        self.assertEqual(board_quad_detector.calls, 2)
-        self.assertEqual(perspective_transformer.calls, 2)
-        self.assertEqual(int(np.max(image_codec.encoded_images[-1])), 2)
+        self.assertEqual(raised_error.exception.error_type, "board_not_found")
 
-    def test_handle_should_keep_first_pass_when_refinement_fails(self) -> None:
-        image_codec = RecordingImageCodec()
-        board_quad = BoardQuad(
-            top_left=(0.0, 0.0),
-            top_right=(10.0, 0.0),
-            bottom_right=(10.0, 10.0),
-            bottom_left=(0.0, 10.0),
-        )
-        board_quad_detector = SequentialBoardQuadDetector(
-            [board_quad, ValueError("No refined board found.")]
-        )
-        perspective_transformer = TrackingPerspectiveTransformer()
+    def test_handle_should_map_other_preprocessing_error(self) -> None:
         handler = PreprocessBoardCommandHandler(
-            image_codec=image_codec,
-            grayscale_blur_preprocessor=FakeGrayscaleBlurPreprocessor(),
-            adaptive_threshold_binarizer=FakeAdaptiveThresholdBinarizer(),
-            board_quad_detector=board_quad_detector,
-            perspective_transformer=perspective_transformer,
+            image_codec=FakeImageCodec(),
+            board_preprocessor=FakeBoardPreprocessor(
+                error=FakeEngineError("perspective_correction_failed")
+            ),
             allowed_input_mime_types=("image/jpeg", "image/png"),
             output_mime_type="image/png",
-            board_refinement_passes=1,
-        )
-        command = PreprocessBoardCommand(
-            mime_type="image/jpeg", base64_image="aW5wdXQ="
         )
 
-        result = handler.handle(command)
+        with self.assertRaises(PreprocessBoardCommandError) as raised_error:
+            handler.handle(
+                PreprocessBoardCommand(
+                    mime_type="image/png",
+                    base64_image="aW5wdXQ=",
+                )
+            )
 
-        self.assertEqual(result.mime_type, "image/png")
-        self.assertEqual(board_quad_detector.calls, 2)
-        self.assertEqual(perspective_transformer.calls, 1)
-        self.assertEqual(int(np.max(image_codec.encoded_images[-1])), 1)
+        self.assertEqual(
+            raised_error.exception.error_type,
+            "perspective_correction_failed",
+        )
 
     def test_handle_should_raise_error_for_invalid_base64_payload(self) -> None:
         handler = PreprocessBoardCommandHandler(
             image_codec=FakeImageCodec(should_fail_decode_base64=True),
-            grayscale_blur_preprocessor=FakeGrayscaleBlurPreprocessor(),
-            adaptive_threshold_binarizer=FakeAdaptiveThresholdBinarizer(),
-            board_quad_detector=FakeBoardQuadDetector(),
-            perspective_transformer=FakePerspectiveTransformer(),
+            board_preprocessor=FakeBoardPreprocessor(),
             allowed_input_mime_types=("image/jpeg", "image/png"),
             output_mime_type="image/png",
         )
-        command = PreprocessBoardCommand(
-            mime_type="image/png", base64_image="not-valid-base64"
-        )
 
         with self.assertRaises(PreprocessBoardCommandError) as raised_error:
-            handler.handle(command)
+            handler.handle(
+                PreprocessBoardCommand(
+                    mime_type="image/png",
+                    base64_image="not-valid-base64",
+                )
+            )
 
         self.assertEqual(raised_error.exception.error_type, "invalid_image_payload")
 
-
-class OpenCvBoardEdgeDetectorTests(unittest.TestCase):
-    def setUp(self) -> None:
-        self.detector = OpenCvBoardEdgeDetector(
-            canny_threshold_1=50,
-            canny_threshold_2=150,
-            hough_threshold=80,
-            min_line_length_ratio=0.2,
-            max_line_gap_ratio=0.04,
-            angle_tolerance_degrees=12.0,
-            outer_line_window_ratio=0.1,
-            minimum_board_area_ratio=0.1,
-            minimum_family_segments=4,
-            line_position_merge_distance_ratio=0.03,
-            minimum_distinct_lines_per_family=5,
+    def test_handle_should_encode_result_of_board_preprocessor(self) -> None:
+        image_codec = RecordingImageCodec()
+        handler = PreprocessBoardCommandHandler(
+            image_codec=image_codec,
+            board_preprocessor=FakeBoardPreprocessor(
+                result=np.full((12, 12, 3), 5, dtype=np.uint8)
+            ),
+            allowed_input_mime_types=("image/jpeg", "image/png"),
+            output_mime_type="image/png",
         )
 
-    def test_detect_should_return_outer_quad_for_sudoku_like_grid(self) -> None:
-        image = np.zeros((500, 700), dtype=np.uint8)
-        expected_corners = (
-            (150.0, 80.0),
-            (520.0, 120.0),
-            (560.0, 420.0),
-            (110.0, 390.0),
-        )
-
-        polygon = np.array(expected_corners, dtype=np.int32)
-        cv2.polylines(image, [polygon], True, 255, 3)
-
-        for fraction in np.linspace(0, 1, 10):
-            left_start = (1 - fraction) * polygon[0] + fraction * polygon[3]
-            left_end = (1 - fraction) * polygon[1] + fraction * polygon[2]
-            cv2.line(
-                image,
-                tuple(np.round(left_start).astype(int)),
-                tuple(np.round(left_end).astype(int)),
-                255,
-                1,
+        handler.handle(
+            PreprocessBoardCommand(
+                mime_type="image/jpeg",
+                base64_image="aW5wdXQ=",
             )
-
-            top_start = (1 - fraction) * polygon[0] + fraction * polygon[1]
-            top_end = (1 - fraction) * polygon[3] + fraction * polygon[2]
-            cv2.line(
-                image,
-                tuple(np.round(top_start).astype(int)),
-                tuple(np.round(top_end).astype(int)),
-                255,
-                1,
-            )
-
-        detected_quad = self.detector.detect(image)
-
-        for detected_point, expected_point in zip(
-            detected_quad.as_clockwise_points(),
-            expected_corners,
-        ):
-            self.assertAlmostEqual(detected_point[0], expected_point[0], delta=55.0)
-            self.assertAlmostEqual(detected_point[1], expected_point[1], delta=25.0)
-
-    def test_detect_should_reject_plain_rectangle_without_grid(self) -> None:
-        image = np.zeros((300, 500), dtype=np.uint8)
-        cv2.rectangle(image, (50, 50), (450, 250), 255, 3)
-
-        with self.assertRaises(ValueError):
-            self.detector.detect(image)
-
-
-class OpenCvPerspectiveTransformerTests(unittest.TestCase):
-    def test_transform_should_keep_board_away_from_output_edges(self) -> None:
-        image = np.zeros((100, 100), dtype=np.uint8)
-        image[10:14, 10:90] = 255
-        image[86:90, 10:90] = 255
-        image[10:90, 10:14] = 255
-        image[10:90, 86:90] = 255
-
-        transformer = OpenCvPerspectiveTransformer(
-            output_board_size=100,
-            output_padding_pixels=8,
-        )
-        board_quad = BoardQuad(
-            top_left=(10.0, 10.0),
-            top_right=(89.0, 10.0),
-            bottom_right=(89.0, 89.0),
-            bottom_left=(10.0, 89.0),
         )
 
-        transformed = transformer.transform(image, board_quad)
-
-        self.assertEqual(transformed.shape, (100, 100))
-        self.assertEqual(int(np.max(transformed[0, :])), 0)
-        self.assertEqual(int(np.max(transformed[:, 0])), 0)
-        self.assertGreater(int(np.max(transformed[7:11, :])), 0)
-        self.assertGreater(int(np.max(transformed[:, 7:11])), 0)
-
-    def test_init_should_reject_padding_that_consumes_output(self) -> None:
-        with self.assertRaises(ValueError):
-            OpenCvPerspectiveTransformer(
-                output_board_size=16,
-                output_padding_pixels=8,
-            )
+        self.assertEqual(int(np.max(image_codec.encoded_images[-1])), 5)
 
 
 if __name__ == "__main__":

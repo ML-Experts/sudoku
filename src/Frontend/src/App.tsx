@@ -55,6 +55,14 @@ function countUc14Overrides<TKey extends string>(state: Uc14ContextState<TKey>):
   ).length;
 }
 
+function getExamplesUc14ContextLabel(
+  context: Exclude<Uc14ActiveParameterContext, null>,
+): string {
+  return context === "solveCellInference"
+    ? "Rozpoznanie komorek"
+    : "Live solve";
+}
+
 export default function App() {
   const apiBaseUrl = normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL);
   const pingEndpoint = `${apiBaseUrl}/ping`;
@@ -75,8 +83,10 @@ export default function App() {
   const [adminPassword, setAdminPassword] = useState("");
   const [loginState, setLoginState] = useState<LoginState>(defaultLoginState);
   const [activeView, setActiveView] = useState<AppView>("health");
-  const [datasetsStep, setDatasetsStep] = useState<DatasetsStep>("uc11");
+  const [datasetsStep, setDatasetsStep] = useState<DatasetsStep>("uc17");
   const [examplesWorkflowContext, setExamplesWorkflowContext] =
+    useState<Uc14ActiveParameterContext>(null);
+  const [manualExamplesWorkflowContext, setManualExamplesWorkflowContext] =
     useState<Uc14ActiveParameterContext>(null);
   const [solveCellInferenceState, setSolveCellInferenceState] =
     useState<SolveCellInferenceContextState>(() =>
@@ -127,10 +137,28 @@ export default function App() {
     () => validateTrainingRunParameterState(trainingRunParameterState),
     [trainingRunParameterState],
   );
+  const availableExamplesUc14Contexts = useMemo<
+    Array<Exclude<Uc14ActiveParameterContext, null>>
+  >(() => {
+    if (examplesWorkflowContext === "solveLive") {
+      return ["solveCellInference", "solveLive"];
+    }
+
+    if (examplesWorkflowContext === "solveCellInference") {
+      return ["solveCellInference"];
+    }
+
+    return [];
+  }, [examplesWorkflowContext]);
+  const resolvedExamplesWorkflowContext =
+    manualExamplesWorkflowContext !== null &&
+    availableExamplesUc14Contexts.includes(manualExamplesWorkflowContext)
+      ? manualExamplesWorkflowContext
+      : examplesWorkflowContext;
   const activeUc14Context = getUc14ActiveParameterContext({
     activeView,
     datasetsStep,
-    examplesWorkflowContext,
+    examplesWorkflowContext: resolvedExamplesWorkflowContext,
   });
   const hasUc14Panel = activeUc14Context !== null;
 
@@ -168,12 +196,18 @@ export default function App() {
         : "Datasety";
   const datasetsStepLabel =
     datasetsStep === "uc11"
-      ? "UC-11 — Przeglad kandydatow raw"
-      : datasetsStep === "uc12"
-        ? "UC-12 — Budowa datasetu processed"
-        : datasetsStep === "uc06"
-          ? "UC-06 — Start i monitoring treningu"
-          : "UC-08 — Katalog runow i modeli";
+      ? "UC-11 — Przeglad kandydatow surowych datasetow"
+      : datasetsStep === "uc17"
+        ? "UC-17 — Przygotowanie datasetu"
+        : datasetsStep === "uc19"
+          ? "UC-19 — Budowa finalnego datasetu"
+        : datasetsStep === "uc18"
+          ? "UC-18 — Przegladanie i usuwanie wadliwych danych"
+          : datasetsStep === "uc12"
+            ? "UC-12 — Migracyjny widok budowy datasetu"
+            : datasetsStep === "uc06"
+              ? "UC-06 — Start i monitoring treningu"
+              : "UC-08 — Katalog runow i modeli";
 
   async function handleAdminLoginSubmit() {
     if (!adminPassword.trim()) {
@@ -340,10 +374,20 @@ export default function App() {
   }, [loginModalOpen]);
 
   useEffect(() => {
-    if (activeView !== "examples" || !examplesModule.selectedProcessName) {
-      setExamplesWorkflowContext(null);
+    if (
+      manualExamplesWorkflowContext !== null &&
+      !availableExamplesUc14Contexts.includes(manualExamplesWorkflowContext)
+    ) {
+      setManualExamplesWorkflowContext(null);
     }
-  }, [activeView, examplesModule.selectedProcessName]);
+  }, [availableExamplesUc14Contexts, manualExamplesWorkflowContext]);
+
+  useEffect(() => {
+    if (activeView !== "examples" || !examplesModule.hasSelectedSource) {
+      setExamplesWorkflowContext(null);
+      setManualExamplesWorkflowContext(null);
+    }
+  }, [activeView, examplesModule.hasSelectedSource]);
   return (
     <main className="app-root">
       <AppHeader
@@ -379,6 +423,7 @@ export default function App() {
 
           {activeView === "examples" ? (
             <ExamplesView
+              activeCellsGrid={examplesModule.activeCellsGrid}
               apiBaseUrl={apiBaseUrl}
               boardStageState={examplesModule.boardStageState}
               canSubmitUpload={examplesModule.canSubmitUpload}
@@ -390,15 +435,17 @@ export default function App() {
               fileInputRef={examplesModule.fileInputRef}
               isAdminMode={isAdminMode}
               isUploadBusy={examplesModule.isUploadBusy}
+              hasSelectedSource={examplesModule.hasSelectedSource}
               onDownload={(fileName) => void examplesModule.handleDownloadClick(fileName)}
               onLoadExamples={() => void examplesModule.loadExamplesList()}
               onRunUpload={() => void examplesModule.handleUploadClick()}
               onSelectedFileChange={examplesModule.setSelectedFile}
-              onSelectProcessName={examplesModule.setSelectedProcessName}
+              onSelectProcessName={examplesModule.handleSelectProcessName}
               onUc14ContextChange={setExamplesWorkflowContext}
               previewStageState={examplesModule.previewStageState}
               runUc04Flow={(fileName) => void examplesModule.runUc04Flow(fileName)}
               selectedProcessName={examplesModule.selectedProcessName}
+              selectedSourceLabel={examplesModule.selectedSourceLabel}
               sessionExamples={examplesModule.sessionExamples}
               solveCellInferenceParameters={solveCellInferenceParameters}
               solveCellInferenceParametersValid={solveCellInferenceValidation.isValid}
@@ -408,6 +455,7 @@ export default function App() {
               solveLiveParametersValid={solveLiveValidation.isValid}
               solveLiveParameterErrorCount={solveLiveValidation.errorCount}
               solveLiveOverrideCount={solveLiveOverrideCount}
+              uc20LocalImageFlow={examplesModule.uc20LocalImageFlow}
             />
           ) : null}
 
@@ -425,6 +473,42 @@ export default function App() {
 
         {hasUc14Panel ? (
           <aside className="workspace-context-panel">
+            {activeView === "examples" && availableExamplesUc14Contexts.length > 1 ? (
+              <section
+                className="workspace-context-switcher"
+                aria-label="Przelacznik kontekstu parametrow UC-14"
+              >
+                <p className="eyebrow">Panel parametrow</p>
+                <p className="muted-copy">
+                  Workflow automatycznie przechodzi do kolejnego etapu, ale tutaj
+                  mozesz wrocic do wczesniejszych parametrow bez zmiany widoku.
+                </p>
+                <div
+                  className="workspace-context-switcher-list"
+                  role="tablist"
+                  aria-label="Konteksty parametrow Examples"
+                >
+                  {availableExamplesUc14Contexts.map((context) => {
+                    const isActive = activeUc14Context === context;
+
+                    return (
+                      <button
+                        key={context}
+                        className={`workspace-context-switcher-button ${
+                          isActive ? "is-active" : ""
+                        }`}
+                        type="button"
+                        role="tab"
+                        aria-selected={isActive}
+                        onClick={() => setManualExamplesWorkflowContext(context)}
+                      >
+                        {getExamplesUc14ContextLabel(context)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            ) : null}
             {activeUc14Context === "solveCellInference" ? (
               <Uc14SolveCellInferenceParametersPanel
                 state={solveCellInferenceState}

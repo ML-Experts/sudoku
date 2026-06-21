@@ -97,6 +97,17 @@ def validate_manifest_contract(manifest: Manifest) -> None:
                 message=f"capabilities.{capability} musi byc boolean.",
             )
 
+    if manifest["capabilities"]["canUseForInference"] is True:
+        num_classes = manifest["architecture"]["numClasses"]
+        if not isinstance(num_classes, int) or num_classes != 9:
+            raise BootstrapConfigurationError(
+                error_type="bootstrap_manifest_invalid",
+                message=(
+                    "Model bootstrap oznaczony jako inferencyjny musi miec "
+                    "architecture.numClasses = 9 zgodnie z kontraktem Sudoku."
+                ),
+            )
+
 
 def validate_manifest_matches_directory(
     manifest: Manifest, model_directory_path: Path

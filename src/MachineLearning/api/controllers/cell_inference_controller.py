@@ -1,3 +1,8 @@
+from __future__ import annotations
+
+import logging
+from typing import TYPE_CHECKING
+
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 
@@ -10,9 +15,6 @@ from api.models.error_api_response import ErrorApiResponse
 from application.features.inference.commands.infer_cell_digit.infer_cell_digit_command import (
     InferCellDigitCommand,
 )
-from application.features.inference.commands.infer_cell_digit.infer_cell_digit_command_handler import (
-    InferCellDigitCommandHandler,
-)
 from application.features.inference.dto.inference_runtime_configuration_dto import (
     InferenceRuntimeConfigurationDto,
 )
@@ -22,6 +24,13 @@ from application.features.inference.dto.inference_runtime_model_reference_dto im
 from application.features.inference.errors.cell_digit_inference_errors import (
     CellDigitInferenceCommandError,
 )
+
+if TYPE_CHECKING:
+    from application.features.inference.commands.infer_cell_digit.infer_cell_digit_command_handler import (
+        InferCellDigitCommandHandler,
+    )
+
+LOGGER = logging.getLogger(__name__)
 
 cell_inference_controller = APIRouter(
     prefix="/ml/cells",
@@ -53,28 +62,66 @@ async def infer_cell_digit(
             input_profile=entry.active_model.input_profile,
         ),
         resolved_configuration=InferenceRuntimeConfigurationDto(
-            inference_profile_name=
-                entry.resolved_configuration.inference_profile_name,
-            empty_cell_inner_margin_ratio=
-                entry.resolved_configuration.empty_cell_inner_margin_ratio,
-            empty_cell_dark_pixel_ratio_threshold=
-                entry.resolved_configuration.empty_cell_dark_pixel_ratio_threshold,
+            inference_profile_name=(
+                entry.resolved_configuration.inference_profile_name
+            ),
+            empty_cell_inner_margin_ratio=(
+                entry.resolved_configuration.empty_cell_inner_margin_ratio
+            ),
+            empty_cell_dark_pixel_ratio_threshold=(
+                entry.resolved_configuration.empty_cell_dark_pixel_ratio_threshold
+            ),
             center_area_ratio=entry.resolved_configuration.center_area_ratio,
-            min_component_area_ratio=entry.resolved_configuration.min_component_area_ratio,
-            line_artifact_min_span_ratio=entry.resolved_configuration.line_artifact_min_span_ratio,
-            line_artifact_max_thickness_ratio=entry.resolved_configuration.line_artifact_max_thickness_ratio
+            min_component_area_ratio=(
+                entry.resolved_configuration.min_component_area_ratio
+            ),
+            line_artifact_min_span_ratio=(
+                entry.resolved_configuration.line_artifact_min_span_ratio
+            ),
+            line_artifact_max_thickness_ratio=(
+                entry.resolved_configuration.line_artifact_max_thickness_ratio
+            ),
+            empty_cell_min_segment_length_px=(
+                entry.resolved_configuration.empty_cell_min_segment_length_px
+            ),
+            empty_cell_filtered_segment_count_threshold=(
+                entry.resolved_configuration.empty_cell_filtered_segment_count_threshold
+            ),
         ),
     )
 
     try:
         result = command_handler.handle(command)
     except CellDigitInferenceCommandError as error:
+        LOGGER.warning(
+            "Cell inference request rejected: status=%s error_type=%s message=%s "
+            "mime_type=%s active_model=%s input_profile=%s inference_profile=%s "
+            "image_base64_length=%s",
+            error.status_code,
+            error.error_type,
+            error.message,
+            entry.image.mime_type,
+            entry.active_model.name,
+            entry.active_model.input_profile,
+            entry.resolved_configuration.inference_profile_name,
+            len(entry.image.base64),
+        )
         return _error_response(
             status_code=error.status_code,
             error_type=error.error_type,
             message=error.message,
         )
     except Exception:
+        LOGGER.exception(
+            "Cell inference request failed unexpectedly: mime_type=%s "
+            "active_model=%s input_profile=%s inference_profile=%s "
+            "image_base64_length=%s",
+            entry.image.mime_type,
+            entry.active_model.name,
+            entry.active_model.input_profile,
+            entry.resolved_configuration.inference_profile_name,
+            len(entry.image.base64),
+        )
         return _error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             error_type="internal_server_error",

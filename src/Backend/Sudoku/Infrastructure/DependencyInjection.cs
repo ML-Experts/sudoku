@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Sudoku.Application.Abstractions;
 using Sudoku.Application.Auth;
+using Sudoku.Application.Datasets;
 using Sudoku.Application.SudokuSolve;
 using Sudoku.Infrastructure.Background;
 using Sudoku.Infrastructure.Auth;
@@ -46,6 +47,9 @@ public static class DependencyInjection
                 options => options.PrepareDatasetPath.StartsWith("/", StringComparison.Ordinal),
                 $"{MlServiceOptions.SectionName}:PrepareDatasetPath must start with '/'.")
             .Validate(
+                options => options.DatasetPreparationsPath.StartsWith("/", StringComparison.Ordinal),
+                $"{MlServiceOptions.SectionName}:DatasetPreparationsPath must start with '/'.")
+            .Validate(
                 options => options.StartTrainingPath.StartsWith("/", StringComparison.Ordinal),
                 $"{MlServiceOptions.SectionName}:StartTrainingPath must start with '/'.")
             .Validate(
@@ -63,6 +67,8 @@ public static class DependencyInjection
             .ValidateOnStart();
 
         services.AddTransient<IFileStorageGateway, LocalFileStorageGateway>();
+        services.AddTransient<IDatasetPreparationsGateway, DatasetPreparationsGateway>();
+        services.AddTransient<IDatasetPreparationArtifactsGateway, DatasetPreparationArtifactsGateway>();
         services.AddTransient<IProcessedDatasetsGateway, ProcessedDatasetsGateway>();
         services.AddTransient<IModelsRegistryGateway, ModelsRegistryGateway>();
         services.AddTransient<IActiveModelPointerGateway, ActiveModelPointerGateway>();
@@ -72,6 +78,21 @@ public static class DependencyInjection
         services.AddTransient<ITrainingEventsPathProvider, MlTrainingEventsPathProvider>();
         services.AddTransient<ISolveSessionsGateway, SolveSessionsGateway>();
         services.AddSingleton<IBackgroundOperationCancellationRegistry, InMemoryBackgroundOperationCancellationRegistry>();
+
+        services.AddSingleton(_ => Channel.CreateUnbounded<DatasetPreparationWorkItemDto>(
+            new UnboundedChannelOptions
+            {
+                SingleReader = true,
+                SingleWriter = false,
+                AllowSynchronousContinuations = false
+            }));
+        services.AddSingleton<ChannelReader<DatasetPreparationWorkItemDto>>(serviceProvider =>
+            serviceProvider.GetRequiredService<Channel<DatasetPreparationWorkItemDto>>().Reader);
+        services.AddSingleton<ChannelWriter<DatasetPreparationWorkItemDto>>(serviceProvider =>
+            serviceProvider.GetRequiredService<Channel<DatasetPreparationWorkItemDto>>().Writer);
+        services.AddSingleton<IDatasetPreparationExecutionScheduler, DatasetPreparationExecutionScheduler>();
+        services.AddHostedService<DatasetPreparationBackgroundWorker>();
+        services.AddHostedService<DatasetPreparationRecoveryHostedService>();
 
         services.AddSingleton(_ => Channel.CreateUnbounded<SolveSessionWorkItemDto>(
             new UnboundedChannelOptions
@@ -89,8 +110,9 @@ public static class DependencyInjection
 
         services.AddHttpClient<IMlPingGateway, MlPingHttpClient>(ConfigureMlHttpClient);
         services.AddHttpClient<IMlImageProcessingGateway, MlImageProcessingHttpClient>(ConfigureMlHttpClient);
-        services.AddHttpClient<IMlDatasetsPreparationGateway, MlDatasetsPreparationHttpClient>(ConfigureMlHttpClient);
-        services.AddHttpClient<IMlTrainingsGateway, MlTrainingsHttpClient>(ConfigureMlHttpClient);
+        services.AddHttpClient<IMlDatasetPreparationsGateway, MlDatasetPreparationsHttpClient>(ConfigureLongRunningMlHttpClient);
+        services.AddHttpClient<IMlDatasetsPreparationGateway, MlDatasetsPreparationHttpClient>(ConfigureLongRunningMlHttpClient);
+        services.AddHttpClient<IMlTrainingsGateway, MlTrainingsHttpClient>(ConfigureLongRunningMlHttpClient);
 
         return services;
     }
@@ -101,5 +123,15 @@ public static class DependencyInjection
 
         client.BaseAddress = new Uri(options.BaseUrl, UriKind.Absolute);
         client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+    }
+
+    private static void ConfigureLongRunningMlHttpClient(IServiceProvider serviceProvider, HttpClient client)
+    {
+        var options = serviceProvider.GetRequiredService<IOptions<MlServiceOptions>>().Value;
+
+        client.BaseAddress = new Uri(options.BaseUrl, UriKind.Absolute);
+        client.Timeout = options.LongRunningTimeoutSeconds <= 0
+            ? Timeout.InfiniteTimeSpan
+            : TimeSpan.FromSeconds(options.LongRunningTimeoutSeconds);
     }
 }

@@ -35,7 +35,7 @@ class CellInferenceControllerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_directory:
             manifest_path, artifact_path = self._write_model(
                 Path(temp_directory),
-                expected_digit=7,
+                predicted_class_index=6,
             )
             os.environ["ML_INFERENCE_DEVICE"] = "cpu"
             os.environ["ML_INFERENCE_SUPPORTED_PROFILES"] = "default-28x28-v1"
@@ -57,7 +57,7 @@ class CellInferenceControllerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_directory:
             manifest_path, artifact_path = self._write_model(
                 Path(temp_directory),
-                expected_digit=7,
+                predicted_class_index=6,
             )
             os.environ["ML_INFERENCE_DEVICE"] = "cpu"
             os.environ["ML_INFERENCE_SUPPORTED_PROFILES"] = "default-28x28-v1"
@@ -81,7 +81,7 @@ class CellInferenceControllerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_directory:
             manifest_path, artifact_path = self._write_model(
                 Path(temp_directory),
-                expected_digit=7,
+                predicted_class_index=6,
             )
             os.environ["ML_INFERENCE_DEVICE"] = "cpu"
             os.environ["ML_INFERENCE_SUPPORTED_PROFILES"] = "default-28x28-v1"
@@ -98,6 +98,29 @@ class CellInferenceControllerTests(unittest.TestCase):
 
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response.json(), {"digit": None})
+
+    def test_put_cells_inference_should_reject_10_class_model(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_directory:
+            manifest_path, artifact_path = self._write_model(
+                Path(temp_directory),
+                predicted_class_index=6,
+                num_classes=10,
+            )
+            os.environ["ML_INFERENCE_DEVICE"] = "cpu"
+            os.environ["ML_INFERENCE_SUPPORTED_PROFILES"] = "default-28x28-v1"
+            client = TestClient(create_app())
+
+            response = client.put(
+                "/ml/cells/inference",
+                json=self._build_payload(
+                    image_base64=self._encode_png(self._digit_like_cell()),
+                    manifest_path=manifest_path,
+                    artifact_path=artifact_path,
+                ),
+            )
+
+            self.assertEqual(response.status_code, 422)
+            self.assertEqual(response.json()["errorType"], "inference_model_not_allowed")
 
     def _build_payload(
         self,
@@ -118,19 +141,22 @@ class CellInferenceControllerTests(unittest.TestCase):
             },
             "resolvedConfiguration": {
                 "inferenceProfileName": "default-28x28-v1",
-                "emptyCellInnerMarginRatio": 0.12,
-                "emptyCellDarkPixelRatioThreshold": 0.02,
+                "emptyCellInnerMarginRatio": 0.0,
+                "emptyCellDarkPixelRatioThreshold": 0.15,
                 "centerAreaRatio": 0.5,
-                "minComponentAreaRatio": 0.02,
+                "minComponentAreaRatio": 0.00008,
                 "lineArtifactMinSpanRatio": 0.5,
                 "lineArtifactMaxThicknessRatio": 0.07,
+                "emptyCellMinSegmentLengthPx": 15,
+                "emptyCellFilteredSegmentCountThreshold": 5,
             },
         }
 
     def _write_model(
         self,
         root_path: Path,
-        expected_digit: int,
+        predicted_class_index: int,
+        num_classes: int = 9,
     ) -> tuple[str, str]:
         model_path = root_path / "digit-model"
         artifacts_path = model_path / "artifacts"
@@ -138,11 +164,11 @@ class CellInferenceControllerTests(unittest.TestCase):
 
         manifest_path = model_path / "model.json"
         artifact_path = artifacts_path / "model.pt"
-        model = CustomDigitCnnV1(num_classes=10)
+        model = CustomDigitCnnV1(num_classes=num_classes)
         state_dict = model.state_dict()
         for key, value in state_dict.items():
             state_dict[key] = torch.zeros_like(value)
-        state_dict["classifier.4.bias"][expected_digit] = 1.0
+        state_dict["classifier.4.bias"][predicted_class_index] = 1.0
 
         torch.save(state_dict, artifact_path)
         manifest_path.write_text(
@@ -152,7 +178,7 @@ class CellInferenceControllerTests(unittest.TestCase):
                     "architecture": {
                         "type": "custom-cnn-v1",
                         "family": "cnn",
-                        "numClasses": 10,
+                        "numClasses": num_classes,
                         "inputChannels": 1,
                         "inputHeight": 28,
                         "inputWidth": 28,

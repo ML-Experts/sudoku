@@ -262,8 +262,7 @@ export function useUc05aRecognition({
     canStartRecognition:
       cellsGrid !== null &&
       isInferenceParametersValid &&
-      state.status !== "running" &&
-      state.status !== "completed",
+      state.status !== "running",
     canRetryRecognition:
       cellsGrid !== null &&
       isInferenceParametersValid &&

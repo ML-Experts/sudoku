@@ -1,0 +1,195 @@
+from __future__ import annotations
+
+import importlib
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+
+
+MODULE_RELOAD_ORDER = (
+    "models",
+    "paths",
+    "display",
+    "binary",
+    "geometry",
+    "line_families",
+    "logical_line_types",
+    "logical_line_segment_geometry",
+    "intersection_model",
+    "raw_segment_grouping",
+    "logical_line_core",
+    "logical_line_cross_axis_continuity",
+    "logical_line_full_containment",
+    "logical_line_vertex_containment_merge",
+    "logical_line_search",
+    "logical_line_merging",
+    "logical_line_connection_types",
+    "logical_line_connection_candidates",
+    "logical_line_connection_execution",
+    "logical_line_connections",
+    "logical_line_intersections",
+    "logical_line_intersection_trimming",
+    "logical_lines",
+    "frame_model",
+    "logical_line_frame_cell_preprocessing",
+    "preprocessing_api_models",
+    "preprocessing_api_codec",
+    "logical_line_frame_cells",
+    "logical_line_frame_warp_model",
+    "logical_line_frame_warp",
+    "logical_line_frames",
+    "logical_line_frame_ranking",
+    "detection",
+    "preprocessing_api",
+    "visualization",
+)
+
+
+MODULE_RELOAD_PREFIXES = (
+    "logical_line_connection_",
+    "logical_line_search_",
+    "visualization_",
+)
+
+
+@dataclass(frozen=True)
+class Api:
+    ExperimentConfig: object
+    ImageApiEntry: object
+    ImageApiResponse: object
+    CellsGridApiResponse: object
+    ErrorApiResponse: object
+    REPO_ROOT: Path
+    resolve_active_image_path: object
+    path_for_display: object
+    load_image_bgr: object
+    resize_for_display: object
+    plot_named_images: object
+    apply_median_denoise: object
+    apply_gaussian_threshold: object
+    apply_soft_component_cleanup: object
+    apply_directional_close_repair: object
+    detect_line_families: object
+    build_line_family_overlays: object
+    build_logical_line_intersection_overlays: object
+    build_logical_line_frame_overlay: object
+    build_selected_logical_line_frame_overlay: object
+    build_selected_frame_warp_overlay: object
+    build_clean_binary_axis_overlay: object
+    build_containment_prune_board: object
+    build_vertex_containment_merge_board: object
+    build_connection_input_logical_line_overlays: object
+    build_logical_line_overlays: object
+    build_post_connection_logical_line_overlays: object
+    build_trimmed_logical_line_overlays: object
+    build_raw_segment_group_board: object
+    preprocess_board_image_entry: object
+    extract_cells_from_board_image_entry: object
+
+
+def _ensure_variant_dir_on_sys_path() -> Path:
+    variant_dir = Path(__file__).resolve().parent
+    search_paths = [
+        variant_dir / "visualization",
+        variant_dir / "pipeline",
+        variant_dir,
+    ]
+
+    for search_path in reversed(search_paths):
+        search_path_str = str(search_path)
+        if search_path_str in sys.path:
+            sys.path.remove(search_path_str)
+        sys.path.insert(0, search_path_str)
+
+    return variant_dir
+
+
+_ensure_variant_dir_on_sys_path()
+
+
+def load_api() -> Api:
+    _ensure_variant_dir_on_sys_path()
+    importlib.invalidate_caches()
+    for module_name in list(sys.modules):
+        if any(
+            module_name.startswith(module_prefix)
+            for module_prefix in MODULE_RELOAD_PREFIXES
+        ):
+            sys.modules.pop(module_name, None)
+    for module_name in reversed(MODULE_RELOAD_ORDER):
+        sys.modules.pop(module_name, None)
+
+    modules = {
+        module_name: importlib.import_module(module_name)
+        for module_name in MODULE_RELOAD_ORDER
+    }
+
+    models_module = modules["models"]
+    paths_module = modules["paths"]
+    display_module = modules["display"]
+    binary_module = modules["binary"]
+    detection = modules["detection"]
+    preprocessing_api = modules["preprocessing_api"]
+    preprocessing_api_models = modules["preprocessing_api_models"]
+    visualization = modules["visualization"]
+
+    return Api(
+        ExperimentConfig=models_module.ExperimentConfig,
+        ImageApiEntry=preprocessing_api_models.ImageApiEntry,
+        ImageApiResponse=preprocessing_api_models.ImageApiResponse,
+        CellsGridApiResponse=preprocessing_api_models.CellsGridApiResponse,
+        ErrorApiResponse=preprocessing_api_models.ErrorApiResponse,
+        REPO_ROOT=paths_module.REPO_ROOT,
+        resolve_active_image_path=paths_module.resolve_active_image_path,
+        path_for_display=paths_module.path_for_display,
+        load_image_bgr=display_module.load_image_bgr,
+        resize_for_display=display_module.resize_for_display,
+        plot_named_images=display_module.plot_named_images,
+        apply_median_denoise=binary_module.apply_median_denoise,
+        apply_gaussian_threshold=binary_module.apply_gaussian_threshold,
+        apply_soft_component_cleanup=binary_module.apply_soft_component_cleanup,
+        apply_directional_close_repair=binary_module.apply_directional_close_repair,
+        detect_line_families=detection.detect_line_families,
+        build_line_family_overlays=visualization.build_line_family_overlays,
+        build_logical_line_intersection_overlays=(
+            visualization.build_logical_line_intersection_overlays
+        ),
+        build_logical_line_frame_overlay=(
+            visualization.build_logical_line_frame_overlay
+        ),
+        build_selected_logical_line_frame_overlay=(
+            visualization.build_selected_logical_line_frame_overlay
+        ),
+        build_selected_frame_warp_overlay=(
+            visualization.build_selected_frame_warp_overlay
+        ),
+        build_clean_binary_axis_overlay=visualization.build_clean_binary_axis_overlay,
+        build_containment_prune_board=visualization.build_containment_prune_board,
+        build_vertex_containment_merge_board=(
+            visualization.build_vertex_containment_merge_board
+        ),
+        build_connection_input_logical_line_overlays=(
+            visualization.build_connection_input_logical_line_overlays
+        ),
+        build_logical_line_overlays=visualization.build_logical_line_overlays,
+        build_post_connection_logical_line_overlays=(
+            visualization.build_post_connection_logical_line_overlays
+        ),
+        build_trimmed_logical_line_overlays=(
+            visualization.build_trimmed_logical_line_overlays
+        ),
+        build_raw_segment_group_board=visualization.build_raw_segment_group_board,
+        preprocess_board_image_entry=(
+            preprocessing_api.preprocess_board_image_entry
+        ),
+        extract_cells_from_board_image_entry=(
+            preprocessing_api.extract_cells_from_board_image_entry
+        ),
+    )
+
+
+__all__ = [
+    "MODULE_RELOAD_ORDER",
+    "Api",
+    "load_api",
+]

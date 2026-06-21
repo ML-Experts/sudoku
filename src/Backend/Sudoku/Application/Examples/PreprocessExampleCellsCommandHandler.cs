@@ -20,24 +20,7 @@ public sealed class PreprocessExampleCellsCommandHandler : IRequestHandler<Prepr
         PreprocessExampleCellsCommand request,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.MimeType) || string.IsNullOrWhiteSpace(request.Base64))
-        {
-            throw new InvalidOperationException("PreprocessExampleCellsCommand must be validated before handler execution.");
-        }
-
-        byte[] sourceImageBytes;
-        try
-        {
-            sourceImageBytes = Convert.FromBase64String(request.Base64);
-        }
-        catch (FormatException)
-        {
-            throw new InvalidOperationException("PreprocessExampleCellsCommand contains invalid Base64 payload.");
-        }
-
-        var sourceImage = new ImageContent(
-            MimeType: request.MimeType,
-            Content: sourceImageBytes);
+        var sourceImage = InlineImagePayloadMapper.MapToImageContent(request.MimeType, request.Base64);
         var extractedCellsGrid = await _mlImageProcessingGateway.ExtractCellsAsync(sourceImage, cancellationToken);
 
         EnsureNineByNineGrid(extractedCellsGrid);

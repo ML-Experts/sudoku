@@ -2,125 +2,106 @@ import unittest
 
 import numpy as np
 
-from infrastructure.inference.cell_occupancy_detector import (
-    CellOccupancyDetector,
+from infrastructure.inference.cell_occupancy_detector import CellOccupancyDetector
+from infrastructure.vision.cell_cleaning import (
+    build_foreground_mask,
+    clean_binary_mask_for_empty_detection,
 )
 
 
 class CellOccupancyDetectorTests(unittest.TestCase):
-    def _detect(self, image: np.ndarray) -> object:
+    def _blank_cell(self, size: int = 64) -> np.ndarray:
+        return np.full((size, size, 3), 255, dtype=np.uint8)
+
+    def _detect(
+        self,
+        image: np.ndarray,
+        *,
+        dark_pixel_ratio_threshold: float = 0.15,
+        empty_cell_min_segment_length_px: int = 15,
+        empty_cell_filtered_segment_count_threshold: int = 5,
+        inner_margin_ratio: float = 0.0,
+    ) -> object:
         detector = CellOccupancyDetector()
         return detector.detect(
             image=image,
-            inner_margin_ratio=0.12,
-            dark_pixel_ratio_threshold=0.02,
+            inner_margin_ratio=inner_margin_ratio,
+            dark_pixel_ratio_threshold=dark_pixel_ratio_threshold,
             center_area_ratio=0.5,
-            min_component_area_ratio=0.02,
+            min_component_area_ratio=0.00008,
             line_artifact_min_span_ratio=0.5,
             line_artifact_max_thickness_ratio=0.07,
+            empty_cell_min_segment_length_px=empty_cell_min_segment_length_px,
+            empty_cell_filtered_segment_count_threshold=(
+                empty_cell_filtered_segment_count_threshold
+            ),
         )
 
     def test_detect_should_mark_blank_cell_as_empty(self) -> None:
-        image = np.zeros((28, 28), dtype=np.float32)
-
-        result = self._detect(image)
+        result = self._detect(self._blank_cell())
 
         self.assertTrue(result.is_empty)
-        self.assertEqual(result.dark_pixel_ratio, 0.0)
+        self.assertEqual(result.foreground_pixel_count, 0)
+        self.assertEqual(result.foreground_pixel_ratio, 0.0)
+        self.assertEqual(result.filtered_segment_count, 0)
+        self.assertFalse(result.accept_by_pixels)
+        self.assertFalse(result.accept_by_segments)
 
     def test_detect_should_mark_center_digit_as_not_empty(self) -> None:
-        image = np.zeros((28, 28), dtype=np.float32)
-        image[10:18, 12:16] = 1.0
+        image = self._blank_cell()
+        image[20:44, 28:36] = 0
+        image[20:26, 20:44] = 0
 
         result = self._detect(image)
 
         self.assertFalse(result.is_empty)
-        self.assertGreater(result.dark_pixel_ratio, 0.02)
+        self.assertGreater(result.foreground_pixel_ratio, 0.15)
+        self.assertTrue(result.accept_by_pixels)
 
-    def test_detect_should_ignore_foreground_near_border(self) -> None:
-        image = np.zeros((28, 28), dtype=np.float32)
-        image[:, 0:2] = 1.0
+    def test_detect_should_accept_thin_center_stroke_by_segments(self) -> None:
+        image = self._blank_cell()
+        image[18:46, 31:33] = 0
 
-        result = self._detect(image)
-
-        self.assertTrue(result.is_empty)
-
-    def test_detect_should_ignore_component_touching_inner_window_border(
-        self,
-    ) -> None:
-        image = np.zeros((28, 28), dtype=np.float32)
-        image[4:24, 4:7] = 1.0
-
-        result = self._detect(image)
-
-        self.assertTrue(result.is_empty)
-
-    def test_detect_should_keep_center_component_after_border_filtering(
-        self,
-    ) -> None:
-        image = np.zeros((28, 28), dtype=np.float32)
-        image[4:24, 4:7] = 1.0
-        image[10:18, 12:16] = 1.0
-
-        result = self._detect(image)
+        result = self._detect(
+            image,
+            dark_pixel_ratio_threshold=0.15,
+            empty_cell_min_segment_length_px=15,
+            empty_cell_filtered_segment_count_threshold=1,
+        )
 
         self.assertFalse(result.is_empty)
-        self.assertGreater(result.dark_pixel_ratio, 0.02)
+        self.assertFalse(result.accept_by_pixels)
+        self.assertTrue(result.accept_by_segments)
+        self.assertGreaterEqual(result.filtered_segment_count, 1)
 
-    def test_detect_should_ignore_detached_near_edge_line_artifact(
-        self,
-    ) -> None:
-        image = np.zeros((57, 57), dtype=np.float32)
-        image[10:47, 8:10] = 1.0
-
-        result = self._detect(image)
-
-        self.assertTrue(result.is_empty)
-        self.assertEqual(result.dark_pixel_ratio, 0.0)
-
-    def test_detect_should_keep_centered_slender_digit_like_component(
-        self,
-    ) -> None:
-        image = np.zeros((57, 57), dtype=np.float32)
-        image[14:43, 27:30] = 1.0
-
-        result = self._detect(image)
-
-        self.assertFalse(result.is_empty)
-        self.assertGreater(result.dark_pixel_ratio, 0.02)
-
-    def test_detect_should_ignore_internal_horizontal_line_artifact(
-        self,
-    ) -> None:
-        image = np.zeros((57, 57), dtype=np.float32)
-        image[24:26, 10:40] = 1.0
+    def test_detect_should_ignore_border_artifact(self) -> None:
+        image = self._blank_cell()
+        image[8:56, 0:3] = 0
 
         result = self._detect(image)
 
         self.assertTrue(result.is_empty)
-        self.assertEqual(result.dark_pixel_ratio, 0.0)
+        self.assertEqual(result.foreground_pixel_count, 0)
 
-    def test_detect_should_ignore_side_vertical_line_artifact_from_bad_crop(
-        self,
-    ) -> None:
-        image = np.zeros((57, 57), dtype=np.float32)
-        image[10:36, 36:38] = 1.0
+    def test_empty_detection_cleanup_should_keep_original_shape(self) -> None:
+        image = self._blank_cell()
+        image[24:36, 46:50] = 0
+        foreground_mask = build_foreground_mask(
+            image,
+            median_kernel_size=5,
+            adaptive_block_size=11,
+            adaptive_c=2,
+        )
 
-        result = self._detect(image)
+        cleaned_mask = clean_binary_mask_for_empty_detection(
+            foreground_mask,
+            border_clearance_px=0,
+            min_component_area_ratio=0.0,
+        )
 
-        self.assertTrue(result.is_empty)
-        self.assertEqual(result.dark_pixel_ratio, 0.0)
-
-    def test_detect_should_keep_right_shifted_slender_digit_component(
-        self,
-    ) -> None:
-        image = np.zeros((57, 57), dtype=np.float32)
-        image[14:43, 34:37] = 1.0
-
-        result = self._detect(image)
-
-        self.assertFalse(result.is_empty)
-        self.assertGreater(result.dark_pixel_ratio, 0.02)
+        self.assertEqual(cleaned_mask.shape, foreground_mask.shape)
+        foreground_points = np.argwhere(cleaned_mask > 0)
+        self.assertTrue(np.all(foreground_points[:, 1] >= 46))
 
 
 if __name__ == "__main__":

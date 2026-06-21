@@ -20,5 +20,7 @@ public sealed record InferSudokuCellDigitMlResolvedConfigurationDto(
     double CenterAreaRatio,
     double MinComponentAreaRatio,
     double LineArtifactMinSpanRatio,
-    double LineArtifactMaxThicknessRatio
+    double LineArtifactMaxThicknessRatio,
+    int EmptyCellMinSegmentLengthPx,
+    int EmptyCellFilteredSegmentCountThreshold
 );

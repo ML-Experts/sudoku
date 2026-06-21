@@ -89,6 +89,9 @@ builder.Services
         options => Path.IsPathRooted(options.DigitsSubdirectory),
         $"{DatasetsPreparationOptions.SectionName}:DigitsSubdirectory must be an absolute path.")
     .Validate(
+        options => Path.IsPathRooted(options.PreparationsDirectoryPath),
+        $"{DatasetsPreparationOptions.SectionName}:PreparationsDirectoryPath must be an absolute path.")
+    .Validate(
         options => Path.IsPathRooted(options.ProcessedDatasetsDirectoryPath),
         $"{DatasetsPreparationOptions.SectionName}:ProcessedDatasetsDirectoryPath must be an absolute path.")
     .Validate(

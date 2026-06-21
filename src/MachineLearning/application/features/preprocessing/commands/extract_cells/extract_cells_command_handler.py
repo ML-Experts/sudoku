@@ -58,16 +58,11 @@ class ExtractCellsCommandHandler:
         output_mime_type: str,
         expected_grid_rows: int,
         expected_grid_cols: int,
-        minimum_cell_size_px: int,
     ) -> None:
         if expected_grid_rows <= 0:
             raise ValueError("Expected grid rows must be greater than zero.")
         if expected_grid_cols <= 0:
             raise ValueError("Expected grid cols must be greater than zero.")
-        if minimum_cell_size_px <= 0:
-            raise ValueError(
-                "Minimum cell size in pixels must be greater than zero."
-            )
 
         self._image_codec = image_codec
         self._board_cells_extractor = board_cells_extractor
@@ -77,7 +72,6 @@ class ExtractCellsCommandHandler:
         self._output_mime_type = output_mime_type
         self._expected_grid_rows = expected_grid_rows
         self._expected_grid_cols = expected_grid_cols
-        self._minimum_cell_size_px = minimum_cell_size_px
 
     def handle(self, command: ExtractCellsCommand) -> ExtractCellsCommandResultDto:
         self._validate_command(command)
@@ -94,8 +88,6 @@ class ExtractCellsCommandHandler:
                 message=INVALID_IMAGE_PAYLOAD_MESSAGE,
             ) from error
 
-        self._validate_board_image_shape(source_image)
-
         try:
             cells_grid = self._board_cells_extractor.extract(source_image)
             cells_grid.validate_dimensions(
@@ -103,7 +95,12 @@ class ExtractCellsCommandHandler:
                 expected_cols=self._expected_grid_cols,
             )
             encoded_cells = self._encode_cells_grid(cells_grid)
-        except ValueError as error:
+        except Exception as error:
+            if getattr(error, "error_type", None) == "invalid_board_image_shape":
+                raise ExtractCellsCommandError(
+                    error_type="invalid_board_image_shape",
+                    message=INVALID_BOARD_IMAGE_SHAPE_MESSAGE,
+                ) from error
             raise ExtractCellsCommandError(
                 error_type="cells_extraction_failed",
                 message=CELLS_EXTRACTION_FAILED_MESSAGE,
@@ -129,27 +126,6 @@ class ExtractCellsCommandHandler:
             raise ExtractCellsCommandError(
                 error_type="invalid_image_payload",
                 message=INVALID_IMAGE_PAYLOAD_MESSAGE,
-            )
-
-    def _validate_board_image_shape(self, image: NDArray[np.uint8]) -> None:
-        if image.size == 0:
-            raise ExtractCellsCommandError(
-                error_type="invalid_board_image_shape",
-                message=INVALID_BOARD_IMAGE_SHAPE_MESSAGE,
-            )
-        if image.ndim not in (2, 3):
-            raise ExtractCellsCommandError(
-                error_type="invalid_board_image_shape",
-                message=INVALID_BOARD_IMAGE_SHAPE_MESSAGE,
-            )
-
-        board_height, board_width = image.shape[:2]
-        minimum_height = self._expected_grid_rows * self._minimum_cell_size_px
-        minimum_width = self._expected_grid_cols * self._minimum_cell_size_px
-        if board_height < minimum_height or board_width < minimum_width:
-            raise ExtractCellsCommandError(
-                error_type="invalid_board_image_shape",
-                message=INVALID_BOARD_IMAGE_SHAPE_MESSAGE,
             )
 
     def _encode_cells_grid(

@@ -1,0 +1,29 @@
+using FluentValidation;
+using Microsoft.Extensions.Options;
+
+namespace Sudoku.Application.Examples;
+
+public sealed class PreprocessInlineBoardCommandValidator : AbstractValidator<PreprocessInlineBoardCommand>
+{
+    public PreprocessInlineBoardCommandValidator(IOptions<ExamplesPreprocessOptions> options)
+    {
+        var preprocessOptions = options.Value;
+
+        RuleFor(command => command)
+            .Custom((command, context) =>
+            {
+                var failures = InlineImagePayloadValidationRules.Validate(
+                    command.MimeType,
+                    command.Base64,
+                    preprocessOptions.MaxInlineImageSizeBytes,
+                    nameof(PreprocessInlineBoardCommand.MimeType),
+                    nameof(PreprocessInlineBoardCommand.Base64),
+                    PreprocessInlineBoardErrorTypes.InvalidRequest);
+
+                foreach (var failure in failures)
+                {
+                    context.AddFailure(failure);
+                }
+            });
+    }
+}

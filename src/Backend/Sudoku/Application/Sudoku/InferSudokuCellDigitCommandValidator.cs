@@ -57,6 +57,46 @@ public sealed class InferSudokuCellDigitCommandValidator : AbstractValidator<Inf
                         $"Rozmiar obrazu po dekodowaniu przekracza limit {inferenceOptions.MaxInlineImageSizeBytes} bajtów."));
                 }
             });
+
+        RuleFor(command => command.EmptyCellInnerMarginRatio)
+            .Must(SudokuCellsInferenceParameterPolicy.IsInnerMarginRatioValid)
+            .WithMessage("Pole 'emptyCellInnerMarginRatio' musi mieścić się w zakresie [0.0, 0.5).")
+            .WithErrorCode(InferSudokuCellDigitErrorTypes.InvalidRequest);
+
+        RuleFor(command => command.EmptyCellDarkPixelRatioThreshold)
+            .Must(SudokuCellsInferenceParameterPolicy.IsUnitRatioValid)
+            .WithMessage("Pole 'emptyCellDarkPixelRatioThreshold' musi mieścić się w zakresie [0.0, 1.0].")
+            .WithErrorCode(InferSudokuCellDigitErrorTypes.InvalidRequest);
+
+        RuleFor(command => command.CenterAreaRatio)
+            .Must(SudokuCellsInferenceParameterPolicy.IsUnitRatioValid)
+            .WithMessage("Pole 'centerAreaRatio' musi mieścić się w zakresie [0.0, 1.0].")
+            .WithErrorCode(InferSudokuCellDigitErrorTypes.InvalidRequest);
+
+        RuleFor(command => command.MinComponentAreaRatio)
+            .Must(SudokuCellsInferenceParameterPolicy.IsUnitRatioValid)
+            .WithMessage("Pole 'minComponentAreaRatio' musi mieścić się w zakresie [0.0, 1.0].")
+            .WithErrorCode(InferSudokuCellDigitErrorTypes.InvalidRequest);
+
+        RuleFor(command => command.LineArtifactMinSpanRatio)
+            .Must(SudokuCellsInferenceParameterPolicy.IsUnitRatioValid)
+            .WithMessage("Pole 'lineArtifactMinSpanRatio' musi mieścić się w zakresie [0.0, 1.0].")
+            .WithErrorCode(InferSudokuCellDigitErrorTypes.InvalidRequest);
+
+        RuleFor(command => command.LineArtifactMaxThicknessRatio)
+            .Must(SudokuCellsInferenceParameterPolicy.IsUnitRatioValid)
+            .WithMessage("Pole 'lineArtifactMaxThicknessRatio' musi mieścić się w zakresie [0.0, 1.0].")
+            .WithErrorCode(InferSudokuCellDigitErrorTypes.InvalidRequest);
+
+        RuleFor(command => command.EmptyCellMinSegmentLengthPx)
+            .Must(SudokuCellsInferenceParameterPolicy.IsPositiveInt)
+            .WithMessage("Pole 'emptyCellMinSegmentLengthPx' musi być większe od 0.")
+            .WithErrorCode(InferSudokuCellDigitErrorTypes.InvalidRequest);
+
+        RuleFor(command => command.EmptyCellFilteredSegmentCountThreshold)
+            .Must(SudokuCellsInferenceParameterPolicy.IsPositiveInt)
+            .WithMessage("Pole 'emptyCellFilteredSegmentCountThreshold' musi być większe od 0.")
+            .WithErrorCode(InferSudokuCellDigitErrorTypes.InvalidRequest);
     }
 
     private static ValidationFailure CreateFailure(string propertyName, string message)
