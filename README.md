@@ -1,643 +1,641 @@
 # Sudoku Vision
 
-System webowy do rozpoznawania i rozwiązywania Sudoku ze zdjęcia. Projekt składa się z trzech głównych warstw: `Frontend`, `Backend` oraz `MachineLearning`. Oprócz ścieżki solve aplikacja obejmuje również operacje administracyjne związane z datasetami, treningami i wyborem aktywnego modelu.
+`Sudoku Vision` to system webowy do rozpoznawania i rozwiązywania Sudoku ze zdjęcia oraz do prowadzenia pełnego workflow danych i modeli: od surowych datasetów, przez `dataset preparation`, aż po trening i wybór aktywnego modelu inferencyjnego.
+
+## Szybkie linki
+
+- instalacja i lokalne uruchomienie: `INSTALL.md`
+- technologie i zależności projektowe: `TECH-STACK.md`
+- zakres produktu i backlog `UC-*`: `.ai/prd.md`
+- opisy funkcjonalności i rozpiski per warstwa: `.ai/feature/`
+- plany implementacyjne: `.ai/implementation-plan/`
+- zasady architektury backendu: `.cursor/rules/architecture_backend.mdc`
+- zasady architektury ML: `.cursor/rules/architecture_ml.mdc`
+- workflow GitHub i release: `.github/workflows/`
+- deploy i runtime serwera: `.ai/DokumentacjaDeployuRuntimeSerwera.md`
 
 ## Skład zespołu
 
-- **Wojtek** - `Backend`, `MachineLearning`, `DevOps`
-- **Adam** - `Frontend`
-- **Michał** - `Doradctwo`, `ML`
+- **Wojtek** - `analiza i architektura`, `Backend`, `MachineLearning`, `Frontend` `DevOps`, `testy`, `dokumentacja`
+- **Adam** - `Frontend`, `udostępnienie zasobów sprzętowych`
+- **Michał** - `Doradztwo`, `ML`
 
 ## Cel projektu
 
-Celem projektu było stworzenie systemu, który potrafi odczytać sudoku ze zdjęcia i rozwiązać je automatycznie.
+Celem projektu jest zbudowanie systemu, który:
+- przyjmie zdjęcie lub obraz planszy Sudoku,
+- wykryje ramkę planszy i skoryguje perspektywę,
+- podzieli planszę na siatkę `9x9`,
+- rozpozna cyfry oraz odróżni puste pola od niepustych,
+- rozwiąże Sudoku algorytmicznie,
+- pokaże wynik użytkownikowi,
+- pozwoli rozwijać i poprawiać jakość rozpoznawania przez workflow datasetowy i treningowy.
 
-Program ma znaleźć planszę na obrazie. Ma wyprostować perspektywę i podzielić planszę na `81` pól. Ma rozpoznać cyfry w komórkach albo wykryć, że pole jest puste.
-
-Na podstawie rozpoznanego układu system ma zbudować macierz `9x9`. Następnie ma rozwiązać sudoku algorytmem backtrackingu. Na końcu ma przygotować czytelny wynik dla użytkownika, także w formie obrazu z naniesionym rozwiązaniem.
-
-Projekt obejmuje również pełny pipeline pracy z danymi i modelami. Zawiera przygotowanie datasetów `.npz`, trening modeli, inferencję, ewaluację jakości oraz wybór aktywnego modelu używanego przez system.
+Projekt obejmuje więc dwa główne obszary:
+- ścieżkę użytkownika końcowego `solve`,
+- ścieżkę administracyjno-ML: dane, przygotowanie datasetów, trening, modele i aktywny runtime.
 
 ## Architektura warstwowa
 
-System działa w modelu trójwarstwowym:
+System działa w modelu, w którym `Backend` jest publicznym API i `source of truth` dla workflow:
 
-- **FE** - `Frontend` w React/Vite, publicznie dostępny przez `nginx`
-- **BE** - `Backend` w ASP.NET Core / .NET 10, wystawia publiczne API i jest głównym `source of truth`
-- **ML** - wewnętrzna usługa Python / FastAPI odpowiedzialna za CV, inferencję, przygotowanie danych i trening
+```mermaid
+flowchart LR
+    User[Użytkownik w przeglądarce]
+    FE[Frontend React/Vite]
+    BE[Backend ASP.NET Core]
+    ML[MachineLearning FastAPI]
+    FS[(Runtime file storage)]
+
+    User --> FE
+    FE -->|/api i /ws| BE
+    BE -->|wewnętrzne REST| ML
+    BE -->|rekordy workflow, statusy, modele| FS
+    ML -->|artefakty techniczne, preprocessing, trening| FS
+```
 
 ### Zasady komunikacji
 
 Dozwolona komunikacja:
-
-- `Przeglądarka -> nginx -> FE`
-- `Przeglądarka -> nginx -> BE` przez `/api/...`
-- `BE -> ML` przez `http://127.0.0.1:8000`
+- `Przeglądarka -> Frontend`
+- `Przeglądarka -> Backend` przez `/api/...`
+- `Backend -> MachineLearning`
 
 Niedozwolona komunikacja:
-
-- `FE -> ML` bezpośrednio
-- `Internet -> ML` bezpośrednio
-- `Internet -> BE` z pominięciem `nginx`
+- `Frontend -> MachineLearning` bezpośrednio
+- publiczne wystawienie `MachineLearning` jako głównego API produktu
 
 ### Odpowiedzialność warstw
 
-- **Frontend** odpowiada za UI, formularze, nawigację, wizualizację wyników, monitoring sesji i treningów.
-- **Backend** odpowiada za publiczne API, walidację, autoryzację, workflow, rekordy systemowe, statusy procesów i integrację z ML.
-- **MachineLearning** odpowiada za wykrycie planszy, preprocessing komórek, inferencję, solver, overlay, przygotowanie datasetów i trening modeli.
+- `Frontend` odpowiada za UI, formularze, wizualizację wyników, ekrany admina, monitoring treningów i realtime.
+- `Backend` odpowiada za publiczne API, autoryzację, walidację, workflow, rekordy systemowe, statusy procesów i integrację z `ML`.
+- `MachineLearning` jest wewnętrznym wystawcą usług ML dla backendu. Odpowiada za preprocessing, vision, inferencję cyfr, cleaning komórek, budowę artefaktów datasetowych i trening modeli.
 
-### Aktualnie funkcjonujące warstwy aplikacyjne
+### Architektura modułów
 
-- `src/Frontend` - interfejs użytkownika
-- `src/Backend/Sudoku` - warstwa API i orkiestracji
-- `src/MachineLearning` - warstwa ML / CV / trening
-- `nginx` - publiczna brama wejściowa na serwerze
-- `systemd` - uruchamianie i restart usług `BE` oraz `ML`
+Backend jest zorganizowany według clean architecture:
 
-### Główne pipeline'y systemu
+```text
+src/Backend/Sudoku/
+  Models/          # modele domenowe i DTO bez zależności od HTTP, plików i ML clienta
+  Application/     # use case'y, walidacje, orkiestracja, porty
+  Infrastructure/  # implementacje portów: storage, klient ML, integracje systemowe
+  Sudoku/          # projekt startowy API: controllers, contracts, DI, konfiguracja
+  Application.Tests/
+```
 
-Poniższy diagram pokazuje trzy główne przepływy biznesowe w systemie: ścieżkę `solve`, przygotowanie datasetu oraz trening i publikację modelu.
+Szczegółowe zasady dla backendu są w `.cursor/rules/architecture_backend.mdc`.
+
+MachineLearning również korzysta z clean architecture, ale pozostaje wewnętrzną usługą specjalistyczną:
+
+```text
+src/MachineLearning/
+  api/             # startup FastAPI, kontrolery HTTP, modele API, konfiguracja runtime
+  application/     # feature-first use case'y CQRS, DTO i porty
+  infrastructure/  # adaptery CV/ML, trening, storage, reporting, integracje
+  models/          # modele domenowe ML
+  init_bootstrap/  # narzędzie operacyjne do inicjalizacji registry i active model
+  tests/           # testy jednostkowe i integracyjne
+  draft/           # notebooki i eksperymenty poza głównym runtime
+```
+
+Szczegółowe zasady dla ML są w `.cursor/rules/architecture_ml.mdc`.
+
+Frontend jest zorganizowany feature-first w stylu `MVVC`:
+
+```text
+src/Frontend/src/
+  app/             # kompozycja aplikacji, widoki główne, stan wspólny
+  features/uc*/    # moduły funkcjonalne per UC
+    api/           # View: komponenty React i sekcje UI dla danego UC
+    application/   # ViewController: hooki, reducery, orkiestracja ekranu
+    domain/        # Model: typy domenowe, walidacje, reguły UI
+    infrastructure/# adaptery techniczne, jeśli UC ich potrzebuje
+  api/             # klienci HTTP/WebSocket do backendu i guardy payloadów
+  shared/          # współdzielone helpery UI/domenowe
+  styles/          # style aplikacji
+  types/           # wspólne typy API
+```
+
+W praktyce `View` nie zna bezpośrednio szczegółów HTTP, tylko korzysta z warstwy `application` i klientów z `api/`. Dzięki temu UI może rosnąć per historyjka bez mieszania logiki widoku, orkiestracji i kontraktów backendowych.
+
+## Co zostało zrealizowane
+
+Aktualny zakres repo obejmuje:
+
+### Ścieżka solve
+
+- `UC-01` - dodanie pliku Sudoku do przykładów
+- `UC-02` - lista dostępnych przykładów Sudoku
+- `UC-03` - pobranie wybranego pliku przykładowego
+- `UC-04` - wstępna obróbka wybranego przykładu
+- `UC-05` - rozpoznanie cyfr, solve i prezentacja wyniku
+- `UC-20` - preprocessing lokalnego zdjęcia bez zapisu po stronie serwera
+- `UC-22` - stabilizacja detekcji pustej komórki i cleaning runtime
+
+### Ścieżka admin / trening / modele
+
+- `UC-06` - uruchomienie treningu na `.npz`
+- `UC-07` - postęp treningu i status zakończenia
+- `UC-08` - lista treningów i modeli
+- `UC-09` - szczegóły treningu i metryki
+- `UC-10` - wybór aktywnego modelu do inferencji
+- `UC-11` - lista surowych datasetów
+- `UC-13` - prosta autoryzacja administracyjna
+- `UC-14` - parametryzacja wybranych funkcjonalności z UI
+
+### Docelowy workflow datasetowy
+
+- `UC-17` - utworzenie trwałego `dataset preparation`
+- `UC-21` - wspólne czyszczenie komórki podczas przygotowania danych
+- `UC-18` - przeglądanie i usuwanie elementów z przygotowania
+- `UC-19` - budowa finalnego `.npz` z przygotowania
+
+### Ścieżki techniczne, migracyjne i pomocnicze
+
+- `UC-00` - smoke test `FE -> BE -> ML`
+- `UC-12` - wcześniejszy workflow bezpośredniej budowy `.npz` z `raw`
+- `UC-15` - spowolnienie live solve
+- `UC-16` - dawny przegląd preview po przygotowaniu
+- `EXP-04` - testowa inferencja pojedynczej cyfry
+
+## Główne przepływy systemu
+
+### 1. Użytkownik rozwiązuje Sudoku
 
 ```mermaid
 flowchart TD
-    subgraph Solve["Pipeline 1: Solve Sudoku"]
-        S1[Użytkownik wybiera obraz]
-        S2[FE: upload lub wybór example]
-        S3[BE: walidacja requestu i orkiestracja]
-        S4[ML: detekcja planszy i korekcja perspektywy]
-        S5[ML: podział na komórki i preprocessing]
-        S6[ML: inferencja cyfr i wykrycie pustych pól]
-        S7[BE: walidacja gridu i workflow solve]
-        S8[ML: solver i przygotowanie overlay]
-        S9[BE -> FE: grid, wynik i artefakty odpowiedzi]
-
-        S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7 --> S8 --> S9
-    end
-
-    subgraph Dataset["Pipeline 2: Przygotowanie datasetu"]
-        D1[Admin loguje się]
-        D2[FE: wybór raw datasetow i splitow]
-        D3[BE: autoryzacja, walidacja i polityka splitu]
-        D4[ML: skan boards i digits]
-        D5[ML: preprocessing, czyszczenie i unifikacja probek]
-        D6[ML: build preview i raportu technicznego]
-        D7[BE: zapis metadanych oraz finalnego pliku .npz]
-        D8[FE: podglad raportu i gotowego datasetu]
-
-        D1 --> D2 --> D3 --> D4 --> D5 --> D6 --> D7 --> D8
-    end
-
-    subgraph Train["Pipeline 3: Trening i publikacja modelu"]
-        T1[Admin wybiera base model i dataset .npz]
-        T2[FE: start treningu]
-        T3[BE: walidacja zgodnosci i utworzenie runu]
-        T4[ML: trening, checkpointy i benchmark]
-        T5[ML -> BE: eventy postepu i status koncowy]
-        T6[BE: SignalR, zapis metadata i finalizacja model registry]
-        T7[FE: monitoring runu, lista modeli i wybor aktywnego modelu]
-
-        T1 --> T2 --> T3 --> T4 --> T5 --> T6 --> T7
-    end
+    A[Użytkownik wybiera obraz] --> B{Źródło obrazu}
+    B -->|Przykład zapisany w systemie| C[Lista i pobranie przykładu]
+    B -->|Lokalny plik| D[Preprocessing bez trwałego zapisu]
+    C --> E[Backend przekazuje obraz do ML]
+    D --> E
+    E --> F[ML wykrywa planszę i koryguje perspektywę]
+    F --> G[ML dzieli obraz na siatkę 9x9]
+    G --> H[Detekcja pustych komórek]
+    H --> I[Cleaning i inferencja tylko dla komórek niepustych]
+    I --> J[Backend buduje grid i uruchamia solver]
+    J --> K[Frontend pokazuje wynik]
 ```
 
+Ten przepływ obejmuje aktualną ścieżkę `UC-01 -> UC-05`, wariant lokalnego pliku z `UC-20` oraz stabilizację pustych komórek z `UC-22`.
 
-
-## Najważniejsze funkcje systemu
-
-- upload i przegląd przykładów Sudoku,
-- preprocessing planszy i komórek,
-- rozpoznawanie cyfr i rozwiązywanie Sudoku,
-- live solve z eventami czasu rzeczywistego,
-- logowanie administracyjne prostym tokenem,
-- przegląd surowych datasetów,
-- przygotowanie jednego artefaktu `{name}.npz`,
-- uruchamianie treningów i śledzenie postępu przez `SignalR`,
-- przegląd modeli i wybór aktywnego modelu,
-- diagnostyczny podgląd przygotowanego datasetu i artefaktów preview.
-
-## Jak poruszać się po repozytorium
-
-Najwygodniej czytać repo od dokumentów do implementacji:
-
-1. zacznij od `README.md`, żeby zrozumieć architekturę, warstwy i runtime,
-2. przejdź do `/.ai/prd.md`, żeby zobaczyć pełny zakres produktu, backlog i definicje `UC-*`,
-3. potem czytaj dokumenty w `/.ai/feature/`, gdzie opisane są overview oraz podział na `FE`, `BE`, `ML`, `INF`,
-4. następnie wejdź do `/.ai/implementation-plan/`, gdzie są bardziej techniczne plany wdrożenia konkretnych endpointów i kroków,
-5. dopiero potem schodź do kodu w `src/`, zależnie od warstwy, nad którą pracujesz.
-
-### Główne katalogi repo
-
-- `src/Frontend` - aplikacja frontendowa React/Vite.
-- `src/Backend/Sudoku` - backend .NET z podziałem na `Models`, `Application`, `Infrastructure` i projekt startowy `Sudoku`.
-- `src/MachineLearning` - warstwa Python/FastAPI, preprocessing, inferencja, trening i testy ML.
-- `.ai` - dokumentacja produktowa, techniczna, backlog, feature overview, implementation plan, bugi i eksperymenty.
-- `.github/workflows` - workflow CI/CD i reguły przejścia `dev -> main`.
-- `data` - lokalne artefakty runtime i testowe, np. przetworzone datasety, modele, raporty treningowe, metadata i preview.
-- `README.md` - skrót architektury, odpowiedzialności, runtime i wdrożenia.
-
-### Co zawiera `.ai`
-
-Katalog `.ai` jest roboczym centrum wiedzy o projekcie. Najważniejsze części:
-
-- `.ai/prd.md` - główny dokument produktu, cele, zakres, user journeys, `FR`, `NFR` i backlog `UC-*`.
-- `.ai/feature/` - opis funkcjonalności z perspektywy produktu i warstw; są tu zarówno overview, jak i osobne pliki dla `fe`, `be`, `ml`, `inf`.
-- `.ai/implementation-plan/` - plany implementacyjne krok po kroku dla konkretnych use case'ów i endpointów.
-- `.ai/bug/` - opisane błędy i regresje znalezione podczas pracy.
-- `.ai/exp/` - eksperymenty i techniczne ścieżki pomocnicze poza głównym produktem.
-- `.ai/DokumentacjaDeployuRuntimeSerwera.md` - docelowy model deployu, runtime serwera, katalogów i workflow.
-
-### Gdzie są historyjki
-
-Historyjki i use case'y są rozproszone warstwowo, ale mają czytelny układ:
-
-- główny backlog i lista `UC-*` są w `/.ai/prd.md`,
-- overview historyjek są w plikach typu `/.ai/feature/uc-05-overview.md`, `/.ai/feature/uc-06-overview.md`,
-- rozpisanie per warstwa jest w `/.ai/feature/fe/`, `/.ai/feature/be/`, `/.ai/feature/ml/`, `/.ai/feature/inf/`,
-- techniczne wykonanie danej historyjki jest w `/.ai/implementation-plan/...`.
-
-Praktycznie oznacza to, że dla jednego use case'u zwykle czytasz dokumenty w tej kolejności:
-
-`prd -> feature overview -> feature per warstwa -> implementation plan -> kod`
-
-### Jak czytać kod po warstwach
-
-- Jeśli pracujesz nad `FE`, zwykle zaczynasz od `/.ai/feature/fe/...`, potem przechodzisz do `src/Frontend`.
-- Jeśli pracujesz nad `BE`, zaczynasz od `/.ai/feature/be/...` i `/.ai/implementation-plan/be/...`, a potem schodzisz do `src/Backend/Sudoku`.
-- Jeśli pracujesz nad `ML`, zaczynasz od `/.ai/feature/ml/...` i `/.ai/implementation-plan/ml/...`, a potem przechodzisz do `src/MachineLearning`.
-- Jeśli temat dotyczy wdrożenia, infrastruktury albo release, sprawdzasz `/.ai/DokumentacjaDeployuRuntimeSerwera.md` oraz `.github/workflows`.
-
-### Ogólny flow pracy w repo
-
-Poniższy diagram pokazuje typowy przepływ od dokumentacji do implementacji i wdrożenia:
+### 2. Operator przygotowuje dane i model
 
 ```mermaid
 flowchart TD
-    A[README.md] --> B[.ai/prd.md]
-    B --> C[.ai/feature overview]
-    C --> D[.ai/feature per warstwa FE BE ML INF]
-    D --> E[.ai/implementation-plan]
-    E --> F[src/Frontend]
-    E --> G[src/Backend/Sudoku]
-    E --> H[src/MachineLearning]
-    F --> I[.github/workflows/frontend-cd.yml]
-    G --> J[.github/workflows/backend-cd.yml]
-    H --> K[.github/workflows/ml-cd.yml]
-    G --> L[data i runtime artifacts]
-    H --> L
-    I --> M[Deploy release-based]
-    J --> M
-    K --> M
+    A[Operator odblokowuje admina] --> B[Przegląd surowych datasetów]
+    B --> C[Utworzenie dataset preparation]
+    C --> D[Cleaning komórek do kanonicznej próbki]
+    D --> E[Przegląd i usuwanie słabych rekordów]
+    E --> F[Build finalnego datasetu .npz]
+    F --> G[Start treningu]
+    G --> H[Monitoring statusu i metryk]
+    H --> I[Nowy wpis w rejestrze modeli]
+    I --> J[Wybór aktywnego modelu]
+    J --> K[Nowy model używany w solve]
 ```
 
+To jest docelowa oś admin/ML zgodna z `PRD`: `UC-11 -> UC-17 -> UC-21 -> UC-18 -> UC-19 -> UC-06 -> UC-10`.
 
+### 3. Dane wejściowe do treningu
+
+Zanim operator uruchomi workflow datasetowy, dane trzeba ręcznie umieścić w katalogach runtime. Aplikacja nie pobiera dużych datasetów sama i nie trzyma ich w repo.
+
+```mermaid
+flowchart TD
+    A[Operator przygotowuje pliki lokalnie] --> B{Typ źródła}
+    B -->|board| C[data/raw/boards/nazwa_zrodla]
+    B -->|digit| D[data/raw/digits]
+    C --> E[pary rekurencyjne: prefix.jpg + prefix.dat]
+    D --> F[para: prefix.idx3-ubyte + prefix.idx1-ubyte]
+    E --> G[UC-11 lista kandydatów raw]
+    F --> G
+    G --> H[UC-17 dataset preparation]
+    H --> I[UC-18 review i usuwanie błędnych rekordów]
+    I --> J[UC-19 build finalnego .npz]
+    J --> K[UC-06 trening modelu]
+```
+
+Zasady dla `board`:
+- katalog źródła musi leżeć bezpośrednio pod `data/raw/boards`, np. `data/raw/boards/v1_training`,
+- wewnątrz katalogu skanowanie jest rekurencyjne,
+- plansza jest poprawnie rozpoznawana jako rekord tylko wtedy, gdy istnieje kompletna para `<prefix>.jpg` oraz `<prefix>.dat`,
+- plik `.dat` ma co najmniej 11 linii: dwie pierwsze są metadanymi, a linie 3-11 zawierają grid `9x9`,
+- każdy wiersz grida `.dat` musi mieć 9 wartości liczbowych rozdzielonych spacjami,
+- wartość `0` oznacza pustą komórkę i nie jest traktowana jako klasa cyfry.
+
+Zasady dla `digit`:
+- pliki leżą bezpośrednio pod `data/raw/digits`,
+- źródło jest wykrywane po wspólnym prefiksie pary `{prefix}.idx3-ubyte` oraz `{prefix}.idx1-ubyte`,
+- plik `idx3-ubyte` zawiera obrazy, a `idx1-ubyte` etykiety,
+- liczba obrazów i liczba etykiet musi być taka sama,
+- etykiety powinny odpowiadać cyfrom, które mają trafić do klasyfikatora.
+
+Zasady dla przykładów używanych w solve:
+- obrazy przykładowe trafiają do `examples/uploads`,
+- aplikacja obsługuje przede wszystkim `jpg`, `jpeg` i `png`,
+- nazwa pliku jest identyfikatorem przykładu widocznym dla API i UI,
+- lokalne zdjęcie z komputera użytkownika może przejść przez preprocessing bez trwałego zapisu po stronie serwera (`UC-20`).
+
+Przykładowy układ:
+
+```text
+examples/
+  uploads/
+    sudoku_demo_01.jpg
+    sudoku_demo_02.png
+
+data/raw/
+  boards/
+    v1_training/
+      board_001.jpg
+      board_001.dat
+      nested/
+        board_002.jpg
+        board_002.dat
+  digits/
+    train.idx3-ubyte
+    train.idx1-ubyte
+    t10k.idx3-ubyte
+    t10k.idx1-ubyte
+```
+
+### 4. Dataset preparation
+
+```mermaid
+flowchart LR
+    RawBoards[data/raw/boards] --> Prep[dataset preparation]
+    RawDigits[data/raw/digits] --> Prep
+    Prep --> Cells[cells/ po cleaningu]
+    Prep --> Preview[artefakty diagnostyczne]
+    Cells --> Review[review i usuwanie rekordów]
+    Review --> Build[build .npz]
+    Build --> Processed[data/processed]
+```
+
+Ważne rozróżnienie: w workflow datasetowym zapis do `cells/` wynika z labela `1..9`, a nie z runtime'owej detekcji pustej komórki. Detekcja pustych pól jest elementem ścieżki solve.
+
+### 5. Szukanie ramki planszy
+
+W aktualnym runtime szukanie planszy skupia się na znalezieniu ramki Sudoku i poprawnym warpingu całego boardu. Pełne wykrywanie każdej linii wewnętrznej siatki było rozwijane w draftach, ale okazało się zbyt niestabilne dla wszystkich obrazów.
+
+```mermaid
+flowchart TD
+    A[Obraz wejściowy] --> B[Grayscale, blur i threshold]
+    B --> C[Detekcja segmentów Hough]
+    C --> D[Grupowanie rodzin linii poziomych i pionowych]
+    D --> E[Łączenie i ocena kandydatów ramki]
+    E --> F{Czy znaleziono wiarygodną ramkę?}
+    F -->|tak| G[Wyznaczenie narożników]
+    G --> H[Warp perspektywy do obrazu planszy]
+    H --> I[Podział boardu na 9x9 po geometrii ramki]
+    F -->|nie| J[Błąd preprocessingu / rekord do odrzucenia]
+```
+
+Konsekwencją tego podejścia jest to, że komórki są wycinane z podziału całej ramki, a nie z osobno wykrytych pól siatki. Działa to szybciej i stabilniej dla MVP, ale przy mocno przekrzywionych, niewyraźnych albo zlewających się liniach może zahaczać o fragmenty sąsiednich komórek.
+
+### 6. Pipeline pojedynczej komórki w runtime
+
+```mermaid
+flowchart TD
+    A[raw cell z planszy] --> B[Binaryzacja i lekki cleanup diagnostyczny]
+    B --> C[Empty cell detection]
+    C -->|pusta| D[Wpisz 0 do gridu]
+    C -->|niepusta| E[Cell cleaning for classification]
+    E --> F[Inferencja cyfry aktywnym modelem]
+    F --> G[Wpisz cyfrę 1..9 do gridu]
+```
+
+`UC-22` rozdziela decyzję „czy komórka jest pusta” od przygotowania próbki pod klasyfikator. Dzięki temu artefakty diagnostyczne, takie jak `center composite` czy overlaye segmentów, nie są mylone z próbką produkcyjną dla modelu.
+
+### 7. Detekcja pustej komórki
+
+W eksperymentach lepiej sprawdziła się heurystyka łącząca analizę pikseli i segmentów niż proste liczenie udziału ciemnych pikseli w całej komórce.
+
+```mermaid
+flowchart TD
+    A[raw cell] --> B[Maska foreground]
+    B --> C[Czyszczenie drobnych komponentów]
+    C --> D[Odcięcie marginesu wewnętrznego]
+    D --> E[Center quadrant composite]
+    E --> F[Liczenie foreground pixel ratio]
+    E --> G[Hough segments w centrum]
+    G --> H[Odfiltrowanie krótkich segmentów]
+    F --> I{Próg pikseli przekroczony?}
+    H --> J{Wystarczająco segmentów?}
+    I -->|tak| K[Komórka niepusta]
+    I -->|nie| J
+    J -->|tak| K
+    J -->|nie| L[Komórka pusta]
+```
+
+Logika wykorzystuje centralny obszar komórki, budowany jako `center composite`, a następnie sprawdza dwa sygnały:
+- udział ciemnych pikseli w centrum,
+- liczbę istotnych segmentów Hough po odfiltrowaniu krótkich odcinków.
+
+Ten wariant jest odporniejszy na część artefaktów siatki niż samo liczenie pikseli, ale nadal ma ograniczenia. Cyfra `1` jest szczególnie trudna, bo bywa cienka, pionowa i podobna do pozostałości linii siatki.
+
+### 8. Parametry solve i detekcji pustych pól
+
+Frontend ma bogaty panel parametrów z opisem edukacyjnym: dla każdego parametru opisano jego cel, efekt zmiany, kiedy warto go ruszać i jak testować korekty. To jest element `UC-14` i ma pomagać w świadomym dostrajaniu pipeline'u, a nie w losowym klikaniu wartości.
+
+Najważniejsze parametry dla pustej komórki:
+- `emptyCellDarkPixelRatioThreshold` - próg udziału foreground pixels w centrum,
+- `emptyCellMinSegmentLengthPx` - minimalna długość segmentu Hough liczona jako istotny sygnał,
+- `emptyCellFilteredSegmentCountThreshold` - liczba odfiltrowanych segmentów potrzebna do uznania komórki za niepustą.
+
+Domyślne wartości w kodzie są zachowawcze:
+
+```text
+emptyCellDarkPixelRatioThreshold = 0.02
+emptyCellMinSegmentLengthPx = 8
+emptyCellFilteredSegmentCountThreshold = 2
+```
+
+W praktycznych testach lepiej sprawdzał się ostrzejszy zestaw dla trudniejszych obrazów:
+
+```text
+emptyCellDarkPixelRatioThreshold = 0.15
+emptyCellMinSegmentLengthPx = 18
+emptyCellFilteredSegmentCountThreshold = 5
+```
+
+Te wartości nie są uniwersalnym optimum dla każdego zdjęcia. Są dobrym punktem startu, gdy puste komórki są zbyt często brane za cyfry przez resztki siatki, szum lub artefakty po warpie.
+
+### 9. Trening, rejestr i aktywny model
+
+```mermaid
+flowchart LR
+    NPZ[data/processed/*.npz] --> Run[training run]
+    Run --> Reports[data/trainings/reports]
+    Run --> Metadata[data/trainings/metadata]
+    Run --> Registry[data/models/registry]
+    Registry --> Active[data/models/active/inference.json]
+    Active --> Solve[Runtime solve]
+```
+
+Lokalnie rejestr modeli i aktywny model trzeba zainicjalizować przez `src/MachineLearning/init_bootstrap` zgodnie z `INSTALL.md`. Na serwerze ten bootstrap jest częścią automatyzacji deployu.
+
+## Aktualny flow danych i modeli
+
+Docelowy workflow projektu to:
+
+```text
+raw -> preparation -> cleanup/review -> build .npz -> training -> active model -> solve
+```
+
+To jest aktualny kierunek zgodny z `PRD`. W szczególności:
+- ciężki preprocessing nie powinien być powtarzany przy każdej przebudowie datasetu,
+- `dataset preparation` jest trwałym etapem pośrednim,
+- cleaning komórki powinien być wspólny dla treningu i runtime,
+- stare ścieżki bezpośredniego builda `.npz` z `raw` są migracyjne,
+- lokalne uruchomienie i bootstrap runtime są opisane w `INSTALL.md`.
 
 ## Podział odpowiedzialności i historyjki
 
-Poniższa ramka służy do wpisania odpowiedzialności zespołu za konkretne historyjki. Tam, gdzie dana warstwa nie bierze udziału, pozostawiono `—`.
+`README.md` pokazuje mapę projektu, a nie zastępuje szczegółowych opisów `UC`. Pełny backlog i status koncepcyjny są w `.ai/prd.md`, a dokumenty per funkcjonalność są w `.ai/feature/`.
 
-Skróty:
+Poniższa tabela utrzymuje roboczy podział odpowiedzialności. Dla nowszych `UC`, które doszły po pierwszym podziale prac, wpisany jest `Wojtek` w każdej warstwie, która była potrzebna do realizacji danej funkcjonalności.
 
-- `INFRA` - serwer, deploy, runtime, dokumentacja, workflow, jakość
-- `FE` - frontend i interfejs użytkownika
-- `BE` - backend C# / ASP.NET Core i workflow aplikacyjny
-- `ML` - Computer Vision, inferencja, datasety i trening
+| ID | Zakres | INFRA | FE | BE | ML |
+| --- | --- | --- | --- | --- | --- |
+| `INF-01` | Szkielet repo, README, przykłady do demo | `Wojtek` | — | — | — |
+| `INF-02` | Uruchomienie lokalne całego systemu | `Wojtek` | — | — | — |
+| `INF-03` | Środowisko serwerowe, SSL, reverse proxy, layout runtime | `Wojtek` | — | — | — |
+| `INF-04` | Standardy jakości i zasady pracy | `Wojtek` | — | — | — |
+| `INF-05` | Notebooki, drafty i środowisko eksperymentalne | `Wojtek` | — | — | `Wojtek` |
+| `INF-06` | Workflow jakości i CI | `Wojtek` | `Wojtek` | `Wojtek` | `Wojtek` |
+| `INF-07` | CD i deploy na serwer | `Wojtek` | `Wojtek` | `Wojtek` | `Wojtek` |
+| `INF-08` | Bootstrap rejestru modeli i manifestów | `Wojtek` | — | `Wojtek` | `Wojtek` |
+| `UC-00` | Smoke test `FE -> BE -> ML` | — | `Wojtek` | `Wojtek` | `Wojtek` |
+| `UC-01` | Upload pliku Sudoku do `examples` | — | `Adam` | `Wojtek` | — |
+| `UC-02` | Lista przykładów Sudoku | — | `Adam` | `Wojtek` | — |
+| `UC-03` | Pobranie przykładu Sudoku | — | `Adam` | `Wojtek` | — |
+| `UC-04` | Wstępna obróbka wybranego przykładu | — | `Adam` | `Wojtek` | `Wojtek` / `Michał` |
+| `UC-05` | Rozpoznanie cyfr, solve i prezentacja wyniku | — | `Wojtek` | `Wojtek` | `Wojtek` |
+| `UC-06` | Uruchomienie treningu na `.npz` | — | `Adam` | `Wojtek` | `Wojtek` |
+| `UC-07` | Postęp treningu i status zakończenia | — | `Adam` | `Wojtek` | `Wojtek` |
+| `UC-08` | Lista treningów i modeli | — | `Adam` | `Wojtek` | `Wojtek` |
+| `UC-09` | Szczegóły treningu i metryki | — | `Adam` | `Wojtek` | `Wojtek` |
+| `UC-10` | Wybór aktywnego modelu | — | `Adam` | `Wojtek` | `Wojtek` |
+| `UC-11` | Lista surowych datasetów | — | `Adam` | `Wojtek` | — |
+| `UC-12` | Dawny workflow bezpośredniej budowy `.npz` | — | `Adam` | `Wojtek` | `Wojtek` |
+| `UC-13` | Prosta autoryzacja administracyjna | — | `Adam` | `Wojtek` | — |
+| `UC-14` | Parametryzacja funkcjonalności z UI | — | `Wojtek` | `Wojtek` | `Wojtek` |
+| `UC-15` | Spowolnienie live solve | — | `Wojtek` | `Wojtek` | — |
+| `UC-16` | Dawny przegląd preview po przygotowaniu | — | — | — | `Wojtek` |
+| `UC-17` | Utwórz `dataset preparation` | — | `Wojtek` | `Wojtek` | `Wojtek` |
+| `UC-18` | Przeglądaj i usuwaj elementy z przygotowania | — | `Wojtek` | `Wojtek` | — |
+| `UC-19` | Zbuduj finalny `.npz` z przygotowania | — | `Wojtek` | `Wojtek` | `Wojtek` |
+| `UC-20` | Preprocess lokalnego zdjęcia bez zapisu | — | `Wojtek` | `Wojtek` | `Wojtek` |
+| `UC-21` | Cleaning komórki podczas przygotowania danych | — | — | `Wojtek` | `Wojtek` |
+| `UC-22` | Detekcja pustej komórki i cleaning runtime | — | `Wojtek` | `Wojtek` | `Wojtek` |
+| `EXP-04` | Testowa inferencja pojedynczej cyfry | — | — | — | `Wojtek` |
 
+Najważniejsze grupy historyjek:
 
-| ID       | Zakres                                                           | INFRA             | FE       | BE       | ML                |
-| -------- | ---------------------------------------------------------------- | ----------------- | -------- | -------- | ----------------- |
-| `INF-01` | Szkielet repo, README, przykłady do demo                         | `do uzupełnienia` | —        | —        | —                 |
-| `INF-02` | Uruchomienie lokalne całego systemu                              | `do uzupełnienia` | —        | —        | —                 |
-| `INF-03` | Środowisko serwerowe, domena, SSL, reverse proxy, layout runtime | `do uzupełnienia` | —        | —        | —                 |
-| `INF-04` | Standardy jakości i zasady pracy                                 | `do uzupełnienia` | —        | —        | —                 |
-| `INF-05` | Opcjonalny Jupyter / środowisko eksperymentalne                  | `do uzupełnienia` | —        | —        | `Wojtek`          |
-| `INF-06` | Opcjonalne CI na PR                                              | `do uzupełnienia` | `Wojtek` | `Wojtek` | `Wojtek`          |
-| `INF-07` | CD / deploy na serwer                                            | `do uzupełnienia` | `Wojtek` | `Wojtek` | `Wojtek`          |
-| `INF-08` | Bootstrap rejestru modeli i manifestów                           | `do uzupełnienia` | —        | `Wojtek` | `Wojtek`          |
-| `UC-00`  | Smoke test `FE -> BE -> ML`                                      | —                 | `Wojtek` | `Wojtek` | `Wojtek`          |
-| `UC-01`  | Upload pliku Sudoku do `examples`                                | —                 | `Adam`   | `Wojtek` | —                 |
-| `UC-02`  | Lista dostępnych przykładów Sudoku                               | —                 | `Adam`   | `Wojtek` | —                 |
-| `UC-03`  | Pobierz wybrany plik przykładowy                                 | —                 | `Adam`   | -        | —                 |
-| `UC-04`  | Wybór przykładu i wstępna obróbka                                | —                 | `Adam`   | `Wojtek` | `Wojtek`/`Michał` |
-| `UC-05`  | Rozpoznanie cyfr, solve i prezentacja wyniku                     | —                 | `Wojtek` | `Wojtek` | `Wojtek`          |
-| `UC-06`  | Uruchomienie treningu na `.npz`                                  | —                 | `Adam`   | `Wojtek` | `Wojtek`          |
-| `UC-07`  | Postęp treningu i status zakończenia                             | —                 | `Adam`   | `Wojtek` | `Wojtek`          |
-| `UC-08`  | Lista treningów i modeli                                         | —                 | `Adam`   | `Wojtek` | `Wojtek`          |
-| `UC-09`  | Szczegóły treningu i metryki                                     | —                 | `Adam`   | `Wojtek` | `Wojtek`          |
-| `UC-10`  | Wybór aktywnego modelu do inferencji                             | —                 | `Adam`   | `Wojtek` | `Wojtek`          |
-| `UC-11`  | Lista surowych datasetów                                         | —                 | `Adam`   | `Wojtek` | —                 |
-| `UC-12`  | Przygotowanie datasetu `.npz`                                    | —                 | `Adam`   | `Wojtek` | `Wojtek`          |
-| `UC-13`  | Prosta autoryzacja administracyjna                               | —                 | `Adam`   | `Wojtek` | —                 |
-| `UC-14`  | Parametryzacja funkcjonalności z UI                              | —                 | `Wojtek` | `Wojtek` | `Wojtek`          |
-| `UC-15`  | Spowolnienie live solve                                          | —                 | `Wojtek` | `Wojtek` | —                 |
-| `UC-16`  | Przegląd przygotowanego datasetu i preview                       | —                 | -        | -        | `Wojtek`          |
+- `UC-01` do `UC-05` - podstawowa ścieżka użytkownika od przykładu do rozwiązania Sudoku.
+- `UC-20` i `UC-22` - aktualne rozszerzenia runtime solve: lokalny plik bez zapisu oraz stabilna detekcja pustych komórek.
+- `UC-11`, `UC-17`, `UC-21`, `UC-18`, `UC-19` - docelowy workflow datasetowy.
+- `UC-06` do `UC-10` - trening, monitoring, rejestr modeli i aktywny model.
+- `UC-12`, `UC-15`, `UC-16` - elementy migracyjne lub techniczne, nie główna oś produktu.
 
+## Jak poruszać się po repozytorium
 
-### Podział pracy w formie osobowej
+Najwygodniej czytać repo w kolejności:
 
-Aktualny podział osobowy:
+1. `README.md`
+2. `INSTALL.md`
+3. `TECH-STACK.md`
+4. `.ai/prd.md`
+5. `.ai/feature/...`
+6. `.ai/implementation-plan/...`
+7. kod w `src/...`
 
-- **Adam** - `FE`
-- **Wojtek** - `BE`/`ML`/`INF`/`FE`/`Dokumentacja`
-- **Infrastruktura / DevOps** - `Doractwo`/`ML`
+### Główne katalogi
 
-## Layout runtime i katalogi serwera
+- `src/Frontend` - aplikacja `React/Vite`
+- `src/Backend/Sudoku` - backend `.NET` z podziałem na `Models`, `Application`, `Infrastructure` i projekt startowy `Sudoku`
+- `src/MachineLearning` - warstwa `Python/FastAPI`, preprocessing, inferencja, trening i testy
+- `src/MachineLearning/draft` - drafty, notebooki i eksperymenty związane z wykrywaniem ramki planszy, dzieleniem siatki i diagnostyką pipeline'u
+- `.ai` - dokumentacja produktowa, feature docs, implementation plans, bugi i eksperymenty
+- `.github/workflows` - workflow CI/CD i release dla warstw systemu
+- `data` - lokalne artefakty runtime: datasety, przygotowania, modele i treningi
+- `examples` - przykładowe obrazy Sudoku widoczne w aplikacji
+- `tmp` - artefakty tymczasowe tworzone podczas preprocessingów, buildów datasetów i treningów
 
-Schemat katalogów runtime i deployu powinien być rozumiany według docelowego layoutu serwera, a nie 1:1 według struktury repo.
+### System plików projektowy
+
+To jest układ repo z punktu widzenia pracy nad projektem:
 
 ```text
-/opt/sudoku/
-├── backend/                   # aktywna wersja BE
-├── ml/                        # aktywna wersja ML
-├── releases/
-│   ├── backend/               # wrzutnia release'ów BE
-│   ├── ml/                    # wrzutnia release'ów ML
-│   └── fe/                    # wrzutnia release'ów FE
-├── shared/
-│   ├── data/
-│   │   ├── raw/
-│   │   │   ├── boards/
-│   │   │   └── digits/
-│   │   ├── processed/
-│   │   └── benchmark/
-│   ├── models/
-│   │   ├── active/
-│   │   │   └── inference.json
-│   │   └── registry/
-│   │       └── {modelName}/
-│   │           ├── model.json
-│   │           └── artifacts/
-│   ├── trainings/
-│   │   ├── runs/
-│   │   ├── reports/
-│   │   └── metadata/
-│   ├── examples/
-│   │   ├── uploads/
-│   │   └── generated/
-│   └── tmp/
-└── scripts/
+.
+  README.md                         # mapa produktu, architektury i workflow
+  INSTALL.md                        # lokalna instalacja, konfiguracja i uruchomienie
+  TECH-STACK.md                     # katalog technologii i zależności
 
-/var/www/sudoku/fe             # aktywny frontend dla nginx
-/etc/sudoku/                   # konfiguracja systemowa / dodatki
-/var/log/sudoku/               # logi
+  .cursor/
+    rules/                          # trwałe zasady architektury, kontraktów i stylu
+
+  .ai/
+    prd.md                          # zakres produktu i mapa UC
+    feature/                        # opisy funkcjonalności per UC
+    implementation-plan/            # techniczne plany realizacji
+    DokumentacjaDeployuRuntimeSerwera.md
+
+  .github/
+    workflows/                      # CI/CD, release i deploy
+
+  src/
+    Backend/Sudoku/                 # backend clean architecture
+    MachineLearning/                # wewnętrzny serwis ML clean architecture
+    Frontend/                       # frontend React/Vite w układzie MVVC
+
+  examples/                         # runtime examples, poza kodem aplikacji
+  data/                             # runtime datasets, preparations, trainings, models
+  tmp/                              # runtime workspace dla operacji tymczasowych
 ```
 
-### Znaczenie katalogów runtime
+`src/Backend/Sudoku`, `src/MachineLearning` i `src/Frontend` mają własne wewnętrzne podziały opisane w sekcji `Architektura modułów`. Katalogi `data`, `examples` i `tmp` są częścią runtime, a nie miejscem na logikę aplikacyjną.
 
-- `/opt/sudoku/backend` - aktywny publish `Backendu`
-- `/opt/sudoku/ml` - aktywny kod `MachineLearning`
-- `/opt/sudoku/releases/...` - wrzutnia artefaktów release
-- `/opt/sudoku/shared/...` - trwały stan systemu, który żyje dłużej niż pojedynczy release
-- `/var/www/sudoku/fe` - statyczny build `Frontendu`
+### System plików runtime
 
-### Kluczowa zasada runtime
+Lokalne katalogi runtime nie są tylko „śmietnikiem plików”. Każdy z nich odpowiada konkretnemu etapowi workflow:
 
-Deploy nie może czyścić ani nadpisywać katalogów współdzielonych runtime, takich jak:
+```text
+examples/
+  uploads/                  # obrazy Sudoku dodane jako przykłady do aplikacji
 
-- `shared/data`
-- `shared/models`
-- `shared/trainings`
-- `shared/examples`
+data/
+  raw/
+    boards/                 # surowe datasety plansz, pary *.jpg + *.dat
+    digits/                 # surowe datasety cyfr, pliki idx3/idx1
+  preparations/             # trwałe dataset preparation po UC-17
+  processed/                # finalne datasety .npz po UC-19
+  models/
+    registry/               # rejestr modeli i manifesty
+    active/                 # aktywny model inferencyjny, m.in. inference.json
+  trainings/
+    runs/                   # artefakty uruchomień treningowych
+    reports/                # raporty i metryki
+    metadata/               # statusy i metadane widoczne dla backendu
 
-To jest stan systemu, a nie zawartość pojedynczego release'u.
-
-## Deploy i model wdrożenia
-
-Projekt zakłada deploy **release-based**:
-
-1. workflow buduje artefakt,
-2. artefakt trafia do katalogu `releases`,
-3. uruchamiany jest odpowiedni skrypt deployowy,
-4. release jest promowany do katalogu aktywnego,
-5. usługa jest restartowana.
-
-### Deploy Frontendu
-
-- build wykonywany jest w CI/CD,
-- wynik statyczny trafia do `/opt/sudoku/releases/fe/`,
-- deploy kopiuje build do `/var/www/sudoku/fe`,
-- `nginx` serwuje pliki statyczne,
-- ta warstwa nie wymaga restartu osobnej usługi aplikacyjnej.
-
-### Deploy Backendu
-
-- workflow wykonuje `dotnet restore`, `dotnet build`, testy i `dotnet publish`,
-- release zawiera `appsettings.json` i `appsettings.production.json`,
-- artefakt trafia do `/opt/sudoku/releases/backend/`,
-- deploy promuje go do `/opt/sudoku/backend`,
-- po wdrożeniu restartowana jest usługa `sudoku-backend.service`.
-
-### Deploy warstwy ML
-
-- workflow pakuje kod, `requirements.txt` i `api/.env`,
-- artefakt trafia do `/opt/sudoku/releases/ml/`,
-- deploy promuje go do `/opt/sudoku/ml`,
-- na serwerze utrzymywane jest `.venv`,
-- deploy wykonuje `pip install -r requirements.txt`,
-- po wdrożeniu restartowana jest usługa `sudoku-ml.service`.
-
-### Niezależność wdrożeń
-
-`FE`, `BE` i `ML` powinny móc być wdrażane niezależnie osobnymi workflow.
-
-### Workflow GitHub i krótki model wdrożenia
-
-Repo korzysta z osobnych workflow dla każdej warstwy oraz z dodatkowej kontroli gałęzi:
-
-- `only-dev-to-main.yml` pilnuje, żeby pull request do `main` pochodził z `dev`,
-- `frontend-cd.yml` buduje frontend, pakuje statyczny build i wysyła go do katalogu release FE,
-- `backend-cd.yml` wykonuje `restore`, `build`, testy i `publish`, przygotowuje `appsettings.production.json`, a następnie wysyła release backendu,
-- `ml-cd.yml` waliduje układ źródeł ML, przygotowuje pliki `.env`, pakuje release i wysyła go na serwer.
-
-Wspólny model jest `release-based`: po merge `dev -> main` albo po ręcznym `workflow_dispatch` na `main` workflow buduje archiwum `.tar.gz`, wysyła je przez `SSH/SCP` do `/opt/sudoku/releases/...`, a następnie uruchamia komendę deployową na serwerze. Skrypt deployowy promuje najnowszy release do katalogu aktywnego i restartuje właściwą usługę, jeśli dana warstwa tego wymaga.
-
-Kluczowa zasada operacyjna pozostaje taka sama: deploy nie nadpisuje katalogów współdzielonych runtime, takich jak `shared/data`, `shared/models`, `shared/trainings` i `shared/examples`, bo to jest trwały stan systemu, a nie część pojedynczego release'u.
+tmp/
+  datasets/                 # tymczasowe artefakty builda datasetów
+  solve-sessions/metadata/  # tymczasowe metadane sesji solve
+  trainings/                # katalog roboczy treningów
+```
 
 ```mermaid
 flowchart TD
-    A[Developer merguje PR z dev do main<br/>lub uruchamia workflow_dispatch] --> B{Ktora warstwa?}
-
-    B --> FE[frontend-cd.yml]
-    B --> BE[backend-cd.yml]
-    B --> ML[ml-cd.yml]
-
-    FE --> FE1[Build FE i walidacja dist]
-    FE1 --> FE2[Pakowanie archiwum tar.gz]
-    FE2 --> FE3[Upload do /opt/sudoku/releases/fe]
-    FE3 --> FE4[Uruchomienie komendy deploy FE]
-    FE4 --> FE5[Promocja do /var/www/sudoku/fe]
-
-    BE --> BE1[dotnet restore build test publish]
-    BE1 --> BE2[Przygotowanie appsettings.production.json]
-    BE2 --> BE3[Pakowanie archiwum tar.gz]
-    BE3 --> BE4[Upload do /opt/sudoku/releases/backend]
-    BE4 --> BE5[Uruchomienie komendy deploy BE]
-    BE5 --> BE6[Promocja do /opt/sudoku/backend]
-    BE6 --> BE7[Restart sudoku-backend.service]
-
-    ML --> ML1[Walidacja kodu i layoutu ML]
-    ML1 --> ML2[Przygotowanie api/.env i env production]
-    ML2 --> ML3[Pakowanie archiwum tar.gz]
-    ML3 --> ML4[Upload do /opt/sudoku/releases/ml]
-    ML4 --> ML5[Uruchomienie komendy deploy ML]
-    ML5 --> ML6[Promocja do /opt/sudoku/ml]
-    ML6 --> ML7[Instalacja requirements w .venv]
-    ML7 --> ML8[Restart sudoku-ml.service]
+    Examples[examples/uploads] --> Solve[solve z przykładu]
+    Raw[data/raw] --> Preparation[data/preparations]
+    Preparation --> Processed[data/processed]
+    Processed --> Training[data/trainings]
+    Training --> Registry[data/models/registry]
+    Registry --> Active[data/models/active]
+    Active --> Solve
+    Tmp[tmp] -. artefakty robocze .-> Preparation
+    Tmp -. artefakty robocze .-> Training
 ```
 
+`Backend` decyduje, które rekordy i statusy są widoczne dla UI. `MachineLearning` może tworzyć pliki techniczne, ale ich znaczenie w workflow powinno przechodzić przez backend.
 
+### Drafty i notebooki
 
-## Runtime sieciowy
+W projekcie istnieją drafty i notebooki wspierające rozwój algorytmów vision, w szczególności:
+- `src/MachineLearning/draft/FinalApi/final_api_uc04_uc06_preview.ipynb`
+- `src/MachineLearning/draft/raw_line_family_only/experiment.ipynb`
 
-### Publiczne porty
+Te materiały dotyczą m.in. prób znalezienia ramki planszy, podziału planszy na siatkę, diagnostyki segmentów, logical lines i warpingu. To zaplecze eksperymentalne, a nie główna ścieżka runtime.
 
-Na zewnątrz powinny być wystawione tylko:
+## Wnioski z eksperymentów
 
-- `80/tcp`
-- `443/tcp`
-- `22/tcp`
+Najważniejsze decyzje projektowe wynikające z eksperymentów vision/ML:
 
-### Porty wewnętrzne
+- Sam preprocessing obrazu nie wystarczał jako stabilny kontrakt produktu. Potrzebne okazało się rozdzielenie wykrywania planszy, podziału na komórki, diagnostyki linii i późniejszej inferencji.
+- Detekcja pustej komórki musi być osobnym etapem przed czyszczeniem próbki pod klasyfikator. W przeciwnym razie artefakty diagnostyczne, szum i linie siatki zaczynają mieszać się z danymi produkcyjnymi dla modelu.
+- `Cell cleaning` powinien być wspólny dla runtime solve i przygotowania danych treningowych. To ogranicza ryzyko rozjazdu między tym, co model widzi w treningu, a tym, co dostaje podczas inferencji.
+- Ciężki preprocessing datasetów nie powinien być powtarzany przy każdej budowie `.npz`. Dlatego docelowy workflow ma trwały etap `dataset preparation`, a finalny `.npz` jest artefaktem budowanym z przygotowania.
+- Rejestr modeli i aktywny model muszą być jawne. Sam fakt, że plik modelu istnieje na dysku, nie wystarcza do kontrolowanego runtime; backend musi wiedzieć, który model jest aktywny i jakie ma metadane.
+- ML powinien wystawiać usługi obliczeniowe i techniczne artefakty, ale nie powinien stawać się drugim źródłem prawdy dla workflow. Statusy widoczne dla użytkownika i admina należą do backendu.
+- Flow użytkownika i flow admina mają inne potrzeby UX. Solve wymaga prostego wyniku i szybkiej diagnostyki błędu, a workflow datasetowy wymaga trwałych kroków, przeglądu jakości danych i możliwości powtórzenia builda/treningu.
+- Dane wejściowe muszą mieć ściśle kontrolowany format już na poziomie katalogów runtime. `board` jako pary `.jpg + .dat`, `digit` jako pary `idx3/idx1` i przykłady w `examples/uploads` nie są detalem instalacyjnym, tylko warunkiem poprawnego działania pipeline'u.
+- Workflow datasetowy musi zakładać, że część danych przejdzie preprocessing źle. Dlatego `dataset preparation`, review i usuwanie rekordów są częścią jakości danych, a nie dodatkiem do UI.
+- Wykrywanie ramki planszy okazało się praktyczniejszym kompromisem niż próba polegania na pełnym, stabilnym wykryciu wszystkich linii siatki. To uprościło runtime, ale przeniosło część ryzyka na jakość wyciętych komórek.
+- Parametryzacja solve jest potrzebna, bo jeden zestaw progów nie działa idealnie dla wszystkich obrazów. Panel parametrów z opisem edukacyjnym stał się narzędziem diagnostycznym i demonstracyjnym, a nie tylko konfiguracją techniczną.
+- Heurystyka pustej komórki oparta o `center composite`, foreground ratio i segmenty Hough jest lepsza od samego liczenia pikseli, ale wymaga świadomego strojenia. W praktyce wartości `0.15`, `18 px` i `5 segmentów` były użytecznym punktem startu dla trudniejszych obrazów.
 
-- `BE` - `127.0.0.1:5000`
-- `ML` - `127.0.0.1:8000`
+### Ograniczenia i czego nie udało się dopracować
 
-Oznacza to, że `Backend` i `ML` słuchają tylko na `localhost`.
+Projekt ma działający pełny workflow, ale nie wszystkie problemy vision/ML udało się domknąć w czasie dostępnej pracy:
 
-## Konfiguracja
+- W notebookach i draftach widać, że dla części obrazów `.jpg` nie udało się stabilnie znaleźć wszystkich linii wewnętrznej siatki Sudoku. To wymusiło ograniczenie runtime do wykrycia ramki planszy i podziału komórek geometrycznie po ramce.
+- Brak stabilnego wykrywania każdej linii siatki oznacza, że nie dało się ciąć idealnie po realnych granicach pojedynczych komórek. Nawet po warpie wycinek komórki może zahaczać o sąsiednie pola albo resztki linii.
+- Nie wszystkie ramki z dostępnych datasetów są poprawnie obrysowywane. Problem pojawia się szczególnie przy dużym kącie zdjęcia, niewyraźnych krawędziach, zlewaniu się linii siatki z tłem albo bliskimi liniami z obrazu.
+- Z tego powodu w `dataset preparation` potrzebny jest etap review i możliwość usuwania rekordów, które przeszły cleaning niepoprawnie. To nie jest tylko wygoda UI, ale mechanizm kontroli jakości danych.
+- Model cyfr nie rozpoznaje dowolnego pisma. Testy z ręcznie wpisanymi cyframi pokazały, że niektóre znaki trzeba było poprawić, a model najlepiej działa dla formy pisma podobnej do danych treningowych. Dalsza poprawa wymagałaby dotrenowania na własnym piśmie i lepszego oczyszczenia próbek.
+- Detekcja pustej komórki nadal może mylić się na nieoczyszczonych danych. Artefakty po siatce, szum i cienkie kreski mogą zostać uznane za cyfrę, a cyfra `1` bywa podobna do pionowego fragmentu linii.
+- Część modeli widocznych w rejestrze lub możliwych do zbootstrapowania nie jest pełnoprawnie obsłużona jako wybór operacyjny. Wyższe modele `resnet` są cięższe od lokalnego `CNN`, a nie wszystkie mają gotowe profile i ścieżki runtime.
+- Modele typu `resnet`, nawet mniejsze warianty jak `resnet18`, są znacznie cięższe od własnego `CNN`. To ma znaczenie dla czasu treningu, inferencji, zasobów serwera i sensowności użycia w MVP.
+- Oczyszczanie danych i przygotowanie większego datasetu na serwerze może trwać długo, nawet powyżej 2 godzin, zależnie od rozmiaru danych i jakości obrazów.
+- Frontend może mieć jeszcze drobne błędy lub miejsca niedopracowane responsywnie. W niektórych przypadkach obejściem może być kliknięcie w inne miejsce, ponowienie akcji albo odświeżenie widoku.
+- Projekt ma potencjał do dalszego rozwoju, ale ograniczenie czasu nie pozwoliło dopracować stabilnego i wydajnego znajdowania każdej linii siatki ani pełnej optymalizacji przeszukiwania geometrycznego.
+- Nie każdy algorytm w takim projekcie da się skutecznie „wygenerować przez AI”. Duża część matematyki obrazu, geometrii, progowania i heurystyk wymagała ręcznego projektowania, testowania oraz korekt wspieranych eksperymentami.
 
-### Backend
+## Dokumentacja projektowa
 
-Backend korzysta z:
+Najważniejsze źródła wiedzy:
 
-- `appsettings.json`
-- `appsettings.{environment}.json`
-- zmiennych środowiskowych
-- argumentów procesu
+- `INSTALL.md` - jak zainstalować i uruchomić system lokalnie
+- `TECH-STACK.md` - lista technologii i zależności projektowych
+- `.ai/prd.md` - pełny zakres produktu, backlog i docelowy model workflow
+- `.cursor/rules/architecture_backend.mdc` - zasady architektury backendu
+- `.cursor/rules/architecture_ml.mdc` - zasady architektury ML
+- `.ai/feature/` - szczegóły historyjek oraz rozbicie per warstwa
+- `.ai/implementation-plan/` - techniczne plany realizacji endpointów i kroków implementacyjnych
+- `.github/workflows/` - workflow budowy, testów i deployu
+- `.ai/DokumentacjaDeployuRuntimeSerwera.md` - szczegóły runtime i deployu serwerowego
 
-W środowisku lokalnym wykorzystywany jest `SUDOKU_ENVIRONMENT=local`. W środowisku serwerowym deploy powinien wskazywać `SUDOKU_ENVIRONMENT=production`.
+### Workflow GitHub
 
-### MachineLearning
+Repo korzysta obecnie z:
+- `frontend-cd.yml`
+- `backend-cd.yml`
+- `ml-cd.yml`
+- `only-dev-to-main.yml`
 
-Warstwa ML korzysta z:
+To właśnie w `.github/workflows/` utrzymywany jest pipeline budowy, walidacji i release'u poszczególnych warstw.
 
-- `api/.env`
-- `requirements.txt`
-
-Konfiguracja runtime jest dostarczana razem z release'em.
-
-## Uruchomienie lokalne
-
-Uruchom aplikację w trzech terminalach.
-
-### Backend
-
-```bash
-cd src/Backend/Sudoku/Sudoku
-dotnet restore
-dotnet run --launch-profile Sudoku
-```
-
-### MachineLearning
-
-```bash
-cd src/MachineLearning
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-python main.py
-```
-
-### Frontend
-
-```bash
-cd src/Frontend
-npm install
-npm run dev
-```
-
-### Smoke test
-
-```bash
-curl http://127.0.0.1:8000/ml/ping
-curl http://127.0.0.1:5000/api/ping
-```
-
-## Najważniejsze endpointy
-
-Backend:
-
-- `POST /api/auth/login`
-- `GET /api/examples`
-- `POST /api/examples`
-- `PUT /api/examples/{name}/preprocess/board`
-- `PUT /api/examples/preprocess/cells`
-- `GET /api/datasets/raw-candidates`
-- `POST /api/datasets/processed`
-- `GET /api/datasets/processed`
-- `GET /api/models/registry`
-- `GET /api/models/active`
-- `PUT /api/models/active`
-- `POST /api/trainings`
-- `GET /api/trainings`
-- `GET /api/trainings/{runName}`
-- `GET /api/trainings/active`
-- `POST /api/trainings/{runName}/cancel`
-- `PUT /api/sudoku/cells/inference`
-- `POST /api/sudoku/solve`
-
-Kanały realtime:
-
-- `/ws/trainings/{runName}`
-- `/ws/sudoku/solving/{solveSessionId}`
-
-ML:
-
-- `GET /ml/ping`
-- `GET /ml/health`
-- `PUT /ml/preprocess/board`
-- `PUT /ml/preprocess/cells`
-- `PUT /ml/cells/inference`
-- `POST /ml/datasets/prepare`
-- `POST /ml/trainings`
-
-## Dane, modele i artefakty
-
-### Jakich modeli używamy
-
-W projekcie używamy obecnie dwóch głównych wariantów modeli bazowych do treningu i porównań:
-
-- `cnn-baseline` - własny mały model `custom-cnn-v1`, pracujący na wejściu `1x28x28`, traktowany jako lekki baseline do klasyfikacji cyfr,
-- `resnet18-imagenet-bootstrap` - model `ResNet18` inicjalizowany wagami `torchvision`, używany jako wariant transfer learning / fine-tuning.
-
-Oba modele są utrzymywane w rejestrze modeli i mogą być dalej trenowane na przygotowanych datasetach `.npz`. Rejestr jest rozszerzalny, więc architektur można dodać więcej, ale aktualnie główny wybór w projekcie opiera się na tych dwóch rodzinach: `CNN` i `ResNet18`.
-
-W praktyce modele końcowe do inferencji są wpisami powstałymi po treningu, np.:
-
-- `train-20260527-141336-cnn-baseline-easydataset` - model po treningu na bazie `cnn-baseline`,
-- `train-20260527-142013-resnet18-imagenet-bootstrap-easydataset` - model po treningu na bazie `resnet18-imagenet-bootstrap`.
-
-Przykładowo dla `EasyDataset` zapisane runy osiągnęły około:
-
-- `CNN baseline` - accuracy `98.22%`, macro F1 `98.23%`,
-- `ResNet18` - accuracy `99.14%`, macro F1 `99.15%`.
-
-Warto też zaznaczyć, że klasyfikator działa na `10` klasach cyfr, natomiast puste pole Sudoku jest wykrywane osobną heurystyką przed klasyfikacją modelową, więc inferencja użytkowa nadal odpowiada semantyce `1-9` albo `puste`.
-
-### Surowe datasety
-
-Surowe dane są dostarczane poza UI do katalogów runtime:
-
-- `board` - katalogi z parami `.jpg` + `.dat`
-- `digit` - pary `*.idx3-ubyte` + `*.idx1-ubyte`
-
-### Jak dataset jest sparowany i składany
-
-Projekt korzysta z dwóch typów danych wejściowych:
-
-- `board` - każda próbka planszy jest sparowana jako para plików `.jpg` + `.dat` o tej samej nazwie bazowej; obraz zawiera planszę, a plik `.dat` przechowuje etykiety gridu,
-- `digit` - każda paczka cyfr jest sparowana jako `*.idx3-ubyte` + `*.idx1-ubyte` o wspólnym prefiksie, np. `train` albo `t10k`.
-
-Na etapie przygotowania datasetu oba typy źródeł są ujednolicane do jednego wspólnego formatu treningowego. Dla `board` system najpierw wykrywa planszę, tnie ją na komórki i odrzuca puste lub nieczytelne elementy, a dla `digit` od razu bierze gotowe próbki cyfr. Wynikiem całego procesu jest pojedynczy plik `{name}.npz`, który może scalać wiele źródeł jednocześnie.
-
-Aktualny przykładowy dataset `EasyDataset` łączy źródła `board` i `digit`, w tym m.in. `v1_training`, `v1_test`, `v2_train`, `v2_test`, `mixed`, `mixed 2`, `train` i `t10k`.
+### Pipeline deployu serwerowego
 
 ```mermaid
 flowchart TD
-    A[Raw datasets board<br/>jpg + dat] --> C[Przygotowanie datasetu]
-    B[Raw datasets digit<br/>idx3 + idx1] --> C
-    C --> D[Wspolny plik .npz<br/>np. EasyDataset]
-    D --> E{Wybor modelu bazowego}
-    E --> F[cnn-baseline]
-    E --> G[resnet18-imagenet-bootstrap]
-    F --> H[Trening / fine-tuning]
-    G --> H
-    H --> I[Nowy wpis w model registry]
-    I --> J[Wybor aktywnego modelu]
-    J --> K[Inferencja Sudoku]
+    A[Zmiana w repo] --> B[GitHub Actions]
+    B --> C[Walidacja i build warstw]
+    C --> D[Release artefaktów FE, BE i ML]
+    D --> E[Deploy na serwer]
+    E --> F[Konfiguracja runtime z appsettings i env]
+    F --> G[Bootstrap modeli ML]
+    G --> H[Restart usług]
+    H --> I[Reverse proxy wystawia aplikację]
 ```
 
-### Dataset przetworzony
-
-Każde przygotowanie kończy się jednym plikiem `{name}.npz`.
-
-### Wspólny preprocessing dla treningu, inferencji i ewaluacji
-
-Jedna z ważniejszych zasad projektu jest taka, że dane do treningu mają możliwie przechodzić ten sam typ pipeline'u, który później pojawia się w inferencji i ewaluacji. Chodzi o to, żeby model nie uczył się na zupełnie innych danych niż te, które zobaczy w runtime.
-
-Wspólny schemat wygląda następująco:
-
-1. najpierw wyszukiwana jest ramka planszy Sudoku i wykonywana korekcja perspektywy,
-2. potem plansza jest dzielona na siatkę `9x9`,
-3. z planszy wybierane są pojedyncze komórki zawierające cyfry,
-4. dla każdej komórki wykonywany jest preprocessing obrazu: grayscale, odszumianie, wyostrzenie, progowanie adaptacyjne z odwróceniem kolorów, czyszczenie artefaktów przy krawędziach, centrowanie cyfry i normalizacja do wejścia modelu,
-5. dopiero taki wynik trafia do treningu, inferencji albo ewaluacji.
-
-W implementacji oznacza to m.in. użycie wspólnego profilu preprocessingu `default-28x28-v1`, preprocessingu planszy opartego o grayscale + blur + adaptive threshold oraz preprocessingu komórek obejmującego sharpen, binary inverse, czyszczenie foregroundu i centrowanie znaku w docelowym rozmiarze.
-
-```mermaid
-flowchart TD
-    A[Surowy obraz planszy lub dataset board] --> B[Detekcja ramki planszy]
-    B --> C[Korekcja perspektywy]
-    C --> D[Podzial planszy na 9x9]
-    D --> E[Wybor komorek z cyframi]
-    E --> F[Grayscale i odszumianie]
-    F --> G[Wyostrzenie i adaptive threshold]
-    G --> H[Odwrocenie kolorow i czyszczenie artefaktow]
-    H --> I[Centrowanie cyfry i normalizacja]
-    I --> J[Trening / inferencja / ewaluacja]
-```
-
-### Rejestr modeli
-
-Każdy model jest osobnym wpisem:
-
-```text
-/opt/sudoku/shared/models/registry/{modelName}/
-├── model.json
-└── artifacts/
-```
-
-Aktywny model inferencyjny wskazuje:
-
-```text
-/opt/sudoku/shared/models/active/inference.json
-```
-
-### Treningi
-
-Każdy `runName` ma:
-
-- rekord metadanych w `trainings/metadata`,
-- artefakty techniczne w `trainings/runs`,
-- raporty i metryki w `trainings/reports`.
+Szczegóły operacyjne deployu, ścieżek produkcyjnych i runtime serwera są utrzymywane w `.ai/DokumentacjaDeployuRuntimeSerwera.md`. `README.md` zostawia tylko mapę przepływu.
 
 ## Testy
 
-### Backend
+Backend:
 
 ```bash
 dotnet test src/Backend/Sudoku/Application.Tests/Application.Tests.csproj
 ```
 
-### MachineLearning
+MachineLearning:
 
 ```bash
-cd src/MachineLearning
-source .venv/bin/activate
-pytest tests
+source .ml-venv/bin/activate
+pytest src/MachineLearning/tests
 ```
-
-## Ograniczenia
-
-- jakość rozpoznania zależy od jakości zdjęcia i warunków oświetlenia,
-- prosta autoryzacja administracyjna nie jest pełnym systemem IAM,
-- skuteczność solve zależy od jakości aktywnego modelu,
-- dane treningowe mogą różnić się domeną od rzeczywistych zdjęć użytkownika,
-- część zakresu z PRD nadal ma charakter rozwojowy.
-
-## Zasady pracy w repozytorium
-
-- każdy członek zespołu powinien mieć minimum `3` commity,
-- commit messages powinny być opisowe,
-- README powinno odzwierciedlać realny stan architektury, runtime i deployu.
 

@@ -306,7 +306,7 @@ class CreateDatasetPreparationCommandHandler:
         valid_board_count = 0
 
         for board_pair in board_pairs:
-            LOGGER.info(
+            LOGGER.debug(
                 "Preparing board item: source=%s board=%s",
                 source_name,
                 board_pair.board_name,

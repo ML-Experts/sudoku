@@ -556,10 +556,24 @@ Usługa ML:
 
 ML potrzebuje zapisu przy treningu co najmniej do:
 
+* `data/processed/preparations` dla `POST /ml/datasets/preparations`,
+* `tmp/datasets` dla tymczasowych artefaktów `POST /ml/datasets/prepare`,
 * `trainings/runs`,
 * `trainings/reports`,
 * `models/registry/*/artifacts`,
 * `tmp`.
+
+Jeśli `sudoku-ml.service` używa hardeningu `systemd` takiego jak `ProtectSystem=full`
+albo `ProtectSystem=strict`, to same prawa UNIX katalogów nie wystarczą. Wtedy
+trzeba jawnie dopuścić zapis co najmniej do:
+
+```ini
+ReadWritePaths=/opt/sudoku/shared/data/processed/preparations /opt/sudoku/shared/tmp /opt/sudoku/shared/trainings /opt/sudoku/shared/models/registry
+```
+
+W przeciwnym razie `ML` wystartuje, ale operacje tworzące staging directories dla
+dataset preparation albo artefakty treningowe będą kończyły się błędem
+`OSError: [Errno 30] Read-only file system`.
 
 ---
 
