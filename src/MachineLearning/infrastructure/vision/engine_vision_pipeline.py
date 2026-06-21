@@ -60,7 +60,7 @@ class EngineVisionPipeline:
         source_image: NDArray[np.uint8],
     ) -> EngineBoardPipelineResult:
         config_snapshot = self._build_config_snapshot()
-        LOGGER.info(
+        LOGGER.debug(
             "Engine preprocess_board started: image_signature=%s config=%s",
             _build_image_signature(source_image),
             config_snapshot,
@@ -83,7 +83,7 @@ class EngineVisionPipeline:
         warp_result = (
             preprocess_result.line_family_result.selected_logical_line_frame_warp_result
         )
-        LOGGER.info(
+        LOGGER.debug(
             "Engine preprocess_board finished: warped_board_shape=%s has_cells_grid=%s",
             tuple(preprocess_result.warped_board_image.shape),
             warp_result is not None and warp_result.cells_grid_result is not None,
@@ -104,7 +104,7 @@ class EngineVisionPipeline:
         board_image: NDArray[np.uint8],
     ) -> EngineCellsGridResult:
         config_snapshot = self._build_config_snapshot()
-        LOGGER.info(
+        LOGGER.debug(
             "Engine extract_cells_from_warped_board started: "
             "board_image_signature=%s minimum_cell_size_px=%s "
             "ml_ready_cell_size_px=%s config=%s",
@@ -141,7 +141,7 @@ class EngineVisionPipeline:
             raw_preview_image=cells_grid_result.preview_image,
             ml_ready_preview_image=cells_grid_result.ml_ready_preview_image,
         )
-        LOGGER.info(
+        LOGGER.debug(
             "Engine extract_cells_from_warped_board finished: "
             "raw_cells_count=%s ml_ready_cells_count=%s",
             len(engine_result.raw_cells_flat),
@@ -153,17 +153,17 @@ class EngineVisionPipeline:
         self,
         source_image: NDArray[np.uint8],
     ) -> EngineBoardPipelineResult:
-        LOGGER.info("Engine preprocess_and_extract_cells started.")
+        LOGGER.debug("Engine preprocess_and_extract_cells started.")
         board_result = self.preprocess_board(source_image)
         cells_result = board_result.cells_result
         if cells_result is None:
-            LOGGER.info(
+            LOGGER.debug(
                 "Engine preprocess_and_extract_cells falling back to explicit cell extraction."
             )
             cells_result = self.extract_cells_from_warped_board(
                 board_result.warped_board_image
             )
-        LOGGER.info(
+        LOGGER.debug(
             "Engine preprocess_and_extract_cells finished: warped_board_shape=%s cells_count=%s",
             tuple(board_result.warped_board_image.shape),
             len(cells_result.raw_cells_flat),

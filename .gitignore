@@ -22,6 +22,7 @@
 **/.ruff_cache/
 **/.mypy_cache/
 /src/MachineLearning/api/.env.local
+/src/Frontend/.env.local
 
 # IDE metadata
 **/.idea/

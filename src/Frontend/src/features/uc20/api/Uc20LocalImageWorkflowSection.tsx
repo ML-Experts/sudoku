@@ -102,6 +102,7 @@ export function Uc20LocalImageWorkflowSection({
                 className="uc04-image-preview"
                 src={selectedDraft.previewUrl}
                 alt={`Lokalny podglad ${selectedDraft.fileName}`}
+                draggable={false}
               />
             </article>
 
@@ -148,6 +149,7 @@ export function Uc20LocalImageWorkflowSection({
                       className="uc04-cell-image"
                       src={toImageDataUrl(cell)}
                       alt={`Komorka ${rowIndex + 1}-${cellIndex + 1}`}
+                      draggable={false}
                     />
                   )),
                 )}
@@ -192,6 +194,7 @@ function Uc20StageImageCard({
           className="uc04-image-preview"
           src={toImageDataUrl(imageState.image)}
           alt={alt}
+          draggable={false}
         />
       ) : null}
     </>
