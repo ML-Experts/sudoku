@@ -47,6 +47,7 @@ jobs:
       BE_ML_CELL_INFERENCE_PATH: ${{ vars.BE_ML_CELL_INFERENCE_PATH }}
       BE_ML_SUDOKU_OVERLAY_CELLS_PATH: ${{ vars.BE_ML_SUDOKU_OVERLAY_CELLS_PATH }}
       BE_ML_PREPARE_DATASET_PATH: ${{ vars.BE_ML_PREPARE_DATASET_PATH }}
+      BE_ML_DATASET_PREPARATIONS_PATH: ${{ vars.BE_ML_DATASET_PREPARATIONS_PATH }}
       BE_ML_TIMEOUT_SECONDS: ${{ vars.BE_ML_TIMEOUT_SECONDS }}
       BE_SUDOKU_CELLS_INFERENCE_MAX_INLINE_IMAGE_SIZE_BYTES: ${{ vars.BE_SUDOKU_CELLS_INFERENCE_MAX_INLINE_IMAGE_SIZE_BYTES }}
       BE_SUDOKU_CELLS_INFERENCE_PROFILE_NAME: ${{ vars.BE_SUDOKU_CELLS_INFERENCE_PROFILE_NAME }}
@@ -116,6 +117,11 @@ jobs:
 
           if [ -z "$BE_ML_PREPARE_DATASET_PATH" ]; then
             echo "Missing BE_ML_PREPARE_DATASET_PATH variable for the selected GitHub environment."
+            exit 1
+          fi
+
+          if [ -z "$BE_ML_DATASET_PREPARATIONS_PATH" ]; then
+            echo "Missing BE_ML_DATASET_PREPARATIONS_PATH variable for the selected GitHub environment."
             exit 1
           fi
 
@@ -291,6 +297,7 @@ jobs:
               "BE_ML_CELL_INFERENCE_PATH",
               "BE_ML_SUDOKU_OVERLAY_CELLS_PATH",
               "BE_ML_PREPARE_DATASET_PATH",
+              "BE_ML_DATASET_PREPARATIONS_PATH",
               "BE_ML_TIMEOUT_SECONDS",
               "BE_SUDOKU_CELLS_INFERENCE_MAX_INLINE_IMAGE_SIZE_BYTES",
               "BE_SUDOKU_CELLS_INFERENCE_PROFILE_NAME",
@@ -378,6 +385,7 @@ jobs:
           ml_service["CellInferencePath"] = os.environ["BE_ML_CELL_INFERENCE_PATH"]
           ml_service["SudokuOverlayCellsPath"] = os.environ["BE_ML_SUDOKU_OVERLAY_CELLS_PATH"]
           ml_service["PrepareDatasetPath"] = os.environ["BE_ML_PREPARE_DATASET_PATH"]
+          ml_service["DatasetPreparationsPath"] = os.environ["BE_ML_DATASET_PREPARATIONS_PATH"]
           ml_service["StartTrainingPath"] = "/ml/trainings"
           ml_service["CancelTrainingPathTemplate"] = "/ml/trainings/{runName}/cancel"
           ml_service["TrainingEventsPathTemplate"] = "/internal/ml/trainings/{runName}/events"
@@ -421,14 +429,6 @@ jobs:
 
           models_active_storage = config.setdefault("ModelsActiveStorage", {})
           models_active_storage["ActiveDirectoryPath"] = os.environ["BE_MODELS_ACTIVE_DIRECTORY_PATH"]
-
-          training_defaults = config.setdefault("TrainingDefaults", {})
-          training_defaults["RunNamePrefix"] = "train"
-          training_defaults["TrainingMode"] = "fineTuning"
-          training_defaults["TrainingProfileName"] = "cnn-default-v1"
-          training_defaults["AugmentationProfileName"] = "digits-light-v1"
-          training_defaults["BenchmarkName"] = "sudoku-benchmark-v1"
-          training_defaults["Seed"] = 1234
 
           admin_auth = config.setdefault("AdminAuth", {})
           admin_auth["SharedPassword"] = os.environ["BE_ADMIN_SHARED_PASSWORD"]
