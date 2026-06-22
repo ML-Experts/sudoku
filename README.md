@@ -558,6 +558,8 @@ Najważniejsze decyzje projektowe wynikające z eksperymentów vision/ML:
 - Detekcja pustej komórki musi być osobnym etapem przed czyszczeniem próbki pod klasyfikator. W przeciwnym razie artefakty diagnostyczne, szum i linie siatki zaczynają mieszać się z danymi produkcyjnymi dla modelu.
 - `Cell cleaning` powinien być wspólny dla runtime solve i przygotowania danych treningowych. To ogranicza ryzyko rozjazdu między tym, co model widzi w treningu, a tym, co dostaje podczas inferencji.
 - Ciężki preprocessing datasetów nie powinien być powtarzany przy każdej budowie `.npz`. Dlatego docelowy workflow ma trwały etap `dataset preparation`, a finalny `.npz` jest artefaktem budowanym z przygotowania.
+- Po odcięciu danych z małą albo źle dobraną augmentacją widoczna była poprawa jakości rozpoznawania cyfr. W tym projekcie jakość i spójność próbki okazały się ważniejsze niż samo mechaniczne zwiększanie liczby danych.
+- Dalsza poprawa wyników może przyjść z usunięcia duplikatów lub prawie-duplikatów, które różnią się bardzo niewiele. Takie próbki zwiększają rozmiar datasetu, ale niekoniecznie poprawiają generalizację modelu.
 - Rejestr modeli i aktywny model muszą być jawne. Sam fakt, że plik modelu istnieje na dysku, nie wystarcza do kontrolowanego runtime; backend musi wiedzieć, który model jest aktywny i jakie ma metadane.
 - ML powinien wystawiać usługi obliczeniowe i techniczne artefakty, ale nie powinien stawać się drugim źródłem prawdy dla workflow. Statusy widoczne dla użytkownika i admina należą do backendu.
 - Flow użytkownika i flow admina mają inne potrzeby UX. Solve wymaga prostego wyniku i szybkiej diagnostyki błędu, a workflow datasetowy wymaga trwałych kroków, przeglądu jakości danych i możliwości powtórzenia builda/treningu.
@@ -576,6 +578,10 @@ Projekt ma działający pełny workflow, ale nie wszystkie problemy vision/ML ud
 - Nie wszystkie ramki z dostępnych datasetów są poprawnie obrysowywane. Problem pojawia się szczególnie przy dużym kącie zdjęcia, niewyraźnych krawędziach, zlewaniu się linii siatki z tłem albo bliskimi liniami z obrazu.
 - Z tego powodu w `dataset preparation` potrzebny jest etap review i możliwość usuwania rekordów, które przeszły cleaning niepoprawnie. To nie jest tylko wygoda UI, ale mechanizm kontroli jakości danych.
 - Model cyfr nie rozpoznaje dowolnego pisma. Testy z ręcznie wpisanymi cyframi pokazały, że niektóre znaki trzeba było poprawić, a model najlepiej działa dla formy pisma podobnej do danych treningowych. Dalsza poprawa wymagałaby dotrenowania na własnym piśmie i lepszego oczyszczenia próbek.
+- Mała część cyfr, szczególnie pisanych ręcznie, jest rozpoznawana niepoprawnie także dlatego, że same próbki bywają niejednoznaczne. W części przypadków nawet człowiek mógłby mieć problem z jednoznacznym odczytem cyfry.
+- Próbka dla cyfr drukowanych jest bardzo mała, więc nie daje mocnej gwarancji rozpoznania wszystkich wariantów kroju, grubości i jakości wydruku.
+- Klasyfikator ma szczególne problemy z rozróżnianiem podobnych zestawów cyfr, zwłaszcza `6`/`8`, `9`/`8` oraz `7`/`1`/`4`.
+- Cyfry obrócone o `90` stopni nie są dobrze rozpoznawane przy tak małym zbiorze danych. Sensownym kierunkiem byłoby najpierw wykrywać orientację planszy lub cyfr, a dopiero potem normalizować obrót i trenować model na tak przygotowanych przykładach.
 - Detekcja pustej komórki nadal może mylić się na nieoczyszczonych danych. Artefakty po siatce, szum i cienkie kreski mogą zostać uznane za cyfrę, a cyfra `1` bywa podobna do pionowego fragmentu linii.
 - Część modeli widocznych w rejestrze lub możliwych do zbootstrapowania nie jest pełnoprawnie obsłużona jako wybór operacyjny. Wyższe modele `resnet` są cięższe od lokalnego `CNN`, a nie wszystkie mają gotowe profile i ścieżki runtime.
 - Modele typu `resnet`, nawet mniejsze warianty jak `resnet18`, są znacznie cięższe od własnego `CNN`. To ma znaczenie dla czasu treningu, inferencji, zasobów serwera i sensowności użycia w MVP.
